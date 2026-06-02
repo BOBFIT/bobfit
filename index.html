@@ -14,120 +14,202 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <header class="top">
-      <div class="brand">
-        <img src="assets/icon.png" alt="" />
-        <div>
-          <strong>AkyFit</strong>
-          <span id="save-status">Loading...</span>
-        </div>
+    <svg aria-hidden="true" class="sprite">
+      <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-calendar" viewBox="0 0 24 24"><path d="M7 3v4M17 3v4M4 9h16M5 5h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></symbol>
+      <symbol id="i-brain" viewBox="0 0 24 24"><path d="M9 3a4 4 0 0 0-4 4 4 4 0 0 0 0 8 4 4 0 0 0 4 4M15 3a4 4 0 0 1 4 4 4 4 0 0 1 0 8 4 4 0 0 1-4 4M9 3v16M15 3v16M9 8h6M9 13h6"/></symbol>
+      <symbol id="i-scale" viewBox="0 0 24 24"><path d="M6 20h12M12 4v16M5 7h14M7 7l-3 6h6zM17 7l-3 6h6z"/></symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24"><path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5z"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.2a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.2a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3h.1a1.6 1.6 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.2a1.6 1.6 0 0 0 1 1.5h.1a1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 0 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8v.1a1.6 1.6 0 0 0 1.5 1h.2a2 2 0 0 1 0 4h-.2a1.6 1.6 0 0 0-1.5 1z"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></symbol>
+    </svg>
+
+    <header class="screen-header">
+      <div>
+        <p id="header-subtitle">TODAY</p>
+        <h1 id="header-title">Today</h1>
       </div>
-      <button id="backup-button" class="ghost" type="button">Backup</button>
+      <div class="header-actions">
+        <button class="icon-button" data-view-shortcut="settings" type="button" title="Settings"><svg><use href="#i-settings"></use></svg></button>
+        <button class="add-button" data-view-shortcut="log" type="button" title="Add"><svg><use href="#i-plus"></use></svg></button>
+      </div>
     </header>
 
-    <main>
-      <section class="hero">
-        <div>
-          <p id="date-label"></p>
-          <h1 id="calories-left">0 kcal left</h1>
-          <span id="target-label">0 / 0 kcal</span>
-        </div>
-        <div class="ring" id="ring">
-          <strong id="ring-value">0%</strong>
-        </div>
-      </section>
-
-      <nav class="tabs" aria-label="App sections">
-        <button class="active" type="button" data-tab="today">Today</button>
-        <button type="button" data-tab="log">Log</button>
-        <button type="button" data-tab="plan">Plan</button>
-        <button type="button" data-tab="body">Body</button>
-      </nav>
-
-      <section class="screen active" id="today">
-        <div class="stats">
-          <article><span>Protein</span><strong id="protein-stat">0g</strong></article>
-          <article><span>Carbs</span><strong id="carbs-stat">0g</strong></article>
-          <article><span>Fat</span><strong id="fat-stat">0g</strong></article>
-          <article><span>Burned</span><strong id="burned-stat">0</strong></article>
+    <main class="app">
+      <section class="view active" id="view-today" data-title="Today">
+        <div class="segmented" role="group" aria-label="Day mode">
+          <button class="active" data-mode="training" type="button">Training day</button>
+          <button data-mode="rest" type="button">Rest day</button>
         </div>
 
-        <section class="panel">
-          <div class="panel-head">
-            <h2>Meals</h2>
-            <button type="button" data-open-tab="log">Add</button>
+        <div id="alert-stack" class="alerts"></div>
+
+        <section class="macro-card">
+          <div id="macro-ring" class="macro-ring"></div>
+          <div class="macro-bars" id="macro-bars"></div>
+        </section>
+
+        <section class="section-card">
+          <div class="section-head">
+            <div><h2>Today's Plan</h2><p id="today-plan-sub">Planner assignment</p></div>
+            <span id="today-plan-pill" class="pill">Day 1</span>
+          </div>
+          <div id="today-template" class="exercise-list"></div>
+        </section>
+
+        <section class="section-card">
+          <div class="section-head">
+            <div><h2>Check-in</h2><p>Water, steps, sleep, energy</p></div>
+          </div>
+          <form id="checkin-form" class="grid compact">
+            <label>Water ml<input name="waterMl" type="number" min="0" step="100" inputmode="numeric" /></label>
+            <label>Steps<input name="stepCount" type="number" min="0" step="100" inputmode="numeric" /></label>
+            <label>Sleep h<input name="sleepHours" type="number" min="0" step="0.25" inputmode="decimal" /></label>
+            <label>Energy<select name="energyLevel"><option value="">-</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
+          </form>
+        </section>
+
+        <section class="section-card">
+          <div class="section-head">
+            <div><h2>Meals</h2><p id="meal-subtitle">Logged today</p></div>
+            <button class="text-button" data-view-shortcut="log" type="button">Add</button>
           </div>
           <div id="meal-list" class="list"></div>
         </section>
 
-        <section class="panel">
-          <div class="panel-head">
-            <h2>Workouts</h2>
-            <button type="button" data-open-tab="log">Add</button>
+        <section class="section-card">
+          <div class="section-head">
+            <div><h2>Workouts</h2><p id="workout-subtitle">Calories burned</p></div>
+            <button class="text-button" data-view-shortcut="log" type="button">Add</button>
           </div>
           <div id="workout-list" class="list"></div>
         </section>
       </section>
 
-      <section class="screen" id="log">
-        <section class="panel">
-          <h2>Log Meal</h2>
+      <section class="view" id="view-log" data-title="Log">
+        <section class="section-card">
+          <div class="section-head"><div><h2>Log Meal</h2><p>Manual macro entry</p></div></div>
           <form id="meal-form" class="grid">
             <label class="wide">Meal name<input name="name" required placeholder="Chicken rice bowl" /></label>
             <label>Calories<input name="calories" required type="number" min="0" inputmode="numeric" /></label>
             <label>Protein<input name="protein" required type="number" min="0" inputmode="decimal" /></label>
             <label>Carbs<input name="carbs" required type="number" min="0" inputmode="decimal" /></label>
             <label>Fat<input name="fat" required type="number" min="0" inputmode="decimal" /></label>
+            <label class="check wide"><input name="saveMeal" type="checkbox" /> Save as quick meal</label>
             <button class="primary wide" type="submit">Add meal</button>
           </form>
         </section>
 
-        <section class="panel">
-          <h2>Log Workout</h2>
+        <section class="section-card">
+          <div class="section-head"><div><h2>Saved Meals</h2><p>Tap + to log again</p></div></div>
+          <div id="saved-meals" class="list"></div>
+        </section>
+
+        <section class="section-card">
+          <div class="section-head"><div><h2>Log Workout</h2><p>Workout calories add back to today</p></div></div>
           <form id="workout-form" class="grid">
             <label class="wide">Workout<input name="name" placeholder="Push session" /></label>
+            <label>Type<select name="type"></select></label>
+            <label>Intensity<select name="intensity"></select></label>
             <label>Minutes<input name="minutes" type="number" min="1" value="45" inputmode="numeric" /></label>
-            <label>Calories<input name="calories" type="number" min="0" placeholder="auto" inputmode="numeric" /></label>
+            <label>Burned<input name="calories" type="number" min="0" placeholder="auto" inputmode="numeric" /></label>
             <button class="primary wide" type="submit">Add workout</button>
           </form>
         </section>
       </section>
 
-      <section class="screen" id="plan">
-        <section class="panel">
-          <h2>Targets</h2>
-          <form id="goals-form" class="grid">
-            <label>Calories<input name="calories" type="number" min="0" inputmode="numeric" /></label>
-            <label>Protein<input name="protein" type="number" min="0" inputmode="numeric" /></label>
-            <label>Carbs<input name="carbs" type="number" min="0" inputmode="numeric" /></label>
-            <label>Fat<input name="fat" type="number" min="0" inputmode="numeric" /></label>
-            <button class="primary wide" type="submit">Save targets</button>
-          </form>
+      <section class="view" id="view-planner" data-title="Planner">
+        <section class="section-card">
+          <div class="section-head"><div><h2>Weekly Plan</h2><p>Tap a day to rotate assignment</p></div></div>
+          <div id="week-planner" class="week-grid"></div>
         </section>
-
-        <section class="panel">
-          <h2>Coach Notes</h2>
-          <div id="coach-card" class="coach"></div>
+        <section class="section-card">
+          <div class="section-head"><div><h2>Strength Templates</h2><p>Original training split</p></div></div>
+          <div id="template-list" class="template-list"></div>
         </section>
       </section>
 
-      <section class="screen" id="body">
-        <section class="panel">
-          <h2>Body Metric</h2>
+      <section class="view" id="view-coach" data-title="Coach">
+        <section class="section-card">
+          <div class="section-head">
+            <div><h2>Coach</h2><p>Offline guidance or AI backend</p></div>
+            <button class="text-button" id="offline-coach" type="button">Refresh</button>
+          </div>
+          <div id="coach-card" class="coach-card"></div>
+        </section>
+
+        <section class="section-card">
+          <div class="section-head"><div><h2>AI Features</h2><p>Use your old Replit/API backend URL</p></div></div>
+          <div class="stack">
+            <label>Replit/API URL<input id="ai-endpoint" placeholder="https://your-old-replit-url.replit.app" /></label>
+            <div class="button-grid">
+              <button id="save-ai-endpoint" class="secondary" type="button">Save URL</button>
+              <button id="ai-coach" class="secondary" type="button">AI Coach</button>
+              <button id="ai-morning" class="secondary" type="button">Morning Brief</button>
+              <button id="ai-evening" class="secondary" type="button">Evening Review</button>
+              <button id="ai-meal-plan" class="secondary" type="button">Meal Plan</button>
+            </div>
+            <label>Food photo<input id="ai-food-photo" type="file" accept="image/*" capture="environment" /></label>
+            <button id="ai-food-analyse" class="primary" type="button">Analyse food photo</button>
+            <div id="ai-output" class="ai-output"></div>
+          </div>
+        </section>
+
+        <section class="section-card">
+          <div class="section-head"><div><h2>Peptide / Stack</h2><p>Nutrition guardrails</p></div></div>
+          <div class="grid">
+            <label class="wide">Current peptide<select id="peptide-select"></select></label>
+            <label>Doses/week<input id="weekly-dose-count" type="number" min="1" max="3" inputmode="numeric" /></label>
+            <label>Weight kg<input id="coach-weight" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+          </div>
+          <div id="peptide-guidance" class="guidance"></div>
+        </section>
+
+        <section class="section-card">
+          <div class="section-head"><div><h2>Macro Goals</h2><p>Training and rest-day targets</p></div></div>
+          <form id="goals-form" class="grid"></form>
+        </section>
+      </section>
+
+      <section class="view" id="view-body" data-title="Body">
+        <section class="section-card">
+          <div class="section-head"><div><h2>Body Metric</h2><p>Manual body composition entry</p></div></div>
           <form id="body-form" class="grid">
-            <label>Weight kg<input name="weight" type="number" min="0" step="0.1" inputmode="decimal" /></label>
-            <label>Body fat %<input name="fat" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+            <label>Weight kg<input name="weightKg" type="number" min="0" step="0.1" required inputmode="decimal" /></label>
+            <label>Body fat %<input name="fatPercent" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+            <label>Muscle kg<input name="muscleKg" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+            <label>Visceral fat<input name="visceralFat" type="number" min="0" step="0.1" inputmode="decimal" /></label>
             <button class="primary wide" type="submit">Add metric</button>
           </form>
         </section>
-        <section class="panel">
-          <h2>Progress</h2>
+        <section class="section-card">
+          <div class="section-head"><div><h2>Progress</h2><p>Latest readings</p></div></div>
+          <div id="body-chart" class="chart"></div>
           <div id="body-list" class="list"></div>
+        </section>
+      </section>
+
+      <section class="view" id="view-settings" data-title="Settings">
+        <section class="section-card">
+          <div class="section-head"><div><h2>Backup & Restore</h2><p>Import old Replit app data</p></div></div>
+          <div class="button-grid">
+            <button id="import-button" class="secondary" type="button">Import Replit backup</button>
+            <button id="backup-button" class="secondary" type="button">Download backup</button>
+          </div>
+          <pre id="data-summary" class="summary"></pre>
         </section>
       </section>
     </main>
 
-    <input id="import-file" type="file" accept="application/json" hidden />
+    <nav class="tabbar" aria-label="Main navigation">
+      <button class="active" data-view="today" type="button"><svg><use href="#i-home"></use></svg><span>Today</span></button>
+      <button data-view="log" type="button"><svg><use href="#i-plus"></use></svg><span>Log</span></button>
+      <button data-view="planner" type="button"><svg><use href="#i-calendar"></use></svg><span>Planner</span></button>
+      <button data-view="coach" type="button"><svg><use href="#i-brain"></use></svg><span>Coach</span></button>
+      <button data-view="body" type="button"><svg><use href="#i-scale"></use></svg><span>Body</span></button>
+    </nav>
+
+    <input id="import-file" type="file" accept=".json,application/json" hidden />
     <script src="app.js"></script>
     <script>
       if ("serviceWorker" in navigator) {

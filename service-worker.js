@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "akyfit-website-v1";
+const CACHE_NAME = "akyfit-website-v3";
 const ASSETS = [
   "./",
   "./index.html",
