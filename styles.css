@@ -242,6 +242,13 @@ input:focus, select:focus, textarea:focus {
 .primary { border: 0; background: var(--primary); color: white; }
 .secondary { border: 1px solid var(--border); background: var(--secondary); color: var(--ink); }
 .button-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+.exercise-list .text-button { margin-top: 10px; width: 100%; }
 
 .list, .exercise-list, .template-list, .guidance { display: grid; gap: 8px; }
 .row {
@@ -297,6 +304,122 @@ input:focus, select:focus, textarea:focus {
 }
 .template-card h3 { margin: 0 0 8px; font-size: 16px; }
 .template-card ul, .guidance ul { margin: 0; padding-left: 18px; color: #44403c; line-height: 1.45; }
+.add-day-form, .add-exercise-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+.add-day-form { margin-bottom: 12px; }
+.template-head, .history-head, .exercise-log-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.template-head { margin-bottom: 10px; }
+.template-head span {
+  color: var(--primary-dark);
+  font-size: 12px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+.template-head button, .history-head button {
+  min-height: 32px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fff1f2;
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 900;
+}
+.editable-exercises {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0;
+}
+.exercise-edit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px;
+  gap: 8px;
+  align-items: center;
+}
+.exercise-edit button {
+  height: 38px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fff1f2;
+  color: var(--danger);
+}
+
+.workout-log, .history-list { display: grid; gap: 10px; }
+.session-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #ecfccb;
+}
+.session-title span, .muted {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+.exercise-log, .history-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--secondary);
+}
+.exercise-log-head strong, .history-head strong { display: block; }
+.exercise-log-head small, .history-head small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.set-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.set-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid #bbf7d0;
+  border-radius: 999px;
+  background: #f0fdf4;
+  color: #14532d;
+  font-size: 12px;
+  font-weight: 900;
+}
+.set-chip button {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 12px;
+  font-weight: 950;
+}
+.set-entry {
+  display: grid;
+  grid-template-columns: 88px 112px minmax(92px, auto);
+  gap: 8px;
+  align-items: end;
+}
+.history-card ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #44403c;
+  line-height: 1.45;
+}
 
 .coach-card, .ai-output {
   display: grid;
@@ -377,6 +500,7 @@ input:focus, select:focus, textarea:focus {
 
 @media (max-width: 520px) {
   .screen-header h1 { font-size: 30px; }
-  .grid, .grid.compact, .button-grid { grid-template-columns: 1fr; }
+  .grid, .grid.compact, .button-grid, .quick-actions, .add-day-form, .add-exercise-form, .set-entry { grid-template-columns: 1fr; }
   .macro-bar { grid-template-columns: 70px minmax(0, 1fr) 64px; }
+  .session-title, .template-head, .history-head, .exercise-log-head { display: grid; }
 }

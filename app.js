@@ -6,8 +6,7 @@ const IDB_STORE = "state";
 const IDB_KEY = "main";
 
 const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const ASSIGNMENTS = ["rest", "day1", "day2", "day3", "day4", "day5", "cardio"];
-const ASSIGNMENT_LABELS = { rest: "Rest", cardio: "Cardio", day1: "Day 1", day2: "Day 2", day3: "Day 3", day4: "Day 4", day5: "Day 5" };
+const DEFAULT_ASSIGNMENT_LABELS = { rest: "Rest", cardio: "Cardio", day1: "Day 1", day2: "Day 2", day3: "Day 3", day4: "Day 4", day5: "Day 5" };
 const WORKOUT_TYPES = { strength: "Strength", cardio: "Cardio", hiit: "HIIT", cycling: "Cycling", running: "Running", walking: "Walking", swimming: "Swimming", yoga: "Yoga", other: "Other" };
 const INTENSITIES = { light: "Light", moderate: "Moderate", vigorous: "Vigorous" };
 const MET = {
@@ -55,12 +54,13 @@ function defaults() {
     dailyCheckin: {},
     peptide: { id: "none", weeklyDoseCount: 1 },
     weeklyPlan: { assignments: { 0: "day1", 1: "rest", 2: "day2", 3: "rest", 4: "day3", 5: "cardio", 6: "rest" }, doseDays: [] },
+    workoutDrafts: {},
     savedMeals: [
       { id: uid(), name: "Whey shake + banana", calories: 280, protein: 32, carbs: 35, fat: 3, createdAt: Date.now(), isFavourite: true },
       { id: uid(), name: "Chicken rice bowl", calories: 520, protein: 48, carbs: 62, fat: 10, createdAt: Date.now(), isFavourite: true },
     ],
-    workoutTemplates: clone(DEFAULT_TEMPLATES),
-    settings: { aiEndpoint: "", coachWeightKg: "" },
+    workoutTemplates: normalizeTemplates(DEFAULT_TEMPLATES),
+    settings: { aiEndpoint: "", coachWeightKg: "", logPlanKey: "" },
     createdAt: Date.now(),
   };
 }
@@ -73,6 +73,7 @@ const $$ = (s) => Array.from(document.querySelectorAll(s));
 const num = (v) => Math.max(0, Math.round(Number(v) || 0));
 const rawNum = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
 const fmt = (v) => Math.round(Number(v) || 0).toLocaleString();
+const fmtWeight = (v) => rawNum(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
 const todayKey = () => dayKey(new Date());
 const dayKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 const todayMeals = () => state.meals[todayKey()] || [];
@@ -95,8 +96,9 @@ function merge(raw) {
   next.weeklyPlan = { ...base.weeklyPlan, ...(raw?.weeklyPlan || {}) };
   next.weeklyPlan.assignments = { ...base.weeklyPlan.assignments, ...(raw?.weeklyPlan?.assignments || {}) };
   next.weeklyPlan.doseDays = Array.isArray(raw?.weeklyPlan?.doseDays) ? raw.weeklyPlan.doseDays : base.weeklyPlan.doseDays;
+  next.workoutDrafts = raw?.workoutDrafts || base.workoutDrafts;
   next.savedMeals = Array.isArray(raw?.savedMeals) ? raw.savedMeals : base.savedMeals;
-  next.workoutTemplates = { ...base.workoutTemplates, ...(raw?.workoutTemplates || {}) };
+  next.workoutTemplates = normalizeTemplates({ ...base.workoutTemplates, ...(raw?.workoutTemplates || {}) });
   next.settings = { ...base.settings, ...(raw?.settings || {}) };
   return next;
 }
@@ -195,6 +197,94 @@ function getPeptide() {
 function escapeHtml(v) {
   return String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 }
+function slug(v) {
+  return String(v || "exercise").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "exercise";
+}
+function normalizeExercise(exercise, index) {
+  if (typeof exercise === "string") return { id: `ex-${index}-${slug(exercise)}`, name: exercise };
+  const name = String(exercise?.name || exercise?.title || `Exercise ${index + 1}`).trim();
+  return { ...exercise, id: String(exercise?.id || `ex-${index}-${slug(name)}`), name };
+}
+function normalizeTemplate(template, key) {
+  const fallbackTitle = DEFAULT_ASSIGNMENT_LABELS[key] || key;
+  const exercises = Array.isArray(template) ? template : Array.isArray(template?.exercises) ? template.exercises : [];
+  return {
+    title: String(Array.isArray(template) ? fallbackTitle : template?.title || fallbackTitle),
+    exercises: exercises.map(normalizeExercise),
+  };
+}
+function normalizeTemplates(templates = {}) {
+  return Object.fromEntries(Object.entries(templates).map(([key, template]) => [key, normalizeTemplate(template, key)]));
+}
+function templateKeys() {
+  const keys = Object.keys(state.workoutTemplates || {});
+  return keys.sort((a, b) => {
+    const an = Number((a.match(/^day(\d+)$/) || [])[1] || 999);
+    const bn = Number((b.match(/^day(\d+)$/) || [])[1] || 999);
+    return an === bn ? a.localeCompare(b) : an - bn;
+  });
+}
+function assignmentOptions() {
+  return ["rest", ...templateKeys(), "cardio"];
+}
+function assignmentLabel(key) {
+  if (DEFAULT_ASSIGNMENT_LABELS[key]) return DEFAULT_ASSIGNMENT_LABELS[key];
+  const day = String(key || "").match(/^day(\d+)$/);
+  return day ? `Day ${day[1]}` : String(key || "Workout");
+}
+function assignmentTitle(key) {
+  return state.workoutTemplates[key]?.title || (key === "cardio" ? "Cardio session" : key === "rest" ? "Rest and recover" : assignmentLabel(key));
+}
+function assignedPlanKey(date = new Date()) {
+  const key = state.weeklyPlan.assignments[weekdayIndex(date)] || "rest";
+  return key === "rest" ? (templateKeys()[0] || "day1") : key;
+}
+function selectedWorkoutPlanKey() {
+  const selected = state.settings.logPlanKey;
+  if (selected && selected !== "rest") return selected;
+  return assignedPlanKey();
+}
+function draftStorageKey(planKey = selectedWorkoutPlanKey(), date = todayKey()) {
+  return `${date}:${planKey}`;
+}
+function templateExercises(planKey) {
+  return state.workoutTemplates[planKey]?.exercises || [];
+}
+function ensureWorkoutDraft(planKey = selectedWorkoutPlanKey()) {
+  const key = draftStorageKey(planKey);
+  const template = state.workoutTemplates[planKey];
+  const exercises = templateExercises(planKey);
+  let draft = state.workoutDrafts[key];
+  if (!draft) {
+    draft = { id: uid(), dateKey: todayKey(), planKey, title: assignmentTitle(planKey), startedAt: Date.now(), updatedAt: Date.now(), exerciseLogs: [] };
+  }
+  const existing = new Map((draft.exerciseLogs || []).map((log) => [String(log.exerciseId || slug(log.name)), log]));
+  const activeLogs = exercises.map((exercise) => {
+    const old = existing.get(String(exercise.id)) || existing.get(slug(exercise.name));
+    return { exerciseId: exercise.id, name: exercise.name, sets: Array.isArray(old?.sets) ? old.sets : [] };
+  });
+  const removedWithSets = (draft.exerciseLogs || []).filter((log) => !activeLogs.some((next) => next.exerciseId === log.exerciseId) && log.sets?.length);
+  draft = { ...draft, planKey, title: assignmentTitle(planKey), updatedAt: Date.now(), exerciseLogs: [...activeLogs, ...removedWithSets] };
+  state.workoutDrafts[key] = draft;
+  return draft;
+}
+function latestExerciseSets(exerciseName, before = Date.now()) {
+  const target = slug(exerciseName);
+  const sessions = Object.entries(state.workouts || {}).flatMap(([date, workouts]) => (workouts || []).map((workout) => ({ date, workout })));
+  sessions.sort((a, b) => (b.workout.createdAt || 0) - (a.workout.createdAt || 0));
+  for (const { date, workout } of sessions) {
+    if ((workout.createdAt || 0) >= before) continue;
+    const log = (workout.exerciseLogs || []).find((entry) => slug(entry.name) === target && entry.sets?.length);
+    if (log) return { date, sets: log.sets };
+  }
+  return null;
+}
+function setSummary(sets = []) {
+  return sets.map((set) => `${fmtWeight(set.weightKg)}kg x ${fmt(set.reps)}`).join(", ");
+}
+function allWorkoutSessions() {
+  return Object.entries(state.workouts || {}).flatMap(([date, workouts]) => (workouts || []).map((workout) => ({ ...workout, date }))).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
 
 function render() {
   renderHeader();
@@ -276,10 +366,13 @@ function renderMacroBars() {
 }
 function renderTodayPlan() {
   const assign = state.weeklyPlan.assignments[weekdayIndex()] || "rest";
-  $("#today-plan-pill").textContent = ASSIGNMENT_LABELS[assign] || assign;
+  $("#today-plan-pill").textContent = assignmentLabel(assign);
   const template = state.workoutTemplates[assign];
-  $("#today-plan-sub").textContent = template?.title || (assign === "cardio" ? "Cardio session" : "Rest and recover");
-  $("#today-template").innerHTML = template?.exercises?.length ? `<ul>${template.exercises.map((e) => `<li>${escapeHtml(e)}</li>`).join("")}</ul>` : `<div class="empty">${assign === "rest" ? "Rest and recover." : "No exercises configured."}</div>`;
+  const exercises = template?.exercises || [];
+  $("#today-plan-sub").textContent = assignmentTitle(assign);
+  const list = exercises.length ? `<ul>${exercises.map((e) => `<li>${escapeHtml(e.name)}</li>`).join("")}</ul>` : `<div class="empty">${assign === "rest" ? "Rest and recover." : "No exercises configured."}</div>`;
+  const action = assign !== "rest" ? `<button class="text-button" data-select-plan="${escapeHtml(assign)}" data-view-shortcut="log" type="button">Log this workout</button>` : "";
+  $("#today-template").innerHTML = `${list}${action}`;
 }
 function renderCheckin() {
   const c = state.dailyCheckin[todayKey()] || {};
@@ -298,28 +391,98 @@ function renderLists() {
   $("#meal-subtitle").textContent = `${ms.length} meals / ${fmt(totals(ms).calories)} kcal`;
   $("#workout-subtitle").textContent = `${ws.length} workouts / ${fmt(burned(ws))} kcal burned`;
   $("#meal-list").innerHTML = ms.length ? ms.map((m) => row(m, `${fmt(m.calories)} kcal / ${fmt(m.protein)}p / ${fmt(m.carbs)}c / ${fmt(m.fat)}f`, "meal")).join("") : `<div class="empty">No meals logged today.</div>`;
-  $("#workout-list").innerHTML = ws.length ? ws.map((w) => row(w, `${WORKOUT_TYPES[w.type] || "Workout"} / ${fmt(w.durationMin || w.minutes)} min / ${fmt(w.caloriesBurned || w.calories)} kcal`, "workout")).join("") : `<div class="empty">No workouts logged today.</div>`;
+  $("#workout-list").innerHTML = ws.length ? ws.map((w) => row(w, workoutDetail(w), "workout")).join("") : `<div class="empty">No workouts logged today.</div>`;
   $("#saved-meals").innerHTML = state.savedMeals.length ? state.savedMeals.map((m) => `<div class="row"><div><strong>${escapeHtml(m.name)}</strong><small>${fmt(m.calories)} kcal / ${fmt(m.protein)}p / ${fmt(m.carbs)}c / ${fmt(m.fat)}f</small></div><button data-add-saved="${m.id}" type="button">${icon("plus")}</button></div>`).join("") : `<div class="empty">No saved meals yet.</div>`;
+  renderWorkoutHistory();
 }
 function renderForms() {
-  const type = $("#workout-form").elements.type;
-  const intensity = $("#workout-form").elements.intensity;
-  if (!type.dataset.ready) {
-    type.innerHTML = Object.entries(WORKOUT_TYPES).map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
-    type.value = "strength"; type.dataset.ready = "1";
-  }
-  if (!intensity.dataset.ready) {
-    intensity.innerHTML = Object.entries(INTENSITIES).map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
-    intensity.value = "moderate"; intensity.dataset.ready = "1";
-  }
+  const select = $("#planned-workout-select");
+  const options = assignmentOptions().filter((key) => key !== "rest");
+  const selected = selectedWorkoutPlanKey();
+  select.innerHTML = options.map((key) => `<option value="${escapeHtml(key)}">${escapeHtml(`${assignmentLabel(key)} - ${assignmentTitle(key)}`)}</option>`).join("");
+  select.value = options.includes(selected) ? selected : (options[0] || "cardio");
+  state.settings.logPlanKey = select.value;
+  renderWorkoutLogger();
+}
+function workoutDetail(workout) {
+  const logs = workout.exerciseLogs || [];
+  const setCount = logs.reduce((sum, log) => sum + (log.sets?.length || 0), 0);
+  const base = `${workout.planTitle || WORKOUT_TYPES[workout.type] || "Workout"} / ${fmt(workout.durationMin || workout.minutes)} min / ${fmt(workout.caloriesBurned || workout.calories)} kcal`;
+  return setCount ? `${base} / ${setCount} sets` : base;
+}
+function renderWorkoutLogger() {
+  const planKey = selectedWorkoutPlanKey();
+  const form = $("#workout-session-form");
+  const draft = ensureWorkoutDraft(planKey);
+  const isCardio = planKey === "cardio";
+  const logs = draft.exerciseLogs || [];
+  const sessionTitle = `${assignmentLabel(planKey)} - ${assignmentTitle(planKey)}`;
+  $("#planned-workout-log").innerHTML = isCardio || !logs.length ? `<div class="empty">${isCardio ? "Add minutes and calories, then save the cardio session." : "No exercises on this day yet. Add exercises in Planner first."}</div>` : `
+    <div class="session-title">
+      <strong>${escapeHtml(sessionTitle)}</strong>
+      <span>${logs.reduce((sum, log) => sum + (log.sets?.length || 0), 0)} sets in this draft</span>
+    </div>
+    ${logs.map((log) => {
+      const previous = latestExerciseSets(log.name, draft.startedAt);
+      return `<div class="exercise-log" data-exercise-id="${escapeHtml(log.exerciseId)}">
+        <div class="exercise-log-head">
+          <div>
+            <strong>${escapeHtml(log.name)}</strong>
+            <small>${previous ? `Previous ${previous.date}: ${escapeHtml(setSummary(previous.sets))}` : "No previous sets saved"}</small>
+          </div>
+        </div>
+        <div class="set-list">${log.sets?.length ? log.sets.map((set) => `<span class="set-chip">${fmtWeight(set.weightKg)}kg x ${fmt(set.reps)} <button data-delete-set="${escapeHtml(set.id)}" data-exercise-id="${escapeHtml(log.exerciseId)}" type="button" aria-label="Delete set">x</button></span>`).join("") : `<span class="muted">No sets added yet</span>`}</div>
+        <div class="set-entry">
+          <label>Reps<input name="reps" type="number" min="0" inputmode="numeric" /></label>
+          <label>Weight kg<input name="weightKg" type="number" min="0" step="0.5" inputmode="decimal" /></label>
+          <button class="secondary" data-add-set="${escapeHtml(log.exerciseId)}" type="button">Add set</button>
+        </div>
+      </div>`;
+    }).join("")}`;
+  if (form.elements.minutes && !form.elements.minutes.value) form.elements.minutes.value = 45;
+}
+function renderWorkoutHistory() {
+  const el = $("#workout-history");
+  if (!el) return;
+  const sessions = allWorkoutSessions().slice(0, 30);
+  el.innerHTML = sessions.length ? sessions.map((workout) => {
+    const exercises = (workout.exerciseLogs || []).filter((log) => log.sets?.length).map((log) => `<li><strong>${escapeHtml(log.name)}</strong>: ${escapeHtml(setSummary(log.sets))}</li>`).join("");
+    return `<div class="history-card">
+      <div class="history-head">
+        <div><strong>${escapeHtml(workout.name || workout.planTitle || "Workout")}</strong><small>${escapeHtml(workout.date)} / ${escapeHtml(workoutDetail(workout))}</small></div>
+        <button data-delete-workout-date="${escapeHtml(workout.date)}" data-delete-workout-id="${escapeHtml(workout.id)}" type="button" aria-label="Delete workout">${icon("trash")}</button>
+      </div>
+      ${exercises ? `<ul>${exercises}</ul>` : `<div class="muted">No set-by-set detail saved for this session.</div>`}
+    </div>`;
+  }).join("") : `<div class="empty">No workout sessions saved yet.</div>`;
 }
 function renderPlanner() {
   $("#week-planner").innerHTML = WEEK_DAYS.map((day, i) => {
     const a = state.weeklyPlan.assignments[i] || "rest";
     const dose = state.weeklyPlan.doseDays.includes(i);
-    return `<div class="day-card"><strong>${day}</strong><button data-cycle-day="${i}" type="button">${ASSIGNMENT_LABELS[a] || a}</button><small>${escapeHtml(state.workoutTemplates[a]?.title || (a === "cardio" ? "Cardio session" : "Rest"))}</small><button class="${dose ? "dose-on" : ""}" data-dose-day="${i}" type="button">${dose ? "Dose day" : "No dose"}</button></div>`;
+    return `<div class="day-card"><strong>${day}</strong><button data-cycle-day="${i}" type="button">${assignmentLabel(a)}</button><small>${escapeHtml(assignmentTitle(a))}</small><button class="${dose ? "dose-on" : ""}" data-dose-day="${i}" type="button">${dose ? "Dose day" : "No dose"}</button></div>`;
   }).join("");
-  $("#template-list").innerHTML = Object.entries(state.workoutTemplates).map(([key, t]) => `<div class="template-card"><h3>${ASSIGNMENT_LABELS[key]} / ${escapeHtml(t.title || "Untitled")}</h3>${t.exercises?.length ? `<ul>${t.exercises.map((e) => `<li>${escapeHtml(e)}</li>`).join("")}</ul>` : `<div class="empty">No exercises configured.</div>`}</div>`).join("");
+  $("#template-list").innerHTML = templateKeys().map((key) => {
+    const template = state.workoutTemplates[key];
+    const removable = !DEFAULT_TEMPLATES[key];
+    const exercises = template.exercises?.length ? template.exercises.map((exercise) => `
+      <div class="exercise-edit">
+        <input data-exercise-name="${escapeHtml(key)}" data-exercise-id="${escapeHtml(exercise.id)}" value="${escapeHtml(exercise.name)}" />
+        <button data-delete-exercise="${escapeHtml(key)}" data-exercise-id="${escapeHtml(exercise.id)}" type="button" aria-label="Delete exercise">${icon("trash")}</button>
+      </div>`).join("") : `<div class="empty">No exercises yet. Add one below.</div>`;
+    return `<div class="template-card" data-template-card="${escapeHtml(key)}">
+      <div class="template-head">
+        <span>${escapeHtml(assignmentLabel(key))}</span>
+        ${removable ? `<button data-delete-template="${escapeHtml(key)}" type="button">Delete day</button>` : ""}
+      </div>
+      <label>Day name<input data-template-title="${escapeHtml(key)}" value="${escapeHtml(template.title || "")}" /></label>
+      <div class="editable-exercises">${exercises}</div>
+      <div class="add-exercise-form">
+        <input data-new-exercise="${escapeHtml(key)}" placeholder="Add exercise" />
+        <button class="secondary" data-add-exercise="${escapeHtml(key)}" type="button">Add</button>
+      </div>
+    </div>`;
+  }).join("");
 }
 function offlineCoach() {
   const t = totals();
@@ -379,7 +542,7 @@ function normalizeImported(raw) {
   return merge(raw);
 }
 function readStorageDump(raw) {
-  const keys = { meals: "macrocoach.meals.v1", goals: "macrocoach.goals.v1", workouts: "macrocoach.workouts.v1", bodyMetrics: "macrocoach.body.v1", peptide: "macrocoach.peptide.v1", dayMeta: "macrocoach.dayMeta.v1", dailyCheckin: "macrocoach.dailyCheckin.v1", weeklyPlan: "macrocoach.weeklyPlan.v1", savedMeals: "macrocoach.savedMeals.v1", workoutTemplates: "macrocoach.workoutTemplates.v1", settings: "macrocoach.settings.v1" };
+  const keys = { meals: "macrocoach.meals.v1", goals: "macrocoach.goals.v1", workouts: "macrocoach.workouts.v1", bodyMetrics: "macrocoach.body.v1", peptide: "macrocoach.peptide.v1", dayMeta: "macrocoach.dayMeta.v1", dailyCheckin: "macrocoach.dailyCheckin.v1", weeklyPlan: "macrocoach.weeklyPlan.v1", workoutDrafts: "macrocoach.workoutDrafts.v1", savedMeals: "macrocoach.savedMeals.v1", workoutTemplates: "macrocoach.workoutTemplates.v1", settings: "macrocoach.settings.v1" };
   const out = {}; let found = false;
   for (const [name, key] of Object.entries(keys)) if (key in raw) { found = true; try { out[name] = typeof raw[key] === "string" ? JSON.parse(raw[key]) : raw[key]; } catch { out[name] = raw[key]; } }
   return found ? out : null;
@@ -394,6 +557,7 @@ function fromAkyFitBackup(data) {
     dayMeta: data.dayMeta || {},
     dailyCheckin: data.dailyCheckin || {},
     weeklyPlan: data.weeklyPlan || defaults().weeklyPlan,
+    workoutDrafts: data.workoutDrafts || {},
     savedMeals: data.savedMeals || [],
     workoutTemplates: data.workoutTemplates || DEFAULT_TEMPLATES,
     settings: data.settings || {},
@@ -452,7 +616,19 @@ function bind() {
     const b = e.target.closest("button"); if (!b) return;
     if (b.dataset.view) setView(b.dataset.view);
     if (b.dataset.viewShortcut) setView(b.dataset.viewShortcut);
+    if (b.dataset.selectPlan !== undefined) {
+      state.settings.logPlanKey = b.dataset.selectPlan;
+      ensureWorkoutDraft(state.settings.logPlanKey);
+      save(); render();
+    }
     if (b.dataset.mode) { state.dayMeta[todayKey()] = { mode: b.dataset.mode }; save(); render(); }
+    if (b.dataset.checkinAdd) {
+      const key = todayKey();
+      const current = state.dailyCheckin[key] || {};
+      current[b.dataset.checkinAdd] = num(current[b.dataset.checkinAdd]) + num(b.dataset.amount);
+      state.dailyCheckin[key] = current;
+      save(); render();
+    }
     if (b.dataset.deleteType) {
       const key = todayKey();
       if (b.dataset.deleteType === "meal") state.meals[key] = todayMeals().filter((x) => x.id !== b.dataset.deleteId);
@@ -460,33 +636,131 @@ function bind() {
       if (b.dataset.deleteType === "body") state.bodyMetrics = state.bodyMetrics.filter((x) => x.id !== b.dataset.deleteId);
       save(); render();
     }
+    if (b.dataset.deleteWorkoutDate !== undefined) {
+      const date = b.dataset.deleteWorkoutDate;
+      state.workouts[date] = (state.workouts[date] || []).filter((x) => x.id !== b.dataset.deleteWorkoutId);
+      save(); render();
+    }
     if (b.dataset.addSaved) {
       const meal = state.savedMeals.find((m) => m.id === b.dataset.addSaved);
       if (meal) addMeal(meal, false);
     }
-    if (b.dataset.cycleDay) {
+    if (b.dataset.cycleDay !== undefined) {
       const i = b.dataset.cycleDay; const current = state.weeklyPlan.assignments[i] || "rest";
-      state.weeklyPlan.assignments[i] = ASSIGNMENTS[(ASSIGNMENTS.indexOf(current) + 1) % ASSIGNMENTS.length];
+      const options = assignmentOptions();
+      state.weeklyPlan.assignments[i] = options[(Math.max(0, options.indexOf(current)) + 1) % options.length];
       save(); render();
     }
-    if (b.dataset.doseDay) {
+    if (b.dataset.doseDay !== undefined) {
       const day = Number(b.dataset.doseDay); const set = new Set(state.weeklyPlan.doseDays);
       set.has(day) ? set.delete(day) : set.add(day);
       state.weeklyPlan.doseDays = [...set].sort((a, z) => a - z);
       save(); render();
     }
+    if (b.dataset.addSet !== undefined) {
+      const card = b.closest(".exercise-log");
+      const draft = ensureWorkoutDraft(selectedWorkoutPlanKey());
+      const log = draft.exerciseLogs.find((entry) => entry.exerciseId === b.dataset.addSet);
+      if (card && log) {
+        const reps = num(card.querySelector('input[name="reps"]').value);
+        const weightKg = rawNum(card.querySelector('input[name="weightKg"]').value);
+        if (!reps && !weightKg) return;
+        log.sets = [...(log.sets || []), { id: uid(), reps, weightKg, createdAt: Date.now() }];
+        card.querySelector('input[name="reps"]').value = "";
+        card.querySelector('input[name="weightKg"]').value = "";
+        save(); renderWorkoutLogger();
+      }
+    }
+    if (b.dataset.deleteSet !== undefined) {
+      const draft = ensureWorkoutDraft(selectedWorkoutPlanKey());
+      const log = draft.exerciseLogs.find((entry) => entry.exerciseId === b.dataset.exerciseId);
+      if (log) log.sets = (log.sets || []).filter((set) => set.id !== b.dataset.deleteSet);
+      save(); renderWorkoutLogger();
+    }
+    if (b.dataset.addExercise !== undefined) {
+      const key = b.dataset.addExercise;
+      const input = b.closest(".template-card")?.querySelector("[data-new-exercise]");
+      const name = input?.value.trim();
+      if (!name) return;
+      state.workoutTemplates[key].exercises = [...(state.workoutTemplates[key].exercises || []), { id: `ex-${Date.now()}-${slug(name)}`, name }];
+      input.value = "";
+      save(); render();
+    }
+    if (b.dataset.deleteExercise !== undefined) {
+      const key = b.dataset.deleteExercise;
+      state.workoutTemplates[key].exercises = (state.workoutTemplates[key].exercises || []).filter((exercise) => exercise.id !== b.dataset.exerciseId);
+      save(); render();
+    }
+    if (b.dataset.deleteTemplate !== undefined) {
+      const key = b.dataset.deleteTemplate;
+      if (!confirm(`Delete ${assignmentLabel(key)} and its exercises? Existing logged sessions stay saved.`)) return;
+      delete state.workoutTemplates[key];
+      for (const day of Object.keys(state.weeklyPlan.assignments)) if (state.weeklyPlan.assignments[day] === key) state.weeklyPlan.assignments[day] = "rest";
+      if (state.settings.logPlanKey === key) state.settings.logPlanKey = "";
+      save(); render();
+    }
+    if (b.id === "add-workout-day") {
+      const input = $("#new-workout-day-title");
+      const title = input.value.trim() || `Custom Day ${templateKeys().length + 1}`;
+      const numbers = templateKeys().map((key) => Number((key.match(/^day(\d+)$/) || [])[1] || 0));
+      const next = Math.max(5, ...numbers) + 1;
+      const key = `day${next}`;
+      state.workoutTemplates[key] = { title, exercises: [] };
+      state.settings.logPlanKey = key;
+      input.value = "";
+      save(); render();
+    }
+  });
+  document.addEventListener("input", (e) => {
+    const el = e.target;
+    if (el.dataset?.templateTitle !== undefined) {
+      const key = el.dataset.templateTitle;
+      if (state.workoutTemplates[key]) state.workoutTemplates[key].title = el.value;
+      save();
+    }
+    if (el.dataset?.exerciseName !== undefined) {
+      const key = el.dataset.exerciseName;
+      const exercise = state.workoutTemplates[key]?.exercises?.find((item) => item.id === el.dataset.exerciseId);
+      if (exercise) exercise.name = el.value;
+      save();
+    }
+  });
+  document.addEventListener("change", (e) => {
+    const el = e.target;
+    if (el.dataset?.templateTitle !== undefined || el.dataset?.exerciseName !== undefined) render();
   });
   $("#meal-form").addEventListener("submit", (e) => {
     e.preventDefault(); const f = e.currentTarget;
     addMeal({ name: f.elements.name.value, calories: f.elements.calories.value, protein: f.elements.protein.value, carbs: f.elements.carbs.value, fat: f.elements.fat.value }, Boolean(f.elements.saveMeal.checked));
     f.reset(); setView("today");
   });
-  $("#workout-form").addEventListener("submit", (e) => {
-    e.preventDefault(); const f = e.currentTarget; const minutes = num(f.elements.minutes.value || 45);
-    const type = f.elements.type.value, intensity = f.elements.intensity.value;
+  $("#planned-workout-select").addEventListener("change", (e) => { state.settings.logPlanKey = e.currentTarget.value; ensureWorkoutDraft(state.settings.logPlanKey); save(); render(); });
+  $("#workout-session-form").addEventListener("submit", (e) => {
+    e.preventDefault(); const f = e.currentTarget;
+    const planKey = f.elements.planKey.value;
+    const draft = ensureWorkoutDraft(planKey);
+    const exerciseLogs = (draft.exerciseLogs || []).map((log) => ({ ...log, sets: (log.sets || []).filter((set) => num(set.reps) || rawNum(set.weightKg)) })).filter((log) => log.sets.length);
+    if (planKey !== "cardio" && !exerciseLogs.length) { alert("Add at least one set before saving this workout."); return; }
+    const minutes = num(f.elements.minutes.value || 45);
     const key = todayKey();
-    state.workouts[key] = [{ id: uid(), name: f.elements.name.value.trim() || WORKOUT_TYPES[type], type, intensity, durationMin: minutes, caloriesBurned: num(f.elements.calories.value || estimateCalories(type, intensity, minutes)), createdAt: Date.now() }, ...todayWorkouts()];
-    f.reset(); f.elements.minutes.value = 45; save(); render(); setView("today");
+    const now = Date.now();
+    const session = {
+      id: uid(),
+      name: `${assignmentLabel(planKey)} - ${assignmentTitle(planKey)}`,
+      type: planKey === "cardio" ? "cardio" : "strength",
+      intensity: "moderate",
+      planKey,
+      planTitle: assignmentTitle(planKey),
+      exerciseLogs,
+      durationMin: minutes,
+      caloriesBurned: num(f.elements.calories.value || estimateCalories(planKey === "cardio" ? "cardio" : "strength", "moderate", minutes)),
+      createdAt: now,
+    };
+    state.workouts[key] = [session, ...todayWorkouts()];
+    delete state.workoutDrafts[draftStorageKey(planKey)];
+    f.elements.minutes.value = 45;
+    f.elements.calories.value = "";
+    save(); render(); setView("today");
   });
   $("#checkin-form").addEventListener("input", (e) => {
     const f = e.currentTarget;

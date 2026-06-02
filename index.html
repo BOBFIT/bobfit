@@ -67,6 +67,10 @@
             <label>Sleep h<input name="sleepHours" type="number" min="0" step="0.25" inputmode="decimal" /></label>
             <label>Energy<select name="energyLevel"><option value="">-</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
           </form>
+          <div class="quick-actions">
+            <button class="secondary" data-checkin-add="waterMl" data-amount="1000" type="button">+1L water</button>
+            <button class="secondary" data-checkin-add="stepCount" data-amount="1000" type="button">+1k steps</button>
+          </div>
         </section>
 
         <section class="section-card">
@@ -106,15 +110,19 @@
         </section>
 
         <section class="section-card">
-          <div class="section-head"><div><h2>Log Workout</h2><p>Workout calories add back to today</p></div></div>
-          <form id="workout-form" class="grid">
-            <label class="wide">Workout<input name="name" placeholder="Push session" /></label>
-            <label>Type<select name="type"></select></label>
-            <label>Intensity<select name="intensity"></select></label>
+          <div class="section-head"><div><h2>Workout Log</h2><p>Uses the workout picked in Planner</p></div></div>
+          <form id="workout-session-form" class="grid">
+            <label class="wide">Workout day<select id="planned-workout-select" name="planKey"></select></label>
             <label>Minutes<input name="minutes" type="number" min="1" value="45" inputmode="numeric" /></label>
             <label>Burned<input name="calories" type="number" min="0" placeholder="auto" inputmode="numeric" /></label>
-            <button class="primary wide" type="submit">Add workout</button>
+            <div id="planned-workout-log" class="workout-log wide"></div>
+            <button class="primary wide" type="submit">Save workout session</button>
           </form>
+        </section>
+
+        <section class="section-card">
+          <div class="section-head"><div><h2>Previous Sessions</h2><p>Reps and weights saved from past workouts</p></div></div>
+          <div id="workout-history" class="history-list"></div>
         </section>
       </section>
 
@@ -124,7 +132,11 @@
           <div id="week-planner" class="week-grid"></div>
         </section>
         <section class="section-card">
-          <div class="section-head"><div><h2>Strength Templates</h2><p>Original training split</p></div></div>
+          <div class="section-head"><div><h2>Workout Days</h2><p>Edit day names and exercises</p></div></div>
+          <div class="add-day-form">
+            <input id="new-workout-day-title" placeholder="New day name, e.g. Legs" />
+            <button id="add-workout-day" class="secondary" type="button">Add day</button>
+          </div>
           <div id="template-list" class="template-list"></div>
         </section>
       </section>

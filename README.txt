@@ -19,6 +19,13 @@ Replit app. The importer understands the old AkyFit backup shape and converts
 meals, workouts, goals, body metrics, saved meals, weekly plan, peptide/stack,
 daily check-ins, and workout templates where present.
 
+Workout logging:
+Use Planner to edit Day 1, Day 2, and any extra workout days you add. In Log,
+the Workout Log pulls the planned workout day from the weekly planner. Add sets
+for each exercise with reps and weight, then save the session. Previous sessions
+stay in history and the next workout shows the previous weights/sets beside each
+exercise.
+
 AI features:
 The website is static, so it cannot safely contain a private OpenAI key. To use
 the old AI features, paste your old AkyFit/Replit backend URL into the AI
