@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#65a30d" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="AkyFit" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <title>AkyFit</title>
+    <link rel="icon" href="assets/icon.png" />
+    <link rel="apple-touch-icon" href="assets/icon.png" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand">
+        <img src="assets/icon.png" alt="" />
+        <div>
+          <strong>AkyFit</strong>
+          <span id="save-status">Loading...</span>
+        </div>
+      </div>
+      <button id="backup-button" class="ghost" type="button">Backup</button>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div>
+          <p id="date-label"></p>
+          <h1 id="calories-left">0 kcal left</h1>
+          <span id="target-label">0 / 0 kcal</span>
+        </div>
+        <div class="ring" id="ring">
+          <strong id="ring-value">0%</strong>
+        </div>
+      </section>
+
+      <nav class="tabs" aria-label="App sections">
+        <button class="active" type="button" data-tab="today">Today</button>
+        <button type="button" data-tab="log">Log</button>
+        <button type="button" data-tab="plan">Plan</button>
+        <button type="button" data-tab="body">Body</button>
+      </nav>
+
+      <section class="screen active" id="today">
+        <div class="stats">
+          <article><span>Protein</span><strong id="protein-stat">0g</strong></article>
+          <article><span>Carbs</span><strong id="carbs-stat">0g</strong></article>
+          <article><span>Fat</span><strong id="fat-stat">0g</strong></article>
+          <article><span>Burned</span><strong id="burned-stat">0</strong></article>
+        </div>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Meals</h2>
+            <button type="button" data-open-tab="log">Add</button>
+          </div>
+          <div id="meal-list" class="list"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Workouts</h2>
+            <button type="button" data-open-tab="log">Add</button>
+          </div>
+          <div id="workout-list" class="list"></div>
+        </section>
+      </section>
+
+      <section class="screen" id="log">
+        <section class="panel">
+          <h2>Log Meal</h2>
+          <form id="meal-form" class="grid">
+            <label class="wide">Meal name<input name="name" required placeholder="Chicken rice bowl" /></label>
+            <label>Calories<input name="calories" required type="number" min="0" inputmode="numeric" /></label>
+            <label>Protein<input name="protein" required type="number" min="0" inputmode="decimal" /></label>
+            <label>Carbs<input name="carbs" required type="number" min="0" inputmode="decimal" /></label>
+            <label>Fat<input name="fat" required type="number" min="0" inputmode="decimal" /></label>
+            <button class="primary wide" type="submit">Add meal</button>
+          </form>
+        </section>
+
+        <section class="panel">
+          <h2>Log Workout</h2>
+          <form id="workout-form" class="grid">
+            <label class="wide">Workout<input name="name" placeholder="Push session" /></label>
+            <label>Minutes<input name="minutes" type="number" min="1" value="45" inputmode="numeric" /></label>
+            <label>Calories<input name="calories" type="number" min="0" placeholder="auto" inputmode="numeric" /></label>
+            <button class="primary wide" type="submit">Add workout</button>
+          </form>
+        </section>
+      </section>
+
+      <section class="screen" id="plan">
+        <section class="panel">
+          <h2>Targets</h2>
+          <form id="goals-form" class="grid">
+            <label>Calories<input name="calories" type="number" min="0" inputmode="numeric" /></label>
+            <label>Protein<input name="protein" type="number" min="0" inputmode="numeric" /></label>
+            <label>Carbs<input name="carbs" type="number" min="0" inputmode="numeric" /></label>
+            <label>Fat<input name="fat" type="number" min="0" inputmode="numeric" /></label>
+            <button class="primary wide" type="submit">Save targets</button>
+          </form>
+        </section>
+
+        <section class="panel">
+          <h2>Coach Notes</h2>
+          <div id="coach-card" class="coach"></div>
+        </section>
+      </section>
+
+      <section class="screen" id="body">
+        <section class="panel">
+          <h2>Body Metric</h2>
+          <form id="body-form" class="grid">
+            <label>Weight kg<input name="weight" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+            <label>Body fat %<input name="fat" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+            <button class="primary wide" type="submit">Add metric</button>
+          </form>
+        </section>
+        <section class="panel">
+          <h2>Progress</h2>
+          <div id="body-list" class="list"></div>
+        </section>
+      </section>
+    </main>
+
+    <input id="import-file" type="file" accept="application/json" hidden />
+    <script src="app.js"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+        });
+      }
+    </script>
+  </body>
+</html>
