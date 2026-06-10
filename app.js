@@ -83,7 +83,6 @@ const DEFAULT_TEMPLATES = {
   ] },
 };
 
-let state = defaults();
 let saveTimer = 0;
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -95,6 +94,7 @@ const fmt = (v) => Math.round(Number(v) || 0).toLocaleString();
 const fmtWeight = (v) => rawNum(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
 const todayKey = () => dayKey(new Date());
 const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+let state = defaults();
 
 function ex(name, notes) { return { id: `ex-${slug(name)}`, name, notes }; }
 function defaults() {
