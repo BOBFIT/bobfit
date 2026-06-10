@@ -1,0 +1,11 @@
+{
+  "name": "AkyFit",
+  "short_name": "AkyFit",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#fafaf9",
+  "theme_color": "#65a30d",
+  "icons": [
+    { "src": "assets/icon.png", "sizes": "1024x1024", "type": "image/png" }
+  ]
+}
