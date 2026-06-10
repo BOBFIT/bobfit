@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#071b32" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Julius Trainer" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <title>Julius Trainer</title>
+    <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="assets/icon.png" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand-head">
+        <img class="brand-logo" src="assets/logo.svg" alt="Julius Trainer" />
+        <div>
+          <p id="date-label">TODAY</p>
+          <h1 id="screen-title">Today</h1>
+        </div>
+      </div>
+      <button id="backup-now" class="icon-button" type="button" aria-label="Download backup">Save</button>
+    </header>
+
+    <main class="app">
+      <section id="view-today" class="view active" data-title="Today">
+        <section class="panel hero-panel brand-hero">
+          <img class="hero-logo" src="assets/logo.svg" alt="" />
+          <div>
+            <span class="brand-kicker">Julius Trainer</span>
+            <h2 id="today-split">Workout split</h2>
+            <p id="today-detail">Planned from weekly planner</p>
+          </div>
+          <button class="primary" data-log-today type="button">Log workout</button>
+        </section>
+        <details class="panel drop-panel" open>
+          <summary class="drop-summary">
+            <span><strong>Today's Exercises</strong><small>Rep ranges and training notes</small></span>
+            <span class="drop-pill">View</span>
+          </summary>
+          <div class="drop-body">
+            <div id="today-exercises" class="exercise-list"></div>
+          </div>
+        </details>
+        <details class="panel drop-panel">
+          <summary class="drop-summary">
+            <span><strong>Peptide Reminders</strong><small>Due doses from your cycle planner</small></span>
+            <span class="drop-pill">View</span>
+          </summary>
+          <div class="drop-body">
+            <button class="secondary wide-button" data-view="peptides" type="button">Open Peptides</button>
+            <div id="today-peptide-reminders" class="dose-list"></div>
+          </div>
+        </details>
+        <details class="panel drop-panel">
+          <summary class="drop-summary">
+            <span><strong>Check-in</strong><small>Water, steps, sleep and energy</small></span>
+            <span class="drop-pill">Log</span>
+          </summary>
+          <div class="drop-body">
+            <form id="checkin-form" class="grid">
+              <label>Water ml<input name="waterMl" type="number" min="0" step="100" inputmode="numeric" /></label>
+              <label>Steps<input name="stepCount" type="number" min="0" step="100" inputmode="numeric" /></label>
+              <label>Sleep h<input name="sleepHours" type="number" min="0" step="0.25" inputmode="decimal" /></label>
+              <label>Energy<select name="energyLevel"><option value="">-</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
+            </form>
+            <div class="quick-grid">
+              <button class="secondary" data-checkin-add="waterMl" data-amount="1000" type="button">+1L water</button>
+              <button class="secondary" data-checkin-add="stepCount" data-amount="1000" type="button">+1k steps</button>
+            </div>
+          </div>
+        </details>
+        <section class="panel two-col">
+          <div><strong id="meal-count">0 meals</strong><span id="meal-total">0 kcal</span></div>
+          <div><strong id="workout-count">0 workouts</strong><span id="workout-total">0 kcal</span></div>
+        </section>
+      </section>
+
+      <section id="view-log" class="view" data-title="Log">
+        <details class="panel drop-panel" open>
+          <summary class="drop-summary">
+            <span><strong>Workout Log</strong><small>Uses today's workout from the Weekly Plan</small></span>
+            <span class="drop-pill">Log</span>
+          </summary>
+          <div class="drop-body">
+            <form id="workout-form" class="grid">
+              <div class="planned-workout-card wide">
+                <span>Planned from weekly plan</span>
+                <strong id="planned-log-split">Workout</strong>
+                <small id="planned-log-detail">Change the day in Planner to change this workout.</small>
+                <button class="secondary" data-view="planner" type="button">Change in Planner</button>
+              </div>
+              <input id="split-select" name="split" type="hidden" />
+              <label>Minutes<input name="minutes" type="number" min="1" value="45" inputmode="numeric" /></label>
+              <label>Burned<input name="calories" type="number" min="0" placeholder="auto" inputmode="numeric" /></label>
+              <div id="workout-editor" class="workout-editor wide"></div>
+              <button class="primary wide" type="submit">Save workout session</button>
+            </form>
+          </div>
+        </details>
+        <details class="panel drop-panel">
+          <summary class="drop-summary">
+            <span><strong>Log Meal</strong><small>Manual macro entry</small></span>
+            <span class="drop-pill">Add</span>
+          </summary>
+          <div class="drop-body">
+            <form id="meal-form" class="grid">
+              <label class="wide">Meal name<input name="name" required placeholder="Chicken rice bowl" /></label>
+              <label>Calories<input name="calories" required type="number" min="0" inputmode="numeric" /></label>
+              <label>Protein<input name="protein" required type="number" min="0" inputmode="decimal" /></label>
+              <label>Carbs<input name="carbs" required type="number" min="0" inputmode="decimal" /></label>
+              <label>Fat<input name="fat" required type="number" min="0" inputmode="decimal" /></label>
+              <button class="primary wide" type="submit">Add meal</button>
+            </form>
+          </div>
+        </details>
+      </section>
+
+      <section id="view-planner" class="view" data-title="Planner">
+        <details class="panel drop-panel" open>
+          <summary class="drop-summary">
+            <span><strong>Weekly Plan</strong><small>Tap a day to rotate split. Today's day feeds the Workout Log.</small></span>
+            <span class="drop-pill">Plan</span>
+          </summary>
+          <div class="drop-body">
+            <button id="apply-plan" class="secondary wide-button" type="button">Restore defaults</button>
+            <div id="week-grid" class="week-grid"></div>
+          </div>
+        </details>
+        <details class="panel drop-panel">
+          <summary class="drop-summary">
+            <span><strong>Workout Splits</strong><small>Edit exercises, rep ranges and notes</small></span>
+            <span class="drop-pill">Edit</span>
+          </summary>
+          <div class="drop-body">
+            <div class="add-line">
+              <input id="new-split-name" placeholder="New split name, e.g. Pull C" />
+              <button id="add-split" class="secondary" type="button">Add</button>
+            </div>
+            <div id="split-list" class="split-list"></div>
+          </div>
+        </details>
+      </section>
+
+      <section id="view-peptides" class="view" data-title="Peptides">
+        <section class="panel hero-panel">
+          <div>
+            <h2>Peptide Planner</h2>
+            <p>Enter the amounts from your vial and your prescribed protocol. The app calculates syringe draw, not what you should take.</p>
+          </div>
+        </section>
+        <details class="panel drop-panel" open>
+          <summary class="drop-summary">
+            <span><strong>Today's Dosage Reminders</strong><small>Morning, night and before-workout schedule</small></span>
+            <span class="drop-pill">Due</span>
+          </summary>
+          <div class="drop-body"><div id="peptide-due-list" class="dose-list"></div></div>
+        </details>
+        <details class="panel drop-panel">
+          <summary class="drop-summary">
+            <span><strong>Cycle Planner</strong><small>Start date, run length, dosage days and reminder times</small></span>
+            <span class="drop-pill">Plan</span>
+          </summary>
+          <div class="drop-body">
+            <form id="peptide-cycle-form" class="grid">
+              <label class="wide">Compound<select id="cycle-peptide" name="peptideId"></select></label>
+              <label>Start date<input id="cycle-start" name="startDate" type="date" required /></label>
+              <label>Run length<select id="cycle-weeks" name="weeks"><option value="4">4 weeks</option><option value="8">8 weeks</option><option value="12">12 weeks</option><option value="custom">Custom</option></select></label>
+              <label>End date<input id="cycle-end" name="endDate" type="date" required /></label>
+              <label>Dose to take per injection, mg<input name="doseMg" type="number" min="0" step="0.001" inputmode="decimal" required /><span class="field-hint">This is the amount you plan to inject each time, from your protocol.</span></label>
+              <label>Powder in vial, mg<input name="vialMg" type="number" min="0" step="0.001" inputmode="decimal" /><span class="field-hint">The total dry powder amount printed on the vial before mixing.</span></label>
+              <label>Bac water required, ml<input name="diluentMl" type="number" min="0" step="0.1" inputmode="decimal" readonly /><span class="field-hint">Auto set from vial mg / 10 so 10 units equals 1mg.</span></label>
+              <div class="wide">
+                <span class="field-title">Dosage days</span>
+                <div class="picker-row" id="cycle-day-picker"></div>
+              </div>
+              <div class="wide">
+                <span class="field-title">Reminder times</span>
+                <div class="picker-row" id="cycle-time-picker"></div>
+              </div>
+              <button class="primary wide" type="submit">Save cycle</button>
+            </form>
+            <div id="peptide-cycle-list" class="dose-list"></div>
+          </div>
+        </details>
+        <details class="panel drop-panel">
+          <summary class="drop-summary">
+            <span><strong>Reconstitution Calculator</strong><small>Fixed mix: 10 units equals 1mg</small></span>
+            <span class="drop-pill">Calc</span>
+          </summary>
+          <div class="drop-body">
+            <div class="help-grid">
+              <div class="help-card"><span>1</span><strong>Vial size</strong><small>Enter the total peptide powder in the vial, in mg.</small></div>
+              <div class="help-card"><span>2</span><strong>Fixed syringe</strong><small>U-100 1ml syringe. 10 units is always 0.1ml.</small></div>
+              <div class="help-card"><span>3</span><strong>Fixed strength</strong><small>Every 10 units drawn equals 1mg. This cannot be changed.</small></div>
+            </div>
+            <form id="reconstitution-form" class="grid">
+              <label class="wide">Compound<select id="calc-peptide" name="peptideId"></select></label>
+              <label class="wide">Peptide powder in vial, mg<input name="vialMg" type="number" min="0" step="0.001" inputmode="decimal" placeholder="Example: 10" /><span class="field-hint">This is the dry powder amount printed on the vial before mixing.</span></label>
+              <div class="fixed-rule-card wide">
+                <span>Locked setting</span>
+                <strong>10 units = 1mg</strong>
+                <small>U-100 1ml syringe: 100 units = 1ml, so 10 units = 0.1ml. The calculator sets the mix to 10mg/ml.</small>
+              </div>
+            </form>
+            <div id="reconstitution-result" class="calc-result"></div>
+          </div>
+        </details>
+        <details class="panel drop-panel">
+          <summary class="drop-summary">
+            <span><strong>Compound Information</strong><small>Saved vial details and stack composition</small></span>
+            <span class="drop-pill">Info</span>
+          </summary>
+          <div class="drop-body"><div id="peptide-info-list" class="compound-grid"></div></div>
+        </details>
+        <details class="panel drop-panel">
+          <summary class="drop-summary">
+            <span><strong>Dose Log</strong><small>Manual entry and previous dosage history</small></span>
+            <span class="drop-pill">Log</span>
+          </summary>
+          <div class="drop-body">
+            <form id="peptide-log-form" class="grid">
+              <label>Compound<select id="log-peptide" name="peptideId"></select></label>
+              <label>Date<input name="date" type="date" required /></label>
+              <label>Reminder time<select name="timing"></select></label>
+              <label>Dose taken, mg<input name="doseMg" type="number" min="0" step="0.001" inputmode="decimal" required /><span class="field-hint">The actual amount you injected for this log entry.</span></label>
+              <label class="wide">Notes<input name="notes" placeholder="Optional" /></label>
+              <button class="primary wide" type="submit">Add dose log</button>
+            </form>
+            <div id="peptide-log-list" class="history-list"></div>
+          </div>
+        </details>
+      </section>
+
+      <section id="view-history" class="view" data-title="History">
+        <details class="panel drop-panel" open>
+          <summary class="drop-summary">
+            <span><strong>History</strong><small>Meals, workouts and weight entries</small></span>
+            <span class="drop-pill">View</span>
+          </summary>
+          <div class="drop-body">
+            <div class="tabs">
+              <button class="active" data-history="meals" type="button">Meals</button>
+              <button data-history="workouts" type="button">Workouts</button>
+              <button data-history="weight" type="button">Weight</button>
+            </div>
+            <div id="history-list" class="history-list"></div>
+          </div>
+        </details>
+        <details class="panel drop-panel">
+          <summary class="drop-summary">
+            <span><strong>Add Weight</strong><small>Previous entries appear in History</small></span>
+            <span class="drop-pill">Add</span>
+          </summary>
+          <div class="drop-body">
+            <form id="weight-form" class="grid">
+              <label>Weight kg<input name="weightKg" type="number" min="0" step="0.1" required inputmode="decimal" /></label>
+              <label>Body fat %<input name="fatPercent" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+              <button class="primary wide" type="submit">Add weight</button>
+            </form>
+          </div>
+        </details>
+      </section>
+
+      <section id="view-settings" class="view" data-title="Settings">
+        <details class="panel drop-panel" open>
+          <summary class="drop-summary">
+            <span><strong>Backup & Restore</strong><small>Import old Replit/Julius Trainer data or download a backup</small></span>
+            <span class="drop-pill">Data</span>
+          </summary>
+          <div class="drop-body">
+            <div class="quick-grid">
+              <button id="import-button" class="secondary" type="button">Import file</button>
+              <button id="backup-button" class="secondary" type="button">Download backup</button>
+            </div>
+            <label class="wide import-paste">Paste backup JSON
+              <textarea id="import-json-text" rows="5" placeholder="If Samsung only shows Camera or Photos, paste your backup JSON here instead."></textarea>
+            </label>
+            <button id="import-paste-button" class="secondary wide-button" type="button">Import pasted JSON</button>
+            <pre id="data-summary" class="summary"></pre>
+          </div>
+        </details>
+      </section>
+    </main>
+
+    <nav class="tabbar">
+      <button class="active" data-view="today" type="button">Today</button>
+      <button data-view="log" type="button">Log</button>
+      <button data-view="planner" type="button">Planner</button>
+      <button data-view="peptides" type="button">Peptides</button>
+      <button data-view="history" type="button">History</button>
+      <button data-view="settings" type="button">Settings</button>
+    </nav>
+
+    <input id="import-file" type="file" hidden />
+    <script src="app.js"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js").catch(() => {}));
+      }
+    </script>
+  </body>
+</html>
