@@ -1,0 +1,11 @@
+{
+  "name": "Julius Trainer",
+  "short_name": "Julius",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#eeeaff",
+  "theme_color": "#7257f4",
+  "icons": [
+    { "src": "assets/icon.png", "sizes": "1024x1024", "type": "image/png" }
+  ]
+}
