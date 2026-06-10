@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#65a30d" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="AkyFit" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <title>AkyFit</title>
+    <link rel="icon" href="assets/icon.png" />
+    <link rel="apple-touch-icon" href="assets/icon.png" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p id="date-label">TODAY</p>
+        <h1 id="screen-title">Today</h1>
+      </div>
+      <button id="backup-now" class="icon-button" type="button" aria-label="Download backup">Save</button>
+    </header>
+
+    <main class="app">
+      <section id="view-today" class="view active" data-title="Today">
+        <section class="panel hero-panel">
+          <div>
+            <h2 id="today-split">Workout split</h2>
+            <p id="today-detail">Planned from weekly planner</p>
+          </div>
+          <button class="primary" data-log-today type="button">Log workout</button>
+        </section>
+        <section class="panel">
+          <div class="section-head">
+            <div><h2>Today's Exercises</h2><p>Rep ranges and supplemental notes included</p></div>
+          </div>
+          <div id="today-exercises" class="exercise-list"></div>
+        </section>
+        <section class="panel">
+          <div class="section-head"><div><h2>Check-in</h2><p>Quick water and steps</p></div></div>
+          <form id="checkin-form" class="grid">
+            <label>Water ml<input name="waterMl" type="number" min="0" step="100" inputmode="numeric" /></label>
+            <label>Steps<input name="stepCount" type="number" min="0" step="100" inputmode="numeric" /></label>
+            <label>Sleep h<input name="sleepHours" type="number" min="0" step="0.25" inputmode="decimal" /></label>
+            <label>Energy<select name="energyLevel"><option value="">-</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
+          </form>
+          <div class="quick-grid">
+            <button class="secondary" data-checkin-add="waterMl" data-amount="1000" type="button">+1L water</button>
+            <button class="secondary" data-checkin-add="stepCount" data-amount="1000" type="button">+1k steps</button>
+          </div>
+        </section>
+        <section class="panel two-col">
+          <div><strong id="meal-count">0 meals</strong><span id="meal-total">0 kcal</span></div>
+          <div><strong id="workout-count">0 workouts</strong><span id="workout-total">0 kcal</span></div>
+        </section>
+      </section>
+
+      <section id="view-log" class="view" data-title="Log">
+        <section class="panel">
+          <div class="section-head"><div><h2>Log Meal</h2><p>Manual macro entry</p></div></div>
+          <form id="meal-form" class="grid">
+            <label class="wide">Meal name<input name="name" required placeholder="Chicken rice bowl" /></label>
+            <label>Calories<input name="calories" required type="number" min="0" inputmode="numeric" /></label>
+            <label>Protein<input name="protein" required type="number" min="0" inputmode="decimal" /></label>
+            <label>Carbs<input name="carbs" required type="number" min="0" inputmode="decimal" /></label>
+            <label>Fat<input name="fat" required type="number" min="0" inputmode="decimal" /></label>
+            <button class="primary wide" type="submit">Add meal</button>
+          </form>
+        </section>
+        <section class="panel">
+          <div class="section-head"><div><h2>Workout Log</h2><p>Rep ranges, cluster/rest-pause notes, and previous weights</p></div></div>
+          <form id="workout-form" class="grid">
+            <label class="wide">Workout split<select id="split-select" name="split"></select></label>
+            <label>Minutes<input name="minutes" type="number" min="1" value="45" inputmode="numeric" /></label>
+            <label>Burned<input name="calories" type="number" min="0" placeholder="auto" inputmode="numeric" /></label>
+            <div id="workout-editor" class="workout-editor wide"></div>
+            <button class="primary wide" type="submit">Save workout session</button>
+          </form>
+        </section>
+      </section>
+
+      <section id="view-planner" class="view" data-title="Planner">
+        <section class="panel">
+          <div class="section-head">
+            <div><h2>Weekly Plan</h2><p>Tap each day to rotate split</p></div>
+            <button id="apply-plan" class="secondary" type="button">Apply plan</button>
+          </div>
+          <div id="week-grid" class="week-grid"></div>
+        </section>
+        <section class="panel">
+          <div class="section-head"><div><h2>Workout Splits</h2><p>Edit split names, exercises, rep ranges and notes</p></div></div>
+          <div class="add-line">
+            <input id="new-split-name" placeholder="New split name, e.g. Pull C" />
+            <button id="add-split" class="secondary" type="button">Add</button>
+          </div>
+          <div id="split-list" class="split-list"></div>
+        </section>
+      </section>
+
+      <section id="view-history" class="view" data-title="History">
+        <section class="panel">
+          <div class="tabs">
+            <button class="active" data-history="meals" type="button">Meals</button>
+            <button data-history="workouts" type="button">Workouts</button>
+            <button data-history="weight" type="button">Weight</button>
+          </div>
+          <div id="history-list" class="history-list"></div>
+        </section>
+        <section class="panel">
+          <div class="section-head"><div><h2>Add Weight</h2><p>Previous entries appear in History</p></div></div>
+          <form id="weight-form" class="grid">
+            <label>Weight kg<input name="weightKg" type="number" min="0" step="0.1" required inputmode="decimal" /></label>
+            <label>Body fat %<input name="fatPercent" type="number" min="0" step="0.1" inputmode="decimal" /></label>
+            <button class="primary wide" type="submit">Add weight</button>
+          </form>
+        </section>
+      </section>
+
+      <section id="view-settings" class="view" data-title="Settings">
+        <section class="panel">
+          <div class="section-head"><div><h2>Backup & Restore</h2><p>Import old Replit/AkyFit data or download a backup</p></div></div>
+          <div class="quick-grid">
+            <button id="import-button" class="secondary" type="button">Import backup</button>
+            <button id="backup-button" class="secondary" type="button">Download backup</button>
+          </div>
+          <pre id="data-summary" class="summary"></pre>
+        </section>
+      </section>
+    </main>
+
+    <nav class="tabbar">
+      <button class="active" data-view="today" type="button">Today</button>
+      <button data-view="log" type="button">Log</button>
+      <button data-view="planner" type="button">Planner</button>
+      <button data-view="history" type="button">History</button>
+      <button data-view="settings" type="button">Settings</button>
+    </nav>
+
+    <input id="import-file" type="file" accept=".json,application/json" hidden />
+    <script src="app.js"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js").catch(() => {}));
+      }
+    </script>
+  </body>
+</html>
