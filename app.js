@@ -8,7 +8,7 @@ const IDB_NAME = "akyfit.website.v2";
 const IDB_STORE = "state";
 const IDB_KEY = "main";
 
-const TRAINING_PLAN_VERSION = "aky-training-plan-targets-v4";
+const TRAINING_PLAN_VERSION = "aky-training-plan-targets-v5-motra-names";
 const TOP_DROPDOWN_LIMIT = 4;
 const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DEFAULT_WEEKLY_ASSIGNMENTS = { 0: "day1", 1: "day3", 2: "rest", 3: "day5", 4: "day7", 5: "day8", 6: "rest" };
@@ -52,6 +52,29 @@ const DEFAULT_COMPOUNDS = [
 ];
 const MET = { strength: 5, cardio: 6, other: 4.5 };
 const target = (label, details = "") => ({ id: `target-${slug(label)}`, label, details });
+const MOTRA_EXERCISE_ALIASES = [
+  ["Machine Rear Delt (Reverse) Fly", "Reverse pec deck", "Reverse pec dec", "Rear delt fly", "Rear delt machine"],
+  ["Machine Fly (Pec Dec)", "Pec deck", "Pec dec", "Machine fly", "Machine pec fly"],
+  ["Machine Incline Bench Press", "Prime incline press", "High incline smith press", "High incline smith machine press", "Incline bench press"],
+  ["Machine Hammer-Grip Seated Chest Press", "Flex leverage press", "Prime flat machine chest press", "Flat machine chest press", "Hammer grip seated chest press"],
+  ["Dumbbell Lateral Raise", "Lateral raise machine", "Dumbbell side lateral", "Single arm cuffed lateral", "Side lateral raise"],
+  ["Machine Shoulder Press", "Dead stop smith machine shoulder press", "Smith machine shoulder press", "Shoulder press machine"],
+  ["EZ-Bar Skull Crusher", "EZ bar incline skull crusher", "EZ bar skull crusher", "Incline skull crusher"],
+  ["Dumbbell Bicep Curl", "Seated single arm dumbbell drag bicep curl", "Single arm dumbbell drag bicep curl", "DB bicep curl"],
+  ["Cable Bar Straight Arm Pull Down", "Rope pullover", "Cable pullover", "Straight arm pulldown"],
+  ["Cable Lat Pull Down V-Grip (Narrow Hammer)", "Single arm prone cable pulldown", "Upper back bias cable pulldown", "Cable lat pulldown", "Lat pulldown"],
+  ["Cable V-Handle Seated Row", "Single arm seated row", "Upper back bias T-bar row", "Prime pin stack row", "Nautilus leverage row", "Single arm Nautilus row", "Seated cable row"],
+  ["Cable Face Pull", "Rear delt pulldown with D handles", "Rear delt pulldown", "Face pull"],
+  ["Cable Bar Tricep Pushdown / Extension", "Cable bar tricep pushdown", "Tricep pushdown"],
+  ["Cable Rope Tricep Pushdown / Extension", "Cable rope tricep pushdown", "Rope tricep pushdown"],
+  ["Cable V-Bar Tricep Pushdown / Extension", "V-bar tricep pushdown", "Assisted dip machine", "Dip machine / assisted dips"],
+  ["Cable Rope Overhead Tricep Extension High", "Rope overhead tricep extension", "Overhead tricep extension"],
+  ["Cable Bar Bicep Curl", "Bar cable bicep curl"],
+  ["Cable Rope Bicep Curl", "Rope bicep curl"],
+  ["Machine Ab Crunch", "Ab crunch machine"],
+  ["Barbell Overhead Press / Military Press", "Barbell overhead press", "Military press"],
+];
+const MOTRA_EXERCISE_ALIAS_MAP = Object.fromEntries(MOTRA_EXERCISE_ALIASES.flatMap(([motraName, ...aliases]) => [motraName, ...aliases].map((name) => [slug(name), motraName])));
 
 const DEFAULT_TEMPLATES = {
   day1: { title: "Legs A", exercises: [
@@ -137,7 +160,8 @@ const clamp = (value, min = 0, max = 100) => Math.min(max, Math.max(min, Number(
 let state = defaults();
 
 function ex(name, notes, targets = []) {
-  return { id: `ex-${slug(name)}`, name, notes, targets: targets.length ? expandStoredTargets(targets) : deriveTargets(name, notes) };
+  const displayName = motraExerciseName(name);
+  return { id: `ex-${slug(name)}`, name: displayName, notes, targets: targets.length ? expandStoredTargets(targets) : deriveTargets(displayName, notes) };
 }
 function defaults() {
   return {
@@ -258,10 +282,10 @@ function normalizeWorkout(workout, date = todayKey()) {
 }
 function normalizeExerciseLog(log, index = 0) {
   if (!log || typeof log !== "object") return null;
-  const name = String(log.name || log.title || `Exercise ${index + 1}`);
+  const name = motraExerciseName(log.name || log.title || `Exercise ${index + 1}`);
   const targets = Array.isArray(log.targets) ? expandStoredTargets(log.targets) : deriveTargets(name, log.notes || "");
   return {
-    exerciseId: String(log.exerciseId || log.id || `ex-${slug(name)}`),
+    exerciseId: String(log.exerciseId || log.id || `ex-${exerciseMatchKey(name)}`),
     name,
     notes: String(log.notes || ""),
     targets,
@@ -269,12 +293,12 @@ function normalizeExerciseLog(log, index = 0) {
   };
 }
 function legacyExerciseToLog(exercise, index = 0) {
-  const name = String(exercise?.name || `Exercise ${index + 1}`);
+  const name = motraExerciseName(exercise?.name || `Exercise ${index + 1}`);
   const reps = num(exercise?.reps);
   const weightKg = rawNum(exercise?.weightKg);
   const setCount = Math.max(1, num(exercise?.sets || 1));
   return {
-    exerciseId: String(exercise?.id || `ex-${slug(name)}`),
+    exerciseId: String(exercise?.id || `ex-${exerciseMatchKey(name)}`),
     name,
     notes: "",
     targets: reps ? [normalizeTarget({ label: `${reps} reps`, details: `${setCount} set${setCount === 1 ? "" : "s"} from imported workout.` })] : [],
@@ -316,9 +340,9 @@ function upgradePlanNotes(templates) {
       continue;
     }
     next[key].title = normalizeTitle(next[key].title || defaultTemplate.title);
-    const byName = new Map((next[key].exercises || []).map((exercise) => [slug(exercise.name), exercise]));
+    const byName = new Map((next[key].exercises || []).map((exercise) => [exerciseMatchKey(exercise.name), exercise]));
     for (const defaultExercise of defaultTemplate.exercises) {
-      const existing = byName.get(slug(defaultExercise.name));
+      const existing = byName.get(exerciseMatchKey(defaultExercise.name));
       if (existing && !existing.notes) existing.notes = defaultExercise.notes;
       if (existing && (!Array.isArray(existing.targets) || !existing.targets.length)) existing.targets = clone(defaultExercise.targets || []);
     }
@@ -347,11 +371,14 @@ function installDefaultTrainingPlan(target) {
   return target;
 }
 function normalizeExercise(exercise, index) {
-  if (typeof exercise === "string") return { id: `ex-${index}-${slug(exercise)}`, name: exercise, notes: "", targets: deriveTargets(exercise, "") };
-  const name = String(exercise?.name || exercise?.title || `Exercise ${index + 1}`).trim();
+  if (typeof exercise === "string") {
+    const name = motraExerciseName(exercise);
+    return { id: `ex-${index}-${exerciseMatchKey(name)}`, name, notes: "", targets: deriveTargets(name, "") };
+  }
+  const name = motraExerciseName(exercise?.name || exercise?.title || `Exercise ${index + 1}`);
   const notes = String(exercise?.notes || "");
   const targets = Array.isArray(exercise?.targets) && exercise.targets.length ? expandStoredTargets(exercise.targets) : deriveTargets(name, notes);
-  return { ...exercise, id: String(exercise?.id || `ex-${index}-${slug(name)}`), name, notes, targets };
+  return { ...exercise, id: String(exercise?.id || `ex-${index}-${exerciseMatchKey(name)}`), name, notes, targets };
 }
 function normalizeTitle(title) {
   if (title === "Pull A - Lat Focus") return "Pull A";
@@ -360,6 +387,13 @@ function normalizeTitle(title) {
 }
 function slug(v) {
   return String(v || "item").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "item";
+}
+function motraExerciseName(name) {
+  const raw = String(name || "").trim();
+  return MOTRA_EXERCISE_ALIAS_MAP[slug(raw)] || raw;
+}
+function exerciseMatchKey(name) {
+  return slug(motraExerciseName(name));
 }
 function escapeHtml(v) {
   return String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -1284,11 +1318,11 @@ function renderWorkoutEditor() {
     }).join("")}` : `<div class="empty">No exercises in this split yet.</div>`;
 }
 function latestExerciseSets(name, before = Date.now()) {
-  const target = slug(name);
+  const target = exerciseMatchKey(name);
   const sessions = allWorkoutSessions();
   for (const workout of sessions) {
     if ((workout.createdAt || 0) >= before) continue;
-    const log = (workout.exerciseLogs || []).find((entry) => slug(entry.name) === target && entry.sets?.length);
+    const log = (workout.exerciseLogs || []).find((entry) => exerciseMatchKey(entry.name) === target && entry.sets?.length);
     if (log) return { date: workout.date, sets: log.sets };
   }
   return null;
@@ -1302,11 +1336,11 @@ function estimatedOneRepMax(set) {
   return weight && reps ? weight * (1 + (reps / 30)) : 0;
 }
 function exerciseSessions(name, before = Infinity) {
-  const target = slug(name);
+  const target = exerciseMatchKey(name);
   return allWorkoutSessions()
     .filter((workout) => (workout.createdAt || 0) < before)
     .flatMap((workout) => (workout.exerciseLogs || [])
-      .filter((log) => slug(log.name) === target && log.sets?.length)
+      .filter((log) => exerciseMatchKey(log.name) === target && log.sets?.length)
       .map((log) => ({ workout, log, date: workout.date, createdAt: workout.createdAt || 0 })))
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 }
@@ -1367,9 +1401,9 @@ function personalRecords(limit = 10) {
   const grouped = new Map();
   for (const workout of allWorkoutSessions()) {
     for (const log of workout.exerciseLogs || []) {
-      const key = slug(log.name);
+      const key = exerciseMatchKey(log.name);
       if (!key || !log.sets?.length) continue;
-      const current = grouped.get(key) || { name: log.name, bestSet: null, bestReps: 0, bestVolume: 0, bestEst1rm: 0, dates: [] };
+      const current = grouped.get(key) || { name: motraExerciseName(log.name), bestSet: null, bestReps: 0, bestVolume: 0, bestEst1rm: 0, dates: [] };
       const summary = summarizeExerciseLog({ log });
       current.dates.push(workout.date);
       if (summary.bestSet && (!current.bestSet || rawNum(summary.bestSet.weightKg) > rawNum(current.bestSet.weightKg) || (rawNum(summary.bestSet.weightKg) === rawNum(current.bestSet.weightKg) && num(summary.bestSet.reps) > num(current.bestSet.reps)))) current.bestSet = { ...summary.bestSet, date: workout.date };
@@ -2197,8 +2231,9 @@ function motraSessionFromWorkout(workout, batchId) {
   const durationMin = workout.durationSeconds ? Math.round(workout.durationSeconds / 60) : ended ? Math.max(1, Math.round((ended - started) / 60000)) : 0;
   const byExercise = new Map();
   for (const set of workout.sets || []) {
-    const key = slug(set.exercise);
-    if (!byExercise.has(key)) byExercise.set(key, { exerciseId: `motra-${key}`, name: set.exercise, notes: set.muscleGroups ? `Motra muscle groups: ${set.muscleGroups}` : "", targets: [], sets: [] });
+    const name = motraExerciseName(set.exercise);
+    const key = exerciseMatchKey(name);
+    if (!byExercise.has(key)) byExercise.set(key, { exerciseId: `motra-${key}`, name, notes: set.muscleGroups ? `Motra muscle groups: ${set.muscleGroups}` : "", targets: [], sets: [] });
     const log = byExercise.get(key);
     const parts = [
       set.seconds ? `${fmtDose(set.seconds, 1)} sec` : "",
@@ -2725,9 +2760,9 @@ function bind() {
     if (button.dataset.addExercise) {
       const key = button.dataset.addExercise;
       const input = button.closest(".split-card")?.querySelector("[data-new-exercise]");
-      const name = input?.value.trim();
+      const name = motraExerciseName(input?.value);
       if (!name) return;
-      state.workoutTemplates[key].exercises.push({ id: `ex-${Date.now()}-${slug(name)}`, name, notes: "", targets: [] });
+      state.workoutTemplates[key].exercises.push({ id: `ex-${Date.now()}-${exerciseMatchKey(name)}`, name, notes: "", targets: [] });
       input.value = "";
       save(); render();
     }
@@ -2767,7 +2802,7 @@ function bind() {
     if (el.dataset?.exerciseName) {
       const exercise = state.workoutTemplates[el.dataset.exerciseName]?.exercises.find((item) => item.id === el.dataset.exerciseId);
       if (exercise) {
-        exercise.name = el.value;
+        exercise.name = motraExerciseName(el.value);
         exercise.targets = deriveTargets(exercise.name, exercise.notes || "");
       }
     }
