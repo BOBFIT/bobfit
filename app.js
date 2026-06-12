@@ -8,7 +8,7 @@ const IDB_NAME = "akyfit.website.v2";
 const IDB_STORE = "state";
 const IDB_KEY = "main";
 
-const TRAINING_PLAN_VERSION = "aky-training-plan-targets-v7-motra-final";
+const TRAINING_PLAN_VERSION = "aky-training-plan-targets-v8-motra-log-rename";
 const TOP_DROPDOWN_LIMIT = 4;
 const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DEFAULT_WEEKLY_ASSIGNMENTS = { 0: "day1", 1: "day3", 2: "rest", 3: "day5", 4: "day7", 5: "day8", 6: "rest" };
@@ -195,7 +195,7 @@ const EXERCISE_MATCH_GROUPS = [
   ["Machine Incline Chest Press", "Machine Incline Bench Press", "Smith Machine Incline Bench Press"],
   ["Machine Chest Press", "Machine Tricep Press", "Machine Seated Chest Press"],
   ["Pec Deck Fly", "Machine Fly (Pec Dec)"],
-  ["Lateral Raise", "Dumbbell Lateral Raise", "Cable Single-Arm Lateral Raise"],
+  ["Lateral Raise", "Machine Lateral Raise", "Dumbbell Lateral Raise", "Cable Single-Arm Lateral Raise"],
   ["Cable Bar Straight Arm Pull Down", "Cable Rope Straight Arm Pull Down"],
   ["Lat Pulldown", "Cable Lat Pull Down Single-Arm", "Cable Lat Pull Down Wide-Grip"],
   ["Seated Cable Row", "Cable Single-Arm Row", "Machine Row", "Machine Wide-Grip Row", "Machine High Row (MTS Row)"],
@@ -354,6 +354,7 @@ function merge(raw) {
   next.workoutDrafts = source?.workoutDrafts || {};
   next.settings = { ...base.settings, ...(source?.settings || {}), trainingPlanVersion: TRAINING_PLAN_VERSION };
   if (source?.workoutTemplates && sourcePlanVersion !== TRAINING_PLAN_VERSION) refreshDefaultTrainingPlan(next);
+  next.workouts = migrateLoggedWorkoutExerciseNames(next.workouts, next.workoutTemplates, next.weeklyPlan);
   delete next.dailyCheckin;
   return next;
 }
@@ -536,6 +537,70 @@ function refreshDefaultTrainingPlan(target) {
     target.settings.selectedSplit = DEFAULT_WEEKLY_ASSIGNMENTS[weekdayIndex()] === "rest" ? "day1" : DEFAULT_WEEKLY_ASSIGNMENTS[weekdayIndex()];
   }
   return target;
+}
+function splitKeyFromWorkout(workout, date = "", templates = DEFAULT_TEMPLATES, weeklyPlan = null) {
+  if (workout?.split && templates?.[workout.split]) return workout.split;
+  const title = normalizeTitle(workout?.planTitle || workout?.name || workout?.title || "");
+  const titleKey = slug(title);
+  for (const [key, template] of Object.entries(templates || {})) {
+    if (slug(template.title) === titleKey) return key;
+  }
+  const rawTitle = slug(workout?.planTitle || workout?.name || workout?.title || "");
+  for (const [key, template] of Object.entries(templates || {})) {
+    const splitSlug = slug(template.title);
+    if (rawTitle && splitSlug && (rawTitle.includes(splitSlug) || splitSlug.includes(rawTitle))) return key;
+  }
+  let best = { key: "", score: 0 };
+  for (const [key, template] of Object.entries(templates || {})) {
+    const exercises = template.exercises || [];
+    const score = (workout?.exerciseLogs || []).reduce((sum, log) => sum + (exercises.some((exercise) => exerciseNamesMatch(log.name, exercise.name)) ? 1 : 0), 0);
+    if (score > best.score) best = { key, score };
+  }
+  if (best.score) return best.key;
+  if (date && weeklyPlan?.assignments) {
+    const day = parseDay(date);
+    const assign = day ? weeklyPlan.assignments[weekdayIndex(day)] : "";
+    if (assign && templates?.[assign] && assign !== "rest") return assign;
+  }
+  return "";
+}
+function exactPlanNameForLog(log, template, usedIndexes = new Set()) {
+  const exercises = template?.exercises || [];
+  if (!exercises.length) return motraExerciseName(log?.name || "");
+  const normalized = motraExerciseName(log?.name || "");
+  const exactIndex = exercises.findIndex((exercise, index) => !usedIndexes.has(index) && exercise.name === normalized);
+  if (exactIndex >= 0) {
+    usedIndexes.add(exactIndex);
+    return exercises[exactIndex].name;
+  }
+  const candidates = exercises
+    .map((exercise, index) => ({ exercise, index }))
+    .filter(({ exercise, index }) => !usedIndexes.has(index) && exerciseNamesMatch(normalized, exercise.name));
+  const picked = candidates[0] || exercises.map((exercise, index) => ({ exercise, index })).find(({ exercise }) => exerciseNamesMatch(normalized, exercise.name));
+  if (!picked) return normalized;
+  usedIndexes.add(picked.index);
+  return picked.exercise.name;
+}
+function migrateLoggedWorkoutExerciseNames(workouts = {}, templates = DEFAULT_TEMPLATES, weeklyPlan = null) {
+  if (!workouts || typeof workouts !== "object" || Array.isArray(workouts)) return {};
+  return Object.fromEntries(Object.entries(workouts).map(([date, list]) => {
+    const sessions = (Array.isArray(list) ? list : []).map((workout) => {
+      const split = splitKeyFromWorkout(workout, date, templates, weeklyPlan);
+      const template = templates?.[split];
+      const usedIndexes = new Set();
+      const exerciseLogs = (workout.exerciseLogs || []).map((log) => {
+        const name = exactPlanNameForLog(log, template, usedIndexes);
+        return { ...log, name };
+      });
+      return { ...workout, split: workout.split || split || "", planTitle: workout.planTitle || (split ? splitTitleForTemplates(split, templates) : workout.planTitle), exerciseLogs };
+    });
+    return [date, sessions];
+  }).filter(([, list]) => list.length));
+}
+function splitTitleForTemplates(key, templates = DEFAULT_TEMPLATES) {
+  if (key === "rest") return "Rest";
+  if (key === "cardio") return "Cardio";
+  return templates?.[key]?.title || key;
 }
 function normalizeExercise(exercise, index) {
   if (typeof exercise === "string") {
