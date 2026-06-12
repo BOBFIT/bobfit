@@ -1006,7 +1006,7 @@ function showSaveFeedback() {
   lastSaveTriggerAt = 0;
 }
 function flashOpenTab(panel) {
-  if (!panel?.classList?.contains("drop-panel")) return;
+  if (!panel?.matches?.("details")) return;
   panel.classList.remove("tab-open-pulse");
   void panel.offsetWidth;
   panel.classList.add("tab-open-pulse");
@@ -3420,7 +3420,7 @@ function bind() {
     }
   });
   document.addEventListener("toggle", (event) => {
-    if (event.target?.matches?.(".drop-panel") && event.target.open) {
+    if (event.target?.matches?.("details") && event.target.open) {
       flashOpenTab(event.target);
     }
     const card = event.target.closest?.(".exercise-log");
