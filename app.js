@@ -1174,6 +1174,76 @@ function readinessData(total = totals()) {
   const summary = score >= 85 ? "Strong day. Keep the boxes green." : score >= 65 ? "Good base. Finish the remaining targets." : "Focus on the next easy win first.";
   return { score, summary, metrics };
 }
+function scoreRowsHtml(rows = []) {
+  return `<div class="score-detail-rows">${rows.map((row) => `<div class="score-detail-row">
+    <span>${escapeHtml(row.label)}</span>
+    <strong>${escapeHtml(row.value)}</strong>
+    ${row.detail ? `<small>${escapeHtml(row.detail)}</small>` : ""}
+  </div>`).join("")}</div>`;
+}
+function scoreMiniListHtml(items = [], empty = "No detail saved yet.") {
+  return items.length
+    ? `<div class="score-mini-list">${items.map((item) => `<div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.detail)}</small></div>`).join("")}</div>`
+    : `<div class="empty">${escapeHtml(empty)}</div>`;
+}
+function dailyScoreDetailHtml(item, total = totals()) {
+  const target = normalizeMacroTargets(state.macroTargets || {});
+  if (item.key === "macros") {
+    if (!hasMacroTargets(target)) {
+      return `${scoreRowsHtml([{ label: "Targets", value: "Not set", detail: "Add your calories, protein, carbs and fat in Planner." }])}
+        <button class="secondary wide-button" data-view="planner" type="button">Set macro targets</button>`;
+    }
+    const remaining = macroRemaining(todayMeals(), target);
+    return `<div class="macro-bars score-macro-bars">${["calories", "protein", "carbs", "fat"].map((key) => macroBarHtml(key, total, target)).join("")}</div>
+      <div class="formula-note">Remaining today: ${escapeHtml(macroRemainingText(remaining))}.</div>`;
+  }
+  if (item.key === "workout") {
+    const assign = plannedAssignForDate();
+    const template = state.workoutTemplates[assign];
+    const planned = template?.exercises || [];
+    const sessions = todayWorkouts();
+    return `${scoreRowsHtml([
+      { label: "Plan", value: splitTitle(assign), detail: assign === "rest" ? "Rest day from your weekly planner." : `${planned.length} exercises planned today.` },
+      { label: "Logged", value: sessions.length ? `${sessions.length} session${sessions.length === 1 ? "" : "s"}` : "Not logged", detail: sessions.length ? `${fmt(burned(sessions))} kcal burned / ${fmt(sessions.reduce((sum, session) => sum + num(session.durationMin), 0))} minutes.` : "Log your sets after training so overload and history update." },
+    ])}${sessions.length
+      ? scoreMiniListHtml(sessions.map((session) => ({ title: session.name || session.planTitle || "Workout", detail: `${fmt((session.exerciseLogs || []).reduce((sum, log) => sum + loggedSetCount(log), 0))} sets saved` })))
+      : scoreMiniListHtml(planned.slice(0, 5).map((exercise) => ({ title: exercise.name, detail: targetRepText(exercise.targets || []) })), "No exercises planned today.")}`;
+  }
+  if (item.key === "peptides") {
+    const due = dueDoseSlots();
+    if (!due.length) {
+      return scoreRowsHtml([{ label: "Today", value: "None due", detail: "No peptide reminders scheduled for today." }]);
+    }
+    const logged = due.filter((slot) => doseLoggedForSlot(slot)).length;
+    return `${scoreRowsHtml([{ label: "Progress", value: `${logged}/${due.length} logged`, detail: logged === due.length ? "All due doses are logged." : `${due.length - logged} dose${due.length - logged === 1 ? "" : "s"} still due today.` }])}
+      ${scoreMiniListHtml(due.map((slot) => {
+        const calc = calculateDraw(slot.cycle.peptideId, slot.cycle.vialMg, slot.cycle.diluentMl, slot.cycle.doseMg);
+        const draw = calc.ok && calc.drawUnits ? ` / ${fmt(calc.drawUnits)} units` : "";
+        return {
+          title: `${compoundName(slot.cycle.peptideId)} / ${timingLabel(slot.timing)}`,
+          detail: `${doseLoggedForSlot(slot) ? "Logged" : "Due"} / ${fmtDose(slot.cycle.doseMg)}mg${draw}`,
+        };
+      }))}`;
+  }
+  if (item.key === "weight") {
+    const entries = [...(state.bodyMetrics || [])]
+      .filter((entry) => rawNum(entry.weightKg || entry.weight) > 0)
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const latest = entries[0];
+    const previous = entries[1];
+    if (!latest) return scoreRowsHtml([{ label: "Latest", value: "No weight yet", detail: "Add your first weight entry in History." }]);
+    const latestWeight = rawNum(latest.weightKg || latest.weight);
+    const latestDate = metricDateKey(latest);
+    const diff = previous ? latestWeight - rawNum(previous.weightKg || previous.weight) : 0;
+    const todayEntries = weightEntriesForDate(todayKey());
+    return scoreRowsHtml([
+      { label: "Latest", value: `${fmtWeight(latestWeight)}kg`, detail: dateLabel(latestDate) },
+      { label: "Trend", value: previous ? `${diff > 0 ? "+" : ""}${fmtWeight(diff)}kg` : "First entry", detail: previous ? "Change from previous weigh-in." : "Add another weigh-in to show trend." },
+      { label: "Today", value: todayEntries.length ? `${todayEntries.length} entry${todayEntries.length === 1 ? "" : "ies"}` : "Not logged", detail: todayEntries.length ? `${fmtWeight(rawNum(todayEntries[0].weightKg || todayEntries[0].weight))}kg latest today.` : "No weight entered today." },
+    ]);
+  }
+  return `<div class="empty">No detail available.</div>`;
+}
 function renderHomeDashboard(total = totals()) {
   const scoreEl = $("#readiness-score");
   const summaryEl = $("#readiness-summary");
@@ -1184,11 +1254,14 @@ function renderHomeDashboard(total = totals()) {
   scoreEl.classList.toggle("warning", data.score < 65);
   scoreEl.querySelector("strong").textContent = String(data.score);
   summaryEl.textContent = data.summary;
-  metricsEl.innerHTML = data.metrics.map((item) => `<div class="dash-card ${item.score >= 90 ? "done" : item.score >= 60 ? "mid" : "low"}">
-    <span>${escapeHtml(item.label)}</span>
-    <strong>${escapeHtml(item.value)}</strong>
-    <small>${escapeHtml(item.detail)}</small>
-  </div>`).join("");
+  metricsEl.innerHTML = data.metrics.map((item) => `<details class="dash-card score-detail-card ${item.score >= 90 ? "done" : item.score >= 60 ? "mid" : "low"}" data-score-section="${escapeHtml(item.key)}">
+    <summary class="score-detail-summary">
+      <span>${escapeHtml(item.label)}</span>
+      <strong>${escapeHtml(item.value)}</strong>
+      <small>${escapeHtml(item.detail)}</small>
+    </summary>
+    <div class="score-detail-body">${dailyScoreDetailHtml(item, total)}</div>
+  </details>`).join("");
 }
 function dayAdherence(date) {
   const meals = mealsForDate(date);
@@ -2977,6 +3050,13 @@ function bind() {
       document.querySelectorAll(".pr-accordion[open]").forEach((other) => {
         if (other !== prCard) other.open = false;
       });
+      return;
+    }
+    const scoreCard = event.target.closest?.(".score-detail-card");
+    if (scoreCard?.open) {
+      document.querySelectorAll(".score-detail-card[open]").forEach((other) => {
+        if (other !== scoreCard) other.open = false;
+      });
     }
   }, true);
   document.addEventListener("change", (event) => {
@@ -3036,13 +3116,11 @@ function bind() {
     const draft = ensureDraft(split);
     const exerciseLogs = (draft.exerciseLogs || []).map((log) => ({ ...log, sets: (log.sets || []).filter((set) => num(set.reps) || rawNum(set.weightKg)) })).filter((log) => log.sets.length);
     if (!exerciseLogs.length) { alert("Add at least one set before saving this workout."); return; }
-    const minutes = num(f.elements.minutes.value || 45);
-    const session = { id: uid(), name: splitTitle(split), type: "strength", split, planTitle: splitTitle(split), exerciseLogs, durationMin: minutes, caloriesBurned: num(f.elements.calories.value || estimateCalories(minutes)), createdAt: Date.now() };
+    const minutes = 45;
+    const session = { id: uid(), name: splitTitle(split), type: "strength", split, planTitle: splitTitle(split), exerciseLogs, durationMin: minutes, caloriesBurned: estimateCalories(minutes), createdAt: Date.now() };
     const key = todayKey();
     state.workouts[key] = [session, ...todayWorkouts()];
     delete state.workoutDrafts[`${key}:${split}`];
-    f.elements.minutes.value = 45;
-    f.elements.calories.value = "";
     save(); render(); setView("today");
   });
   $("#peptide-cycle-form").addEventListener("submit", (event) => {

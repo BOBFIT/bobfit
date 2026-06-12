@@ -333,6 +333,78 @@ button { cursor: pointer; }
   background: rgba(13, 44, 73, 0.78);
   box-shadow: var(--soft-shadow);
 }
+.score-detail-card {
+  overflow: hidden;
+  align-content: start;
+  gap: 10px;
+}
+.score-detail-summary {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  padding-right: 34px;
+  list-style: none;
+  cursor: pointer;
+}
+.score-detail-summary::-webkit-details-marker { display: none; }
+.score-detail-summary::after {
+  content: "+";
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(19, 168, 245, 0.18);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 950;
+}
+.score-detail-card[open] .score-detail-summary::after { content: "-"; }
+.score-detail-body {
+  display: grid;
+  gap: 9px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.score-detail-rows,
+.score-mini-list {
+  display: grid;
+  gap: 7px;
+}
+.score-detail-row,
+.score-mini-list div {
+  display: grid;
+  gap: 3px;
+  padding: 9px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.score-detail-row span,
+.score-mini-list span {
+  color: var(--primary-dark);
+  font-size: 10px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+.score-detail-row strong,
+.score-mini-list strong {
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.15;
+}
+.score-detail-row small,
+.score-mini-list small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.25;
+}
+.score-macro-bars {
+  padding: 10px;
+  border-radius: 18px;
+}
 .dash-card span {
   color: var(--primary-dark);
   font-size: 10px;
@@ -345,6 +417,18 @@ button { cursor: pointer; }
   line-height: 1.08;
 }
 .dash-card small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.25;
+}
+.dash-card .score-detail-row strong,
+.dash-card .score-mini-list strong {
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.15;
+}
+.dash-card .score-detail-row small,
+.dash-card .score-mini-list small {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.25;
