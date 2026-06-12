@@ -2579,8 +2579,8 @@ function downloadBlob(filename, blob) {
   setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 function reportDates(days = 7) {
-  const today = parseDay(todayKey()) || new Date();
-  return Array.from({ length: days }, (_, index) => dayKey(addDays(today, index - (days - 1))));
+  const weekStart = startOfWeek(parseDay(todayKey()) || new Date());
+  return Array.from({ length: days }, (_, index) => dayKey(addDays(weekStart, index)));
 }
 function shortDateLabel(date) {
   const d = new Date(`${date}T12:00:00`);
@@ -2702,9 +2702,9 @@ function weeklyReportData() {
     { label: "Workout days", value: `${workoutDays} / 7`, detail: `${fmt(caloriesBurned)} kcal burned`, marker: "WT" },
     { label: "Meal days", value: `${mealDays} / 7`, detail: `${fmt(allMeals.length)} meals logged`, marker: "ML" },
     { label: "Total calories eaten", value: `${fmt(mealTotals.calories)}`, detail: `${fmtDose(mealTotals.protein, 1)}g protein`, marker: "KC" },
-    { label: "Calories per day", value: `${fmt(macroAverages.calories)} kcal`, detail: "7 day daily average eaten", marker: "AV" },
-    { label: "Macros total", value: `${fmtDose(mealTotals.protein, 1)}P / ${fmtDose(mealTotals.carbs, 1)}C / ${fmtDose(mealTotals.fat, 1)}F`, detail: "Week total grams", marker: "PR" },
-    { label: "Macros per day", value: `${fmtDose(macroAverages.protein, 1)}P / ${fmtDose(macroAverages.carbs, 1)}C / ${fmtDose(macroAverages.fat, 1)}F`, detail: "7 day daily average grams", marker: "MA" },
+    { label: "Calories per day", value: `${fmt(macroAverages.calories)} kcal`, detail: "Monday-Sunday average eaten", marker: "AV" },
+    { label: "Macros total", value: `${fmtDose(mealTotals.protein, 1)}P/${fmtDose(mealTotals.carbs, 1)}C/${fmtDose(mealTotals.fat, 1)}F`, detail: "Week total grams", marker: "PR" },
+    { label: "Macros per day", value: `${fmtDose(macroAverages.protein, 1)}P/${fmtDose(macroAverages.carbs, 1)}C/${fmtDose(macroAverages.fat, 1)}F`, detail: "Monday-Sunday average grams", marker: "MA" },
     { label: "Peptide adherence", value: `${peptideHitDays} / 7`, detail: `${doses.length} dose logs`, marker: "PE" },
     { label: "Peptide total used", value: `${fmtDose(totalMg, 2)}mg`, detail: "From logged doses", marker: "MG" },
     { label: "Weight change", value: weights.length ? `${weightChange >= 0 ? "+" : ""}${fmtWeight(weightChange)}kg` : "No entries", detail: weights.length ? `Light ${fmtWeight(lightest)}kg / heavy ${fmtWeight(heaviest)}kg` : "Add weight in History", marker: "BW" },
@@ -2991,9 +2991,12 @@ function weeklyReportPdfBlob() {
       text(marker, x + 16, topY - 25, 7, true, "5FE1FF");
     }
     const textX = marker ? x + 50 : x + 13;
-    text(label, textX, topY - 18, 7, true, "5FE1FF");
-    wrappedText(value, textX, topY - 38, Math.floor((w - (marker ? 60 : 22)) / 6.2), h >= 70 ? 18 : 12, true, "F7FBFF", h >= 70 ? 1 : 2, 13);
-    wrappedText(detail, textX, bottom + 12, Math.floor((w - (marker ? 60 : 22)) / 5.6), 8, false, "91B7D1", 2, 10);
+    const compact = h < 70;
+    const valueText = pdfSafeText(value);
+    const valueSize = compact && valueText.length > 17 ? 10 : compact ? 12 : 18;
+    text(label, textX, topY - 16, 7, true, "5FE1FF");
+    wrappedText(valueText, textX, compact ? topY - 33 : topY - 38, Math.floor((w - (marker ? 60 : 22)) / 5.4), valueSize, true, "F7FBFF", 1, 12);
+    wrappedText(detail, textX, bottom + 12, Math.floor((w - (marker ? 60 : 22)) / 5.2), 8, false, "91B7D1", h >= 64 ? 2 : compact ? 1 : 2, 10);
   };
   const addPage = (title = "") => {
     page = { stream: "" };
@@ -3023,14 +3026,14 @@ function weeklyReportPdfBlob() {
   y -= 12;
   const averageLabels = new Set(["Calories per day", "Macros per day", "Average weight"]);
   const averageRows = report.statRows.filter((row) => averageLabels.has(row.label));
-  averageRows.forEach((row, index) => metricCard(margin + (index * (heroW + gap)), y, heroW, 58, row.label, row.value, row.detail, row.marker));
-  y -= 78;
+  averageRows.forEach((row, index) => metricCard(margin + (index * (heroW + gap)), y, heroW, 66, row.label, row.value, row.detail, row.marker));
+  y -= 86;
   text("Key Stats", margin, y, 14, true, "5FE1FF");
   y -= 14;
   const skipLabels = new Set(["Weekly Score", ...averageLabels]);
   const stats = report.statRows.filter((row) => !skipLabels.has(row.label));
   const statW = (contentW - gap) / 2;
-  const statH = 50;
+  const statH = 56;
   for (let index = 0; index < stats.length; index += 1) {
     const col = index % 2;
     if (col === 0) ensureSpace(statH + 8, "Weekly Stats");
