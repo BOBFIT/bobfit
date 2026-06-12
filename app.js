@@ -2568,13 +2568,15 @@ function imageFileToDataUrl(file) {
   });
 }
 function downloadText(filename, text, type = "text/plain") {
-  const blob = new Blob([text], { type });
+  downloadBlob(filename, new Blob([text], { type }));
+}
+function downloadBlob(filename, blob) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 function reportDates(days = 7) {
   const today = parseDay(todayKey()) || new Date();
@@ -2664,7 +2666,7 @@ function reportWeeklyScore(activities, weights) {
   const label = score >= 85 ? "Excellent week" : score >= 70 ? "Strong week" : score >= 50 ? "Building week" : "Needs attention";
   return { score, label, parts, summary: `${mealHits}/${days} meal days / ${workoutHits}/${days} plan days / ${peptideHits}/${days} peptide days` };
 }
-function weeklyReportHtml() {
+function weeklyReportData() {
   const dates = reportDates(7);
   const range = `${dateLabel(dates[0])} to ${dateLabel(dates[dates.length - 1])}`;
   const activities = dates.map(reportActivityForDate);
@@ -2678,30 +2680,64 @@ function weeklyReportHtml() {
   const doses = weekDoseLogs(dates);
   const totalMg = doses.reduce((sum, dose) => sum + rawNum(dose.doseMg), 0);
   const weights = weekWeightEntries(dates).sort((a, b) => (a.createdAt || parseDay(a.date)?.getTime?.() || 0) - (b.createdAt || parseDay(b.date)?.getTime?.() || 0));
+  const days = Math.max(1, dates.length);
+  const macroAverages = {
+    calories: mealTotals.calories / days,
+    protein: mealTotals.protein / days,
+    carbs: mealTotals.carbs / days,
+    fat: mealTotals.fat / days,
+  };
   const firstWeight = weights[0];
   const lastWeight = weights[weights.length - 1];
   const weightChange = firstWeight && lastWeight ? weightValue(lastWeight) - weightValue(firstWeight) : 0;
   const lightest = weights.length ? Math.min(...weights.map(weightValue)) : 0;
   const heaviest = weights.length ? Math.max(...weights.map(weightValue)) : 0;
+  const weightAverage = weights.length ? weights.reduce((sum, entry) => sum + weightValue(entry), 0) / weights.length : 0;
   const progressCount = activities.reduce((sum, day) => sum + day.progress.length, 0);
   const weeklyScore = reportWeeklyScore(activities, weights);
   const bestDay = [...activities].sort((a, b) => b.score - a.score)[0];
   const leastDay = [...activities].sort((a, b) => a.score - b.score)[0];
   const statRows = [
-    reportStatRow("Weekly Score", `${weeklyScore.score} / 100`, weeklyScore.summary, "WS"),
-    reportStatRow("Workout days", `${workoutDays} / 7`, `${fmt(caloriesBurned)} kcal burned`, "WT"),
-    reportStatRow("Meal days", `${mealDays} / 7`, `${fmt(allMeals.length)} meals logged`, "ML"),
-    reportStatRow("Total calories eaten", `${fmt(mealTotals.calories)}`, `${fmtDose(mealTotals.protein, 1)}g protein`, "KC"),
-    reportStatRow("Macros", `${fmtDose(mealTotals.protein, 1)}P / ${fmtDose(mealTotals.carbs, 1)}C / ${fmtDose(mealTotals.fat, 1)}F`, "Week total grams", "PR"),
-    reportStatRow("Peptide adherence", `${peptideHitDays} / 7`, `${doses.length} dose logs`, "PE"),
-    reportStatRow("Peptide total used", `${fmtDose(totalMg, 2)}mg`, "From logged doses", "MG"),
-    reportStatRow("Weight change", weights.length ? `${weightChange >= 0 ? "+" : ""}${fmtWeight(weightChange)}kg` : "No entries", weights.length ? `Light ${fmtWeight(lightest)}kg / heavy ${fmtWeight(heaviest)}kg` : "Add weight in History", "BW"),
-    reportStatRow("Body check-ins", `${progressCount}`, "Photos, waist, mood and notes", "CI"),
-  ].join("");
+    { label: "Weekly Score", value: `${weeklyScore.score} / 100`, detail: weeklyScore.summary, marker: "WS" },
+    { label: "Workout days", value: `${workoutDays} / 7`, detail: `${fmt(caloriesBurned)} kcal burned`, marker: "WT" },
+    { label: "Meal days", value: `${mealDays} / 7`, detail: `${fmt(allMeals.length)} meals logged`, marker: "ML" },
+    { label: "Total calories eaten", value: `${fmt(mealTotals.calories)}`, detail: `${fmtDose(mealTotals.protein, 1)}g protein`, marker: "KC" },
+    { label: "Calories per day", value: `${fmt(macroAverages.calories)} kcal`, detail: "7 day daily average eaten", marker: "AV" },
+    { label: "Macros total", value: `${fmtDose(mealTotals.protein, 1)}P / ${fmtDose(mealTotals.carbs, 1)}C / ${fmtDose(mealTotals.fat, 1)}F`, detail: "Week total grams", marker: "PR" },
+    { label: "Macros per day", value: `${fmtDose(macroAverages.protein, 1)}P / ${fmtDose(macroAverages.carbs, 1)}C / ${fmtDose(macroAverages.fat, 1)}F`, detail: "7 day daily average grams", marker: "MA" },
+    { label: "Peptide adherence", value: `${peptideHitDays} / 7`, detail: `${doses.length} dose logs`, marker: "PE" },
+    { label: "Peptide total used", value: `${fmtDose(totalMg, 2)}mg`, detail: "From logged doses", marker: "MG" },
+    { label: "Weight change", value: weights.length ? `${weightChange >= 0 ? "+" : ""}${fmtWeight(weightChange)}kg` : "No entries", detail: weights.length ? `Light ${fmtWeight(lightest)}kg / heavy ${fmtWeight(heaviest)}kg` : "Add weight in History", marker: "BW" },
+    { label: "Average weight", value: weights.length ? `${fmtWeight(weightAverage)}kg` : "No entries", detail: weights.length ? `${weights.length} weigh-in${weights.length === 1 ? "" : "s"} this week` : "Add weight in History", marker: "AW" },
+    { label: "Body check-ins", value: `${progressCount}`, detail: "Photos, waist, mood and notes", marker: "CI" },
+  ];
   const workoutItems = workouts.slice(0, 8).map((workout) => `${escapeHtml(shortDateLabel(workout.date))}: ${escapeHtml(workout.name || workout.planTitle || "Workout")} <span>${fmt(workout.durationMin)} min / ${fmt(workout.caloriesBurned)} kcal</span>`);
   const peptideItems = doses.slice(0, 8).map((dose) => `${escapeHtml(shortDateLabel(dose.date))}: ${escapeHtml(dose.peptideName || compoundName(dose.peptideId))} <span>${fmtDose(dose.doseMg)}mg / ${escapeHtml(timingLabel(dose.timing))}</span>`);
   const checkinItems = activities.flatMap((day) => day.progress.map((entry) => `${escapeHtml(shortDateLabel(day.date))}: ${entry.weightKg ? `${fmtWeight(entry.weightKg)}kg` : "Body check-in"}${entry.waistCm ? ` / ${fmtWeight(entry.waistCm)}cm waist` : ""}${entry.mood ? ` / ${escapeHtml(entry.mood)}` : ""}`)).slice(0, 8);
   const scoreItems = weeklyScore.parts.map((part) => `${escapeHtml(part.label)} <span>${fmt(part.score)}% / ${escapeHtml(part.detail)}</span>`);
+  return {
+    dates,
+    range,
+    activities,
+    workouts,
+    doses,
+    weights,
+    macroAverages,
+    weightAverage,
+    weeklyScore,
+    bestDay,
+    leastDay,
+    statRows,
+    workoutItems,
+    peptideItems,
+    checkinItems,
+    scoreItems,
+  };
+}
+function weeklyReportHtml() {
+  const report = weeklyReportData();
+  const { range, activities, weeklyScore, bestDay, leastDay, workoutItems, peptideItems, checkinItems, scoreItems } = report;
+  const statRows = report.statRows.map((row) => reportStatRow(row.label, row.value, row.detail, row.marker)).join("");
   const dayRows = activities.map((day) => {
     const mealTotal = totals(day.meals);
     const weight = weightEntriesForDate(day.date)[0];
@@ -2811,8 +2847,166 @@ function weeklyReportHtml() {
 </body>
 </html>`;
 }
+function pdfSafeText(value) {
+  return String(value ?? "")
+    .normalize("NFKD")
+    .replace(/[^\x20-\x7E]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+function pdfEscape(value) {
+  return pdfSafeText(value).replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+}
+function pdfWrap(value, limit = 34) {
+  const words = pdfSafeText(value).split(" ").filter(Boolean);
+  const lines = [];
+  let line = "";
+  for (const word of words) {
+    const next = line ? `${line} ${word}` : word;
+    if (next.length > limit && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = next;
+    }
+  }
+  if (line) lines.push(line);
+  return lines.length ? lines : [""];
+}
+function pdfRgb(hex) {
+  const value = String(hex || "000000").replace("#", "");
+  const n = Number.parseInt(value, 16);
+  return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255].map((item) => Number(item.toFixed(4)));
+}
+function pdfByteLength(text) {
+  return new TextEncoder().encode(text).length;
+}
+function createPdfBlob(pageStreams) {
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>",
+  ];
+  const pageIds = [];
+  for (const stream of pageStreams) {
+    const pageId = objects.length + 1;
+    const contentId = objects.length + 2;
+    pageIds.push(pageId);
+    objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${contentId} 0 R >>`);
+    objects.push(`<< /Length ${pdfByteLength(stream)} >>\nstream\n${stream}endstream`);
+  }
+  objects[1] = `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageIds.length} >>`;
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((object, index) => {
+    offsets[index + 1] = pdfByteLength(pdf);
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xrefAt = pdfByteLength(pdf);
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (let index = 1; index <= objects.length; index += 1) {
+    pdf += `${String(offsets[index]).padStart(10, "0")} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefAt}\n%%EOF`;
+  return new Blob([pdf], { type: "application/pdf" });
+}
+function weeklyReportPdfBlob() {
+  const report = weeklyReportData();
+  const width = 595;
+  const height = 842;
+  const margin = 42;
+  const pages = [];
+  let page = null;
+  let y = 0;
+  const fill = (hex) => `${pdfRgb(hex).join(" ")} rg`;
+  const stroke = (hex) => `${pdfRgb(hex).join(" ")} RG`;
+  const write = (cmd) => { page.stream += cmd; };
+  const rect = (x, yPos, w, h, color) => write(`q ${fill(color)} ${x} ${yPos} ${w} ${h} re f Q\n`);
+  const line = (x1, y1, x2, y2, color = "164263") => write(`q ${stroke(color)} 1 w ${x1} ${y1} m ${x2} ${y2} l S Q\n`);
+  const text = (value, x, yPos, size = 10, bold = false, color = "F7FBFF") => {
+    write(`q ${fill(color)} BT /${bold ? "F2" : "F1"} ${size} Tf ${x} ${yPos} Td (${pdfEscape(value)}) Tj ET Q\n`);
+  };
+  const wrappedText = (value, x, yPos, maxChars, size = 9, bold = false, color = "91B7D1", maxLines = 2, leading = 11) => {
+    pdfWrap(value, maxChars).slice(0, maxLines).forEach((item, index) => text(item, x, yPos - (index * leading), size, bold, color));
+  };
+  const addPage = (title = "") => {
+    page = { stream: "" };
+    pages.push(page);
+    rect(0, 0, width, height, "05172C");
+    rect(0, height - 74, width, 74, "071F36");
+    rect(margin, height - 54, 28, 28, "13A8F5");
+    text("JT", margin + 6, height - 35, 13, true);
+    text("Julius Trainer", margin + 40, height - 32, 9, true, "5FE1FF");
+    text(title || "Weekly Report", margin + 40, height - 52, 18, true);
+    text(report.range, width - margin - 146, height - 36, 9, false, "91B7D1");
+    y = height - 104;
+  };
+  const ensureSpace = (space, title = "Weekly Stats") => {
+    if (y - space < 48) addPage(title);
+  };
+  const drawCallout = (x, w, label, value, detail, big = false) => {
+    rect(x, height - 196, w, 82, big ? "0B5D91" : "0D2C49");
+    text(label, x + 14, height - 137, 8, true, "5FE1FF");
+    text(value, x + 14, height - 164, big ? 30 : 17, true);
+    wrappedText(detail, x + 14, height - 181, Math.max(18, Math.floor(w / 5.8)), 8, false, "91B7D1", 1);
+  };
+  addPage("Weekly Report");
+  rect(0, height - 120, width, 46, "075184");
+  text("Weekly Report", margin, height - 92, 24, true);
+  text(report.range, margin, height - 110, 10, false, "C7E8FA");
+  text(`Generated ${shortDateLabel(todayKey())}`, width - margin - 126, height - 96, 9, false, "C7E8FA");
+  drawCallout(margin, 154, "Weekly Score", `${report.weeklyScore.score}/100`, `${report.weeklyScore.label} / ${report.weeklyScore.summary}`, true);
+  drawCallout(margin + 164, 154, "Most Complete", shortDateLabel(report.bestDay?.date), `${report.bestDay?.score || 0} of 4 markers hit`);
+  drawCallout(margin + 328, 154, "Least Complete", shortDateLabel(report.leastDay?.date), `${report.leastDay?.score || 0} of 4 markers hit`);
+  y = height - 230;
+  text("Weekly Stats", margin, y, 15, true, "5FE1FF");
+  y -= 18;
+  for (const row of report.statRows) {
+    ensureSpace(48, "Weekly Stats");
+    const rowY = y - 38;
+    rect(margin, rowY, width - (margin * 2), 38, "0D2C49");
+    rect(margin + 8, rowY + 8, 28, 22, "092742");
+    text(row.marker, margin + 13, rowY + 15, 8, true, "5FE1FF");
+    text(row.label, margin + 48, rowY + 24, 7, true, "5FE1FF");
+    text(row.value, margin + 48, rowY + 9, 13, true);
+    wrappedText(row.detail, width - margin - 155, rowY + 23, 30, 8, false, "91B7D1", 2, 10);
+    y -= 46;
+  }
+  addPage("Daily Breakdown");
+  text("Daily Breakdown", margin, y, 15, true, "5FE1FF");
+  y -= 22;
+  const cols = [
+    { label: "Day", x: margin, w: 70 },
+    { label: "Meals", x: margin + 78, w: 150 },
+    { label: "Workout", x: margin + 236, w: 106 },
+    { label: "Peptides", x: margin + 350, w: 92 },
+    { label: "Weight", x: margin + 450, w: 62 },
+  ];
+  rect(margin, y - 20, width - (margin * 2), 24, "0D2C49");
+  cols.forEach((col) => text(col.label, col.x, y - 12, 8, true, "5FE1FF"));
+  y -= 32;
+  for (const day of report.activities) {
+    ensureSpace(66, "Daily Breakdown");
+    const rowY = y - 54;
+    const mealTotal = totals(day.meals);
+    const weight = weightEntriesForDate(day.date)[0];
+    const workoutText = day.workouts.length ? day.workouts.map((workout) => workout.name || workout.planTitle || "Workout").join(", ") : day.adherence.workout === "rest" ? "Rest day" : "None";
+    const doseText = day.doses.length ? day.doses.map((dose) => `${dose.peptideName || compoundName(dose.peptideId)} ${fmtDose(dose.doseMg)}mg`).join(", ") : "None";
+    const mealText = day.meals.length ? `${day.meals.length} meals / ${fmt(mealTotal.calories)} kcal / ${fmtDose(mealTotal.protein, 1)}g P` : "No meals";
+    rect(margin, rowY, width - (margin * 2), 54, "071F36");
+    text(shortDateLabel(day.date), cols[0].x, rowY + 34, 10, true);
+    wrappedText(mealText, cols[1].x, rowY + 36, 25, 8, false, "D9F1FF", 3, 10);
+    wrappedText(workoutText, cols[2].x, rowY + 36, 18, 8, false, "D9F1FF", 3, 10);
+    wrappedText(doseText, cols[3].x, rowY + 36, 16, 8, false, "D9F1FF", 3, 10);
+    text(weight ? `${fmtWeight(weight.weightKg || weight.weight)}kg` : "-", cols[4].x, rowY + 34, 9, true, weight ? "F7FBFF" : "91B7D1");
+    line(margin, rowY, width - margin, rowY, "164263");
+    y -= 62;
+  }
+  return createPdfBlob(pages.map((item) => item.stream));
+}
 function exportWeeklyReport() {
-  downloadText(`${BACKUP_PREFIX}-weekly-report-${todayKey()}.html`, weeklyReportHtml(), "text/html");
+  downloadBlob(`${BACKUP_PREFIX}-weekly-report-${todayKey()}.pdf`, weeklyReportPdfBlob());
 }
 
 function bind() {
