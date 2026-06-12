@@ -201,6 +201,7 @@ let saveFeedbackReady = false;
 let saveFeedbackTimer = 0;
 let lastSaveTrigger = null;
 let lastSaveTriggerAt = 0;
+const tabCloseTimers = new WeakMap();
 const openExerciseCards = new Set();
 let motraImportPreview = [];
 let motraImportSourceName = "";
@@ -1007,12 +1008,26 @@ function showSaveFeedback() {
 }
 function flashOpenTab(panel) {
   if (!panel?.matches?.("details")) return;
+  clearTimeout(tabCloseTimers.get(panel));
+  tabCloseTimers.delete(panel);
+  panel.classList.remove("tab-closing");
   panel.classList.remove("tab-open-pulse");
   void panel.offsetWidth;
   panel.classList.add("tab-open-pulse");
   setTimeout(() => {
     if (panel.isConnected) panel.classList.remove("tab-open-pulse");
-  }, 1200);
+  }, 1500);
+}
+function closeTabSmooth(panel) {
+  if (!panel?.matches?.("details") || !panel.open || panel.classList.contains("tab-closing")) return;
+  panel.classList.remove("tab-open-pulse");
+  panel.classList.add("tab-closing");
+  clearTimeout(tabCloseTimers.get(panel));
+  tabCloseTimers.set(panel, setTimeout(() => {
+    panel.open = false;
+    panel.classList.remove("tab-closing");
+    tabCloseTimers.delete(panel);
+  }, 520));
 }
 function save(options = {}) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch {}
@@ -3212,6 +3227,14 @@ function bind() {
     lastSaveTriggerAt = Date.now();
   }, true);
   document.addEventListener("click", (event) => {
+    const summary = event.target.closest?.("summary");
+    const panel = summary?.parentElement;
+    if (!panel?.matches?.("details") || !panel.open) return;
+    event.preventDefault();
+    if (panel.classList.contains("tab-closing")) return;
+    closeTabSmooth(panel);
+  }, true);
+  document.addEventListener("click", (event) => {
     const button = event.target.closest("button");
     if (!button) return;
     if (button.dataset.seeMorePanels !== undefined) {
@@ -3429,7 +3452,7 @@ function bind() {
       if (!id) return;
       if (card.open) {
         document.querySelectorAll(".exercise-log[open]").forEach((other) => {
-          if (other !== card) other.open = false;
+          if (other !== card) closeTabSmooth(other);
         });
         setOpenExerciseCard(id);
       } else {
@@ -3440,21 +3463,21 @@ function bind() {
     const todayCard = event.target.closest?.(".today-exercise-card");
     if (todayCard?.open) {
       document.querySelectorAll(".today-exercise-card[open]").forEach((other) => {
-        if (other !== todayCard) other.open = false;
+        if (other !== todayCard) closeTabSmooth(other);
       });
       return;
     }
     const prCard = event.target.closest?.(".pr-accordion");
     if (prCard?.open) {
       document.querySelectorAll(".pr-accordion[open]").forEach((other) => {
-        if (other !== prCard) other.open = false;
+        if (other !== prCard) closeTabSmooth(other);
       });
       return;
     }
     const scoreCard = event.target.closest?.(".score-detail-card");
     if (scoreCard?.open) {
       document.querySelectorAll(".score-detail-card[open]").forEach((other) => {
-        if (other !== scoreCard) other.open = false;
+        if (other !== scoreCard) closeTabSmooth(other);
       });
     }
   }, true);
