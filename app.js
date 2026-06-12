@@ -1016,7 +1016,7 @@ function flashOpenTab(panel) {
   panel.classList.add("tab-open-pulse");
   setTimeout(() => {
     if (panel.isConnected) panel.classList.remove("tab-open-pulse");
-  }, 1500);
+  }, 1950);
 }
 function closeTabSmooth(panel) {
   if (!panel?.matches?.("details") || !panel.open || panel.classList.contains("tab-closing")) return;
