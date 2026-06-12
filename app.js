@@ -212,6 +212,7 @@ const todayKey = () => dayKey(new Date());
 const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const clamp = (value, min = 0, max = 100) => Math.min(max, Math.max(min, Number(value) || 0));
 let state = defaults();
+let startupDetailsCollapsed = false;
 
 function ex(name, notes, targets = []) {
   const displayName = motraExerciseName(name);
@@ -1007,6 +1008,13 @@ function render() {
   renderMotraImportList();
   renderMotraPreview();
   renderPanelLimit();
+  collapseStartupDetails();
+}
+function collapseStartupDetails() {
+  if (startupDetailsCollapsed) return;
+  document.querySelectorAll("details[open]").forEach((detail) => { detail.open = false; });
+  openExerciseCards.clear();
+  startupDetailsCollapsed = true;
 }
 function renderHeader() {
   $("#date-label").textContent = new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" }).toUpperCase();
