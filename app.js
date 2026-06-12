@@ -2915,7 +2915,8 @@ function weeklyReportPdfBlob() {
   const report = weeklyReportData();
   const width = 595;
   const height = 842;
-  const margin = 42;
+  const margin = 36;
+  const gap = 10;
   const pages = [];
   let page = null;
   let y = 0;
@@ -2923,6 +2924,16 @@ function weeklyReportPdfBlob() {
   const stroke = (hex) => `${pdfRgb(hex).join(" ")} RG`;
   const write = (cmd) => { page.stream += cmd; };
   const rect = (x, yPos, w, h, color) => write(`q ${fill(color)} ${x} ${yPos} ${w} ${h} re f Q\n`);
+  const roundRect = (x, yPos, w, h, r, color) => {
+    const k = 0.5522847498;
+    const c = r * k;
+    write(`q ${fill(color)} ${x + r} ${yPos} m ${x + w - r} ${yPos} l ${x + w - r + c} ${yPos} ${x + w} ${yPos + r - c} ${x + w} ${yPos + r} c ${x + w} ${yPos + h - r} l ${x + w} ${yPos + h - r + c} ${x + w - r + c} ${yPos + h} ${x + w - r} ${yPos + h} c ${x + r} ${yPos + h} l ${x + r - c} ${yPos + h} ${x} ${yPos + h - r + c} ${x} ${yPos + h - r} c ${x} ${yPos + r} l ${x} ${yPos + r - c} ${x + r - c} ${yPos} ${x + r} ${yPos} c f Q\n`);
+  };
+  const circle = (cx, cy, r, color) => {
+    const k = 0.5522847498;
+    const c = r * k;
+    write(`q ${fill(color)} ${cx + r} ${cy} m ${cx + r} ${cy + c} ${cx + c} ${cy + r} ${cx} ${cy + r} c ${cx - c} ${cy + r} ${cx - r} ${cy + c} ${cx - r} ${cy} c ${cx - r} ${cy - c} ${cx - c} ${cy - r} ${cx} ${cy - r} c ${cx + c} ${cy - r} ${cx + r} ${cy - c} ${cx + r} ${cy} c f Q\n`);
+  };
   const line = (x1, y1, x2, y2, color = "164263") => write(`q ${stroke(color)} 1 w ${x1} ${y1} m ${x2} ${y2} l S Q\n`);
   const text = (value, x, yPos, size = 10, bold = false, color = "F7FBFF") => {
     write(`q ${fill(color)} BT /${bold ? "F2" : "F1"} ${size} Tf ${x} ${yPos} Td (${pdfEscape(value)}) Tj ET Q\n`);
@@ -2930,48 +2941,101 @@ function weeklyReportPdfBlob() {
   const wrappedText = (value, x, yPos, maxChars, size = 9, bold = false, color = "91B7D1", maxLines = 2, leading = 11) => {
     pdfWrap(value, maxChars).slice(0, maxLines).forEach((item, index) => text(item, x, yPos - (index * leading), size, bold, color));
   };
+  const logoPath = (x, yPos, size, ops, color) => {
+    const s = (value) => (value / 1024) * size;
+    const point = (px, py) => `${x + s(px)} ${yPos + size - s(py)}`;
+    let d = "";
+    for (const op of ops) {
+      if (op[0] === "M") d += `${point(op[1], op[2])} m `;
+      if (op[0] === "L") d += `${point(op[1], op[2])} l `;
+      if (op[0] === "C") d += `${point(op[1], op[2])} ${point(op[3], op[4])} ${point(op[5], op[6])} c `;
+      if (op[0] === "Z") d += "h ";
+    }
+    write(`q ${fill(color)} ${d}f Q\n`);
+  };
+  const drawLogo = (x, yPos, size) => {
+    const s = (value) => (value / 1024) * size;
+    roundRect(x, yPos, size, size, s(224), "075184");
+    circle(x + s(760), yPos + size - s(208), s(210), "0A7EBD");
+    circle(x + s(236), yPos + size - s(820), s(250), "0AA7F2");
+    roundRect(x + s(214), yPos + size - s(326), s(596), s(58), s(29), "F7FBFF");
+    roundRect(x + s(158), yPos + size - s(356), s(48), s(118), s(24), "74D8DD");
+    roundRect(x + s(818), yPos + size - s(356), s(48), s(118), s(24), "74D8DD");
+    roundRect(x + s(118), yPos + size - s(336), s(36), s(78), s(18), "D9F1FF");
+    roundRect(x + s(870), yPos + size - s(336), s(36), s(78), s(18), "D9F1FF");
+    logoPath(x, yPos, size, [
+      ["M", 336, 390], ["L", 444, 390], ["L", 444, 634],
+      ["C", 444, 713, 388, 766, 305, 766],
+      ["C", 252, 766, 207, 747, 173, 710],
+      ["L", 237, 634],
+      ["C", 256, 654, 277, 664, 299, 664],
+      ["C", 323, 664, 336, 649, 336, 621],
+      ["L", 336, 390], ["Z"],
+    ], "EAF8FF");
+    logoPath(x, yPos, size, [
+      ["M", 512, 390], ["L", 842, 390], ["L", 842, 486], ["L", 730, 486],
+      ["L", 730, 766], ["L", 622, 766], ["L", 622, 486], ["L", 512, 486], ["Z"],
+    ], "FFFFFF");
+    logoPath(x, yPos, size, [
+      ["M", 456, 704], ["L", 564, 704], ["L", 528, 792], ["L", 420, 792], ["L", 456, 704], ["Z"],
+    ], "74D8DD");
+  };
+  const card = (x, topY, w, h, color = "0D2C49") => {
+    roundRect(x, topY - h, w, h, 12, color);
+    return topY - h;
+  };
+  const metricCard = (x, topY, w, h, label, value, detail, marker = "", color = "0D2C49") => {
+    const bottom = card(x, topY, w, h, color);
+    if (marker) {
+      roundRect(x + 10, topY - 34, 30, 24, 7, "092742");
+      text(marker, x + 16, topY - 25, 7, true, "5FE1FF");
+    }
+    const textX = marker ? x + 50 : x + 13;
+    text(label, textX, topY - 18, 7, true, "5FE1FF");
+    wrappedText(value, textX, topY - 38, Math.floor((w - (marker ? 60 : 22)) / 6.2), h >= 70 ? 18 : 12, true, "F7FBFF", h >= 70 ? 1 : 2, 13);
+    wrappedText(detail, textX, bottom + 12, Math.floor((w - (marker ? 60 : 22)) / 5.6), 8, false, "91B7D1", 2, 10);
+  };
   const addPage = (title = "") => {
     page = { stream: "" };
     pages.push(page);
     rect(0, 0, width, height, "05172C");
-    rect(0, height - 74, width, 74, "071F36");
-    rect(margin, height - 54, 28, 28, "13A8F5");
-    text("JT", margin + 6, height - 35, 13, true);
-    text("Julius Trainer", margin + 40, height - 32, 9, true, "5FE1FF");
-    text(title || "Weekly Report", margin + 40, height - 52, 18, true);
-    text(report.range, width - margin - 146, height - 36, 9, false, "91B7D1");
+    rect(0, height - 76, width, 76, "071F36");
+    drawLogo(margin, height - 58, 40);
+    text("Julius Trainer", margin + 52, height - 33, 8, true, "5FE1FF");
+    text(title || "Weekly Report", margin + 52, height - 54, 18, true);
+    text(report.range, width - margin - 146, height - 39, 9, false, "C7E8FA");
     y = height - 104;
   };
   const ensureSpace = (space, title = "Weekly Stats") => {
     if (y - space < 48) addPage(title);
   };
-  const drawCallout = (x, w, label, value, detail, big = false) => {
-    rect(x, height - 196, w, 82, big ? "0B5D91" : "0D2C49");
-    text(label, x + 14, height - 137, 8, true, "5FE1FF");
-    text(value, x + 14, height - 164, big ? 30 : 17, true);
-    wrappedText(detail, x + 14, height - 181, Math.max(18, Math.floor(w / 5.8)), 8, false, "91B7D1", 1);
-  };
   addPage("Weekly Report");
-  rect(0, height - 120, width, 46, "075184");
-  text("Weekly Report", margin, height - 92, 24, true);
-  text(report.range, margin, height - 110, 10, false, "C7E8FA");
-  text(`Generated ${shortDateLabel(todayKey())}`, width - margin - 126, height - 96, 9, false, "C7E8FA");
-  drawCallout(margin, 154, "Weekly Score", `${report.weeklyScore.score}/100`, `${report.weeklyScore.label} / ${report.weeklyScore.summary}`, true);
-  drawCallout(margin + 164, 154, "Most Complete", shortDateLabel(report.bestDay?.date), `${report.bestDay?.score || 0} of 4 markers hit`);
-  drawCallout(margin + 328, 154, "Least Complete", shortDateLabel(report.leastDay?.date), `${report.leastDay?.score || 0} of 4 markers hit`);
-  y = height - 230;
-  text("Weekly Stats", margin, y, 15, true, "5FE1FF");
-  y -= 18;
-  for (const row of report.statRows) {
-    ensureSpace(48, "Weekly Stats");
-    const rowY = y - 38;
-    rect(margin, rowY, width - (margin * 2), 38, "0D2C49");
-    rect(margin + 8, rowY + 8, 28, 22, "092742");
-    text(row.marker, margin + 13, rowY + 15, 8, true, "5FE1FF");
-    text(row.label, margin + 48, rowY + 24, 7, true, "5FE1FF");
-    text(row.value, margin + 48, rowY + 9, 13, true);
-    wrappedText(row.detail, width - margin - 155, rowY + 23, 30, 8, false, "91B7D1", 2, 10);
-    y -= 46;
+  text("Weekly Overview", margin, y, 23, true, "F7FBFF");
+  text(`Generated ${shortDateLabel(todayKey())}`, width - margin - 128, y + 3, 8, false, "91B7D1");
+  y -= 24;
+  const contentW = width - (margin * 2);
+  const heroW = (contentW - (gap * 2)) / 3;
+  metricCard(margin, y, heroW, 74, "Weekly Score", `${report.weeklyScore.score}/100`, `${report.weeklyScore.label} / ${report.weeklyScore.summary}`, "", "0B5D91");
+  metricCard(margin + heroW + gap, y, heroW, 74, "Most Complete", shortDateLabel(report.bestDay?.date), `${report.bestDay?.score || 0} of 4 markers hit`);
+  metricCard(margin + ((heroW + gap) * 2), y, heroW, 74, "Least Complete", shortDateLabel(report.leastDay?.date), `${report.leastDay?.score || 0} of 4 markers hit`);
+  y -= 92;
+  text("Weekly Averages", margin, y, 14, true, "5FE1FF");
+  y -= 12;
+  const averageLabels = new Set(["Calories per day", "Macros per day", "Average weight"]);
+  const averageRows = report.statRows.filter((row) => averageLabels.has(row.label));
+  averageRows.forEach((row, index) => metricCard(margin + (index * (heroW + gap)), y, heroW, 58, row.label, row.value, row.detail, row.marker));
+  y -= 78;
+  text("Key Stats", margin, y, 14, true, "5FE1FF");
+  y -= 14;
+  const skipLabels = new Set(["Weekly Score", ...averageLabels]);
+  const stats = report.statRows.filter((row) => !skipLabels.has(row.label));
+  const statW = (contentW - gap) / 2;
+  const statH = 50;
+  for (let index = 0; index < stats.length; index += 1) {
+    const col = index % 2;
+    if (col === 0) ensureSpace(statH + 8, "Weekly Stats");
+    metricCard(margin + (col * (statW + gap)), y, statW, statH, stats[index].label, stats[index].value, stats[index].detail, stats[index].marker);
+    if (col === 1) y -= statH + 8;
   }
   addPage("Daily Breakdown");
   text("Daily Breakdown", margin, y, 15, true, "5FE1FF");
@@ -3003,6 +3067,9 @@ function weeklyReportPdfBlob() {
     line(margin, rowY, width - margin, rowY, "164263");
     y -= 62;
   }
+  pages.forEach((item, index) => {
+    item.stream += `q ${fill("91B7D1")} BT /F1 8 Tf ${width - margin - 24} 24 Td (${index + 1}/${pages.length}) Tj ET Q\n`;
+  });
   return createPdfBlob(pages.map((item) => item.stream));
 }
 function exportWeeklyReport() {
