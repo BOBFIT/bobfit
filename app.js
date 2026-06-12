@@ -996,17 +996,23 @@ function flashSaved(button) {
 }
 function showSaveFeedback() {
   if (!saveFeedbackReady) return;
-  const backupButton = $("#backup-now");
   const trigger = lastSaveTrigger?.isConnected && Date.now() - lastSaveTriggerAt < 3000 ? lastSaveTrigger : null;
-  flashSaved(backupButton);
-  if (trigger && trigger !== backupButton) flashSaved(trigger);
+  if (trigger) flashSaved(trigger);
   clearTimeout(saveFeedbackTimer);
   saveFeedbackTimer = setTimeout(() => {
-    backupButton?.classList.remove("saved-pulse");
     trigger?.classList.remove("saved-pulse");
   }, 1250);
   lastSaveTrigger = null;
   lastSaveTriggerAt = 0;
+}
+function flashOpenTab(panel) {
+  if (!panel?.classList?.contains("drop-panel")) return;
+  panel.classList.remove("tab-open-pulse");
+  void panel.offsetWidth;
+  panel.classList.add("tab-open-pulse");
+  setTimeout(() => {
+    if (panel.isConnected) panel.classList.remove("tab-open-pulse");
+  }, 1200);
 }
 function save(options = {}) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch {}
@@ -1522,7 +1528,8 @@ function renderWorkoutEditor() {
       const previous = latestExerciseSets(log.name, draft.startedAt);
       const progress = exerciseLogStatus(log);
       const isOpen = openExerciseCards.has(String(log.exerciseId));
-      return `<details class="exercise-log status-${escapeHtml(progress.status)}" data-exercise-id="${escapeHtml(log.exerciseId)}"${isOpen ? " open" : ""}>
+      const startedClass = isOpen && progress.status !== "complete" ? " is-started" : "";
+      return `<details class="exercise-log status-${escapeHtml(progress.status)}${startedClass}" data-exercise-id="${escapeHtml(log.exerciseId)}"${isOpen ? " open" : ""}>
         <summary class="exercise-summary">
           <span>
             <strong>${escapeHtml(log.name)}</strong>
@@ -3413,6 +3420,9 @@ function bind() {
     }
   });
   document.addEventListener("toggle", (event) => {
+    if (event.target?.matches?.(".drop-panel") && event.target.open) {
+      flashOpenTab(event.target);
+    }
     const card = event.target.closest?.(".exercise-log");
     if (card) {
       const id = String(card.dataset.exerciseId || "");
@@ -3599,7 +3609,10 @@ function bind() {
     save(); render();
   });
   $("#backup-button").addEventListener("click", exportBackup);
-  $("#backup-now").addEventListener("click", exportBackup);
+  $("#backup-now").addEventListener("click", (event) => {
+    flashSaved(event.currentTarget);
+    exportBackup();
+  });
   $("#weekly-report-button").addEventListener("click", exportWeeklyReport);
   $("#import-button").addEventListener("click", () => { setImportStatus(""); $("#import-file").click(); });
   $("#motra-import-button").addEventListener("click", importMotraPreview);
