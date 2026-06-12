@@ -991,17 +991,34 @@ async function load() {
 }
 function flashSaved(button) {
   if (!button) return;
+  button.classList.remove("delete-pulse");
   button.classList.remove("saved-pulse");
   void button.offsetWidth;
   button.classList.add("saved-pulse");
 }
+function flashDeleted(button) {
+  if (!button) return;
+  button.classList.remove("saved-pulse");
+  button.classList.remove("delete-pulse");
+  void button.offsetWidth;
+  button.classList.add("delete-pulse");
+}
+function isDeleteButton(button) {
+  if (!button) return false;
+  if (button.classList?.contains("danger-button")) return true;
+  return Object.keys(button.dataset || {}).some((key) => key.toLowerCase().startsWith("delete"));
+}
 function showSaveFeedback() {
   if (!saveFeedbackReady) return;
   const trigger = lastSaveTrigger?.isConnected && Date.now() - lastSaveTriggerAt < 3000 ? lastSaveTrigger : null;
-  if (trigger) flashSaved(trigger);
+  if (trigger) {
+    if (isDeleteButton(trigger)) flashDeleted(trigger);
+    else flashSaved(trigger);
+  }
   clearTimeout(saveFeedbackTimer);
   saveFeedbackTimer = setTimeout(() => {
     trigger?.classList.remove("saved-pulse");
+    trigger?.classList.remove("delete-pulse");
   }, 1250);
   lastSaveTrigger = null;
   lastSaveTriggerAt = 0;
@@ -3221,6 +3238,19 @@ function bind() {
       lastSaveTrigger = button;
       lastSaveTriggerAt = Date.now();
     }
+  }, true);
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest?.("button");
+    if (!isDeleteButton(button) || button.dataset.deletePulseDone === "true") return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    flashDeleted(button);
+    setTimeout(() => {
+      if (!button.isConnected) return;
+      button.dataset.deletePulseDone = "true";
+      button.click();
+      delete button.dataset.deletePulseDone;
+    }, 260);
   }, true);
   document.addEventListener("submit", (event) => {
     lastSaveTrigger = event.submitter || event.target.querySelector?.('button[type="submit"]') || lastSaveTrigger;

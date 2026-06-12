@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "julius-trainer-website-v68";
+const CACHE_NAME = "julius-trainer-website-v69";
 const ASSETS = [
   "./",
   "./index.html",
