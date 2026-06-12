@@ -77,11 +77,11 @@ button { cursor: pointer; }
   padding: 0;
 }
 .tab-open-pulse {
-  border-color: rgba(95, 225, 255, 0.55);
-  box-shadow: var(--soft-shadow), 0 0 30px rgba(19, 168, 245, 0.42);
+  border-color: rgba(95, 225, 255, 0.82) !important;
+  animation: savedButtonPulse 1.15s ease-out;
 }
 .drop-panel.tab-open-pulse {
-  box-shadow: var(--shadow), 0 0 32px rgba(19, 168, 245, 0.42);
+  animation: savedButtonPulse 1.15s ease-out;
 }
 .drop-summary {
   position: relative;
@@ -100,17 +100,11 @@ button { cursor: pointer; }
   overflow: hidden;
 }
 .tab-open-pulse > summary {
-  animation: openTabBlueGlow 1.85s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: savedButtonPulse 1.15s ease-out;
 }
 .tab-open-pulse > summary::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    linear-gradient(115deg, transparent 6%, rgba(95, 225, 255, 0.28) 44%, rgba(19, 168, 245, 0.32) 58%, transparent 88%),
-    radial-gradient(circle at 18% 20%, rgba(95, 225, 255, 0.24), transparent 44%);
-  animation: openTabBlueWash 1.85s cubic-bezier(0.22, 1, 0.36, 1);
+  display: none;
+  content: none;
 }
 .tab-open-pulse > summary > * {
   position: relative;
@@ -130,16 +124,6 @@ button { cursor: pointer; }
   box-shadow: inset 0 0 0 1px rgba(19, 168, 245, 0.16);
 }
 .drop-panel[open] .drop-summary::after { content: "-"; }
-@keyframes openTabBlueGlow {
-  0% { background: rgba(19, 168, 245, 0); filter: brightness(1); }
-  40% { background: rgba(19, 168, 245, 0.18); filter: brightness(1.12); }
-  100% { background: rgba(19, 168, 245, 0); filter: brightness(1); }
-}
-@keyframes openTabBlueWash {
-  0% { opacity: 0; transform: translateX(-10%); }
-  45% { opacity: 0.7; transform: translateX(0); }
-  100% { opacity: 0; transform: translateX(10%); }
-}
 @keyframes tabSlideDown {
   0% {
     opacity: 0;
