@@ -1402,14 +1402,6 @@ input:focus, select:focus, textarea:focus {
   font-size: 15px;
   line-height: 1.2;
 }
-.file-input-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  opacity: 0;
-  pointer-events: none;
-}
 .file-import-card input {
   margin-top: 8px;
   border-color: rgba(95, 225, 255, 0.14);

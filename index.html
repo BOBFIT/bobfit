@@ -398,24 +398,16 @@
       <section id="view-settings" class="view" data-title="Settings">
         <details id="motra-import-panel" class="panel drop-panel">
           <summary class="drop-summary">
-            <span><strong>Motra Workout Import</strong><small>Samsung upload from My Files, CSV, Excel or copied rows</small></span>
+            <span><strong>Motra Workout Import</strong><small>Import from Excel, CSV, text or readable PDF</small></span>
             <span class="drop-pill">Motra</span>
           </summary>
           <div class="drop-body">
-            <div class="wide file-import-card">
-              <strong>Upload Motra document</strong>
-              <button id="motra-file-button" class="secondary wide-button" type="button">Open Samsung document picker</button>
-              <input id="motra-file" class="file-input-hidden" type="file" accept=".xlsx,.xls,.csv,.tsv,.txt,.pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,text/tab-separated-values,text/plain,application/pdf,application/octet-stream" />
+            <label class="wide file-import-card">Choose Motra file
+              <input id="motra-file" type="file" accept=".xlsx,.xls,.csv,.tsv,.txt,.pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv,text/tab-separated-values,text/plain,application/pdf,application/octet-stream" />
               <span>Choose from My Files, Downloads, Documents or WhatsApp. Supported documents: .xlsx, .csv, .tsv, .txt and readable .pdf files.</span>
-            </div>
-            <div class="formula-note">Samsung tip: if the picker opens Gallery or Photos, tap the menu/back option and choose My Files, Downloads or Documents.</div>
-            <label class="wide import-paste">Paste Motra rows
-              <textarea id="motra-import-text" rows="6" placeholder="Paste rows copied from Excel, Google Sheets or Samsung Extract text from a screenshot."></textarea>
             </label>
-            <div class="quick-grid">
-              <button id="motra-preview-button" class="secondary" type="button">Preview pasted data</button>
-              <button id="motra-import-button" class="primary" type="button">Import preview</button>
-            </div>
+            <div class="formula-note">Samsung tip: if the picker opens Gallery or Photos, tap the menu/back option and choose My Files, Downloads or Documents.</div>
+            <button id="motra-import-button" class="primary wide-button" type="button">Import preview</button>
             <div id="motra-import-status" class="import-status" role="status"></div>
             <div id="motra-preview-list" class="history-list"></div>
           </div>

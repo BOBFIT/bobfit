@@ -2342,13 +2342,13 @@ function parseFlattenedMotraWorkouts(text) {
 }
 function motraWorkoutsFromText(text) {
   const clean = String(text || "").trim();
-  if (!clean) throw new Error("Paste Motra rows into the Motra box first, then tap Preview pasted data.");
+  if (!clean) throw new Error("The selected Motra file did not contain readable workout text.");
   const rows = parseMotraTextRows(clean);
   const workouts = parseMotraRows(rows);
   if (workouts.length) return workouts;
   const flattened = parseFlattenedMotraWorkouts(clean);
   if (flattened.length) return flattened;
-  throw new Error(`No Motra workouts found in the pasted text. I read ${rows.length} rows, but could not find Workout Start and All Sets together.`);
+  throw new Error(`No Motra workouts found in this file. I read ${rows.length} rows, but could not find Workout Start and All Sets together.`);
 }
 function cleanCell(value) {
   return String(value ?? "").trim();
@@ -2543,7 +2543,7 @@ async function pdfTextFromFile(file) {
     if (inflated) parts.push(extractPdfTextOperators(inflated));
   }
   const text = parts.join("\n").replace(/\s+\n/g, "\n").trim();
-  if (!text) throw new Error("This PDF did not contain readable Motra text. On Samsung, open the PDF or screenshot, use Extract text, then paste the rows into the Motra box.");
+  if (!text) throw new Error("This PDF did not contain readable Motra text. Export from Motra as Excel, CSV, TSV or TXT, then choose that file here.");
   return text;
 }
 async function motraWorkoutsFromFile(file) {
@@ -2555,7 +2555,7 @@ async function motraWorkoutsFromFile(file) {
     : name.endsWith(".pdf") || type.includes("pdf")
     ? motraWorkoutsFromText(await pdfTextFromFile(file))
     : motraWorkoutsFromText(await file.text());
-  if (!workouts.length) throw new Error("No Motra workout rows were found. On Samsung, try saving the export into My Files, or use Extract text and paste the full sheet including Workout Start and All Sets.");
+  if (!workouts.length) throw new Error("No Motra workout rows were found. On Samsung, try saving the Motra export into My Files as Excel, CSV, TSV or TXT.");
   return workouts;
 }
 function renderMotraPreview() {
@@ -2572,7 +2572,7 @@ function existingMotraKeys() {
 function importMotraPreview() {
   if (!motraImportPreview.length) { alert("Preview Motra data first."); return; }
   const batchId = `motra-${Date.now()}`;
-  const sourceName = motraImportSourceName || "Pasted Motra rows";
+  const sourceName = motraImportSourceName || "Motra file upload";
   const existing = existingMotraKeys();
   let added = 0;
   let skipped = 0;
@@ -3566,21 +3566,6 @@ function bind() {
   $("#backup-now").addEventListener("click", exportBackup);
   $("#weekly-report-button").addEventListener("click", exportWeeklyReport);
   $("#import-button").addEventListener("click", () => { setImportStatus(""); $("#import-file").click(); });
-  $("#motra-file-button").addEventListener("click", () => {
-    setMotraImportStatus("Choose the Motra document from Samsung My Files, Downloads, Documents or WhatsApp.");
-    $("#motra-file").click();
-  });
-  $("#motra-preview-button").addEventListener("click", () => {
-    try {
-      motraImportPreview = motraWorkoutsFromText($("#motra-import-text").value);
-      motraImportSourceName = "Pasted Motra rows";
-      setMotraImportStatus(`Previewed ${motraImportPreview.length} Motra workouts.`);
-      renderMotraPreview();
-    } catch (err) {
-      setMotraImportStatus(err?.message || "Motra preview failed.", true);
-      alert(err?.message || "Motra preview failed.");
-    }
-  });
   $("#motra-import-button").addEventListener("click", importMotraPreview);
   $("#import-paste-button").addEventListener("click", async () => {
     try {
