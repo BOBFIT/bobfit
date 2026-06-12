@@ -8,7 +8,7 @@ const IDB_NAME = "akyfit.website.v2";
 const IDB_STORE = "state";
 const IDB_KEY = "main";
 
-const TRAINING_PLAN_VERSION = "aky-training-plan-targets-v5-motra-names";
+const TRAINING_PLAN_VERSION = "aky-training-plan-targets-v6-motra-library";
 const TOP_DROPDOWN_LIMIT = 4;
 const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DEFAULT_WEEKLY_ASSIGNMENTS = { 0: "day1", 1: "day3", 2: "rest", 3: "day5", 4: "day7", 5: "day8", 6: "rest" };
@@ -52,29 +52,83 @@ const DEFAULT_COMPOUNDS = [
 ];
 const MET = { strength: 5, cardio: 6, other: 4.5 };
 const target = (label, details = "") => ({ id: `target-${slug(label)}`, label, details });
-const MOTRA_EXERCISE_ALIASES = [
-  ["Machine Rear Delt (Reverse) Fly", "Reverse pec deck", "Reverse pec dec", "Rear delt fly", "Rear delt machine"],
-  ["Machine Fly (Pec Dec)", "Pec deck", "Pec dec", "Machine fly", "Machine pec fly"],
-  ["Machine Incline Bench Press", "Prime incline press", "High incline smith press", "High incline smith machine press", "Incline bench press"],
-  ["Machine Hammer-Grip Seated Chest Press", "Flex leverage press", "Prime flat machine chest press", "Flat machine chest press", "Hammer grip seated chest press"],
-  ["Dumbbell Lateral Raise", "Lateral raise machine", "Dumbbell side lateral", "Single arm cuffed lateral", "Side lateral raise"],
-  ["Machine Shoulder Press", "Dead stop smith machine shoulder press", "Smith machine shoulder press", "Shoulder press machine"],
-  ["EZ-Bar Skull Crusher", "EZ bar incline skull crusher", "EZ bar skull crusher", "Incline skull crusher"],
-  ["Dumbbell Bicep Curl", "Seated single arm dumbbell drag bicep curl", "Single arm dumbbell drag bicep curl", "DB bicep curl"],
-  ["Cable Bar Straight Arm Pull Down", "Rope pullover", "Cable pullover", "Straight arm pulldown"],
-  ["Cable Lat Pull Down V-Grip (Narrow Hammer)", "Single arm prone cable pulldown", "Upper back bias cable pulldown", "Cable lat pulldown", "Lat pulldown"],
-  ["Cable V-Handle Seated Row", "Single arm seated row", "Upper back bias T-bar row", "Prime pin stack row", "Nautilus leverage row", "Single arm Nautilus row", "Seated cable row"],
-  ["Cable Face Pull", "Rear delt pulldown with D handles", "Rear delt pulldown", "Face pull"],
-  ["Cable Bar Tricep Pushdown / Extension", "Cable bar tricep pushdown", "Tricep pushdown"],
-  ["Cable Rope Tricep Pushdown / Extension", "Cable rope tricep pushdown", "Rope tricep pushdown"],
-  ["Cable V-Bar Tricep Pushdown / Extension", "V-bar tricep pushdown", "Assisted dip machine", "Dip machine / assisted dips"],
-  ["Cable Rope Overhead Tricep Extension High", "Rope overhead tricep extension", "Overhead tricep extension"],
-  ["Cable Bar Bicep Curl", "Bar cable bicep curl"],
-  ["Cable Rope Bicep Curl", "Rope bicep curl"],
-  ["Machine Ab Crunch", "Ab crunch machine"],
-  ["Barbell Overhead Press / Military Press", "Barbell overhead press", "Military press"],
+const MOTRA_EXERCISE_NAMES = [
+  "Machine Incline Chest Press", "Machine Chest Press", "Machine Decline Chest Press", "Pec Deck Fly", "Seated Chest Press", "Hammer Strength Incline Press", "Hammer Strength Chest Press", "Plate-Loaded Chest Press", "Single Arm Chest Press Machine",
+  "Flat Bench Press", "Incline Bench Press", "Decline Bench Press", "Close Grip Bench Press", "Reverse Grip Bench Press", "Guillotine Press",
+  "Flat Dumbbell Press", "Incline Dumbbell Press", "Decline Dumbbell Press", "Dumbbell Fly", "Incline Dumbbell Fly", "Dumbbell Pullover", "Squeeze Press",
+  "Push Up", "Incline Push Up", "Decline Push Up", "Wide Grip Push Up", "Diamond Push Up", "Chest Dips",
+  "Lat Pulldown", "Close Grip Lat Pulldown", "Seated Cable Row", "Chest Supported Row", "Iso-Lateral Row", "Machine High Row", "Assisted Pull Up", "Assisted Chin Up",
+  "Bent Over Row", "Pendlay Row", "T-Bar Row", "Deadlift", "Rack Pull",
+  "Single Arm Row", "Chest Supported Dumbbell Row", "Renegade Row",
+  "Pull Up", "Chin Up", "Neutral Grip Pull Up", "Inverted Row",
+  "Machine Shoulder Press", "Machine Lateral Raise", "Reverse Pec Deck", "Smith Machine Shoulder Press",
+  "Shoulder Press", "Arnold Press", "Lateral Raise", "Front Raise", "Rear Delt Fly", "Upright Row", "Cuban Press",
+  "Overhead Press", "Push Press", "Behind Neck Press",
+  "Bicep Curl Machine", "Preacher Curl Machine", "Cable Curl", "Rope Hammer Curl", "Bayesian Curl", "High Cable Curl",
+  "Alternating Curl", "Hammer Curl", "Incline Curl", "Concentration Curl", "Zottman Curl", "Spider Curl",
+  "Barbell Curl", "EZ Bar Curl", "Drag Curl", "Preacher Curl",
+  "Tricep Dip Machine", "Assisted Dip Machine", "Rope Pushdown", "Straight Bar Pushdown", "Overhead Rope Extension", "Single Arm Pushdown",
+  "Overhead Extension", "Skull Crusher", "Kickback", "Tate Press", "JM Press", "Lying Tricep Extension",
+  "Bench Dips", "Parallel Bar Dips", "Diamond Push Ups",
+  "Leg Press", "Hack Squat", "Leg Extension", "Pendulum Squat", "Belt Squat", "Smith Machine Squat",
+  "Back Squat", "Front Squat", "Zercher Squat", "Box Squat",
+  "Goblet Squat", "Bulgarian Split Squat", "Walking Lunge", "Step Up",
+  "Seated Leg Curl", "Lying Leg Curl", "Standing Leg Curl", "Nordic Curl Machine",
+  "Romanian Deadlift", "Stiff Leg Deadlift", "Good Morning",
+  "Single Leg RDL", "Nordic Curl", "Glute Ham Raise",
+  "Hip Thrust Machine", "Glute Kickback Machine", "Abductor Machine", "Adductor Machine", "Smith Machine Hip Thrust",
+  "Barbell Hip Thrust", "Sumo Deadlift", "Walking Lunges", "Step Ups",
+  "Cable Kickback", "Cable Pull Through",
+  "Standing Calf Raise", "Seated Calf Raise", "Leg Press Calf Raise", "Donkey Calf Raise", "Single Leg Calf Raise",
+  "Ab Crunch Machine", "Rotary Torso Machine", "Cable Crunch", "Woodchopper", "Pallof Press",
+  "Crunch", "Sit Up", "Leg Raise", "Hanging Leg Raise", "Reverse Crunch", "Plank", "Side Plank", "Bicycle Crunch", "Mountain Climber", "Russian Twist", "V-Up", "Hollow Hold", "Dead Bug", "Flutter Kicks",
+  "Wrist Curl", "Reverse Wrist Curl", "Farmer's Walk", "Wrist Roller", "Plate Pinch Hold", "Reverse Curl",
+  "Clean", "Power Clean", "Clean & Press", "Snatch", "Thruster", "Kettlebell Swing", "Burpee", "Turkish Get Up",
+  "Dumbbell Bicep Curl", "Smith Machine Shrug", "Cable Bar Straight Arm Pull Down", "Cable Face Pull",
 ];
-const MOTRA_EXERCISE_ALIAS_MAP = Object.fromEntries(MOTRA_EXERCISE_ALIASES.flatMap(([motraName, ...aliases]) => [motraName, ...aliases].map((name) => [slug(name), motraName])));
+const MOTRA_EXERCISE_ALIASES = [
+  ["Machine Incline Chest Press", "Machine Incline Bench Press", "Prime incline press", "High incline smith press", "High incline smith machine press", "Hammer Strength Incline Press", "Incline machine press"],
+  ["Machine Chest Press", "Machine Hammer-Grip Seated Chest Press", "Flex leverage press", "Prime flat machine chest press", "Seated Chest Press", "Hammer Strength Chest Press", "Plate-Loaded Chest Press", "Flat machine chest press"],
+  ["Machine Decline Chest Press", "Decline machine chest press"],
+  ["Pec Deck Fly", "Machine Fly (Pec Dec)", "Pec deck", "Pec dec", "Machine fly", "Machine pec fly"],
+  ["Lat Pulldown", "Cable Lat Pull Down V-Grip (Narrow Hammer)", "Close Grip Lat Pulldown", "Single arm prone cable pulldown", "Upper back bias cable pulldown", "Cable lat pulldown", "Lat pull down"],
+  ["Seated Cable Row", "Cable V-Handle Seated Row", "Single arm seated row", "Prime pin stack row", "Nautilus leverage row", "Single arm Nautilus row", "Cable row", "V-handle seated row"],
+  ["T-Bar Row", "Upper back bias T-bar row", "T bar row"],
+  ["Seated Leg Curl", "Seated hamstring curl"],
+  ["Lying Leg Curl", "Lying hamstring curl"],
+  ["Reverse Pec Deck", "Machine Rear Delt (Reverse) Fly", "Reverse pec dec", "Rear delt machine"],
+  ["Lateral Raise", "Dumbbell Lateral Raise", "Dumbbell side lateral", "Single arm cuffed lateral", "Side lateral raise"],
+  ["Machine Lateral Raise", "Lateral raise machine"],
+  ["Machine Shoulder Press", "Shoulder press machine"],
+  ["Smith Machine Shoulder Press", "Dead stop smith machine shoulder press"],
+  ["Overhead Press", "Barbell Overhead Press / Military Press", "Barbell overhead press", "Military press"],
+  ["Skull Crusher", "EZ-Bar Skull Crusher", "EZ bar incline skull crusher", "EZ bar skull crusher", "Incline skull crusher"],
+  ["Dumbbell Bicep Curl", "Seated single arm dumbbell drag bicep curl", "Single arm dumbbell drag bicep curl", "DB bicep curl"],
+  ["Cable Curl", "Cable Bar Bicep Curl", "Cable Rope Bicep Curl", "Bar cable bicep curl", "Rope bicep curl"],
+  ["Straight Bar Pushdown", "Cable Bar Tricep Pushdown / Extension", "Cable bar tricep pushdown", "Tricep pushdown", "Straight bar tricep pushdown"],
+  ["Rope Pushdown", "Cable Rope Tricep Pushdown / Extension", "Cable rope tricep pushdown", "Rope tricep pushdown"],
+  ["Single Arm Pushdown", "Cable V-Bar Tricep Pushdown / Extension", "V-bar tricep pushdown"],
+  ["Overhead Rope Extension", "Cable Rope Overhead Tricep Extension High", "Rope overhead tricep extension", "Overhead tricep extension"],
+  ["Assisted Dip Machine", "Dip machine / assisted dips", "Dip machine", "Assisted dips"],
+  ["Dumbbell Pullover", "Dumbell pullover"],
+  ["Leg Press", "Cybex squat leg press", "Leg hip press"],
+  ["Leg Extension", "Leg extension superset with pendulum", "Leg extension giant digressive set"],
+  ["Walking Lunge", "DB walking lunges", "Dumbbell walking lunges", "Lunges"],
+  ["Romanian Deadlift", "BB RDL", "DB RDL", "Barbell RDL", "Dumbbell RDL"],
+  ["Single Leg RDL", "Single leg Romanian deadlift"],
+  ["Hip Thrust Machine", "Glute drive / hip thrust machine", "Glute drive", "Hip thrust machine"],
+  ["Adductor Machine", "Adductors", "Adductor"],
+  ["Leg Press Calf Raise", "Toe press superset with standing calf raise", "Toe press", "Toe press on leg press"],
+  ["Seated Calf Raise", "Seated calf machine"],
+  ["Ab Crunch Machine", "Machine Ab Crunch"],
+  ["Cable Bar Straight Arm Pull Down", "Rope pullover", "Cable pullover", "Straight arm pulldown", "Straight arm pull down"],
+  ["Cable Face Pull", "Rear delt pulldown with D handles", "Rear delt pulldown", "Face pull"],
+  ["Smith Machine Shrug", "Smith machine shrugs", "Smith machine shrug", "Machine shrug", "Barbell shrug"],
+];
+const MOTRA_EXERCISE_ALIAS_MAP = Object.fromEntries([
+  ...MOTRA_EXERCISE_NAMES.map((name) => [slug(name), name]),
+  ...MOTRA_EXERCISE_ALIASES.flatMap(([motraName, ...aliases]) => [motraName, ...aliases].map((name) => [slug(name), motraName])),
+]);
 
 const DEFAULT_TEMPLATES = {
   day1: { title: "Legs A", exercises: [
@@ -484,6 +538,43 @@ function targetDetailsHtml(targets = [], open = false) {
 }
 function getTarget(targets = [], id = "") {
   return targets.find((item) => item.id === id) || targets[0] || null;
+}
+function isExplicitSetTarget(target) {
+  return /^set\s*\d+\s*:/i.test(target?.label || "") || /^set\s*\d+\s+of\s+\d+/i.test(target?.details || "");
+}
+function targetCountsAsSet(target, hasExplicitSets = false) {
+  const label = String(target?.label || "");
+  const details = String(target?.details || "");
+  const combined = `${label} ${details}`.toLowerCase();
+  const setRepPattern = /(\d+\s*[-/]\s*\d+|\d+)\s*(?:reps?|rep\b)/i;
+  const repRangePattern = /\b\d+\s*[-/]\s*\d+\b/;
+  if (/^rep\s*\d+\s+hold/i.test(label) || /^technique\b/i.test(label)) {
+    return setRepPattern.test(details) || repRangePattern.test(details);
+  }
+  if (isExplicitSetTarget(target)) return true;
+  if (hasExplicitSets && /^set\s*\d+$/i.test(label)) return false;
+  if (hasExplicitSets && /\bto failure\b/i.test(label)) return false;
+  return setRepPattern.test(combined) || repRangePattern.test(combined) || /\b(cluster|rest-pause|rest pause|drop set|drop)\b/i.test(combined);
+}
+function plannedSetCount(log) {
+  const targets = log?.targets || [];
+  const explicitCount = targets.filter(isExplicitSetTarget).length;
+  const extraCount = targets.filter((target) => !isExplicitSetTarget(target) && targetCountsAsSet(target, explicitCount > 0)).length;
+  return Math.max(1, explicitCount + extraCount);
+}
+function loggedSetCount(log) {
+  return (log?.sets || []).filter((set) => num(set.reps) || rawNum(set.weightKg)).length;
+}
+function exerciseLogStatus(log) {
+  const required = plannedSetCount(log);
+  const logged = loggedSetCount(log);
+  const status = logged <= 0 ? "empty" : logged >= required ? "complete" : "partial";
+  const label = status === "complete" ? `${required}/${required} done` : `${Math.min(logged, required)}/${required} sets`;
+  return { required, logged, status, label };
+}
+function setOpenExerciseCard(id = "") {
+  openExerciseCards.clear();
+  if (id) openExerciseCards.add(String(id));
 }
 function trainingTermsHtml() {
   return `<details class="training-terms"><summary>Set terminology</summary><div>${TRAINING_TERMS.map(([term, detail]) => `<p><strong>${escapeHtml(term)}</strong> ${escapeHtml(detail)}</p>`).join("")}</div></details>`;
@@ -1293,14 +1384,15 @@ function renderWorkoutEditor() {
     ${trainingTermsHtml()}
     ${logs.map((log) => {
       const previous = latestExerciseSets(log.name, draft.startedAt);
-      const isOpen = openExerciseCards.has(String(log.exerciseId)) || !!log.sets?.length;
-      return `<details class="exercise-log" data-exercise-id="${escapeHtml(log.exerciseId)}"${isOpen ? " open" : ""}>
+      const progress = exerciseLogStatus(log);
+      const isOpen = openExerciseCards.has(String(log.exerciseId));
+      return `<details class="exercise-log status-${escapeHtml(progress.status)}" data-exercise-id="${escapeHtml(log.exerciseId)}"${isOpen ? " open" : ""}>
         <summary class="exercise-summary">
           <span>
             <strong>${escapeHtml(log.name)}</strong>
             <small>${previous ? `Previous ${previous.date}: ${escapeHtml(setSummary(previous.sets))}` : "No previous sets saved"}</small>
           </span>
-          <span class="summary-pill">Log sets</span>
+          <span class="summary-pill">${escapeHtml(progress.label)}</span>
         </summary>
         <div class="exercise-log-body">
           ${guidanceHtml(log.notes)}
@@ -2725,14 +2817,14 @@ function bind() {
       if (!reps && !weightKg) return;
       const selectedTarget = getTarget(log.targets || [], card.querySelector('select[name="targetId"]')?.value || "");
       log.sets = [...(log.sets || []), { id: uid(), reps, weightKg, targetId: selectedTarget?.id || "", targetLabel: selectedTarget?.label || "Working set", targetDetails: selectedTarget?.details || "", createdAt: Date.now() }];
-      openExerciseCards.add(String(log.exerciseId));
+      setOpenExerciseCard(log.exerciseId);
       save(); renderWorkoutEditor();
     }
     if (button.dataset.deleteSet) {
       const draft = ensureDraft(selectedSplit());
       const log = draft.exerciseLogs.find((entry) => entry.exerciseId === button.dataset.exerciseId);
       if (log) log.sets = (log.sets || []).filter((set) => set.id !== button.dataset.deleteSet);
-      if (log) openExerciseCards.add(String(log.exerciseId));
+      if (log) setOpenExerciseCard(log.exerciseId);
       save(); renderWorkoutEditor();
     }
     if (button.dataset.cycleDay !== undefined) {
@@ -2826,8 +2918,14 @@ function bind() {
     if (!card) return;
     const id = String(card.dataset.exerciseId || "");
     if (!id) return;
-    if (card.open) openExerciseCards.add(id);
-    else openExerciseCards.delete(id);
+    if (card.open) {
+      document.querySelectorAll(".exercise-log[open]").forEach((other) => {
+        if (other !== card) other.open = false;
+      });
+      setOpenExerciseCard(id);
+    } else {
+      openExerciseCards.delete(id);
+    }
   }, true);
   document.addEventListener("change", (event) => {
     const el = event.target;

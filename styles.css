@@ -542,6 +542,17 @@ input:focus, select:focus, textarea:focus {
   background: rgba(7, 31, 54, 0.94);
   box-shadow: var(--soft-shadow);
 }
+.exercise-log.status-empty {
+  border-color: rgba(248, 113, 113, 0.42);
+  background: linear-gradient(135deg, rgba(68, 18, 31, 0.92), rgba(7, 31, 54, 0.94));
+}
+.exercise-log.status-partial {
+  border-color: rgba(245, 158, 11, 0.38);
+}
+.exercise-log.status-complete {
+  border-color: rgba(34, 197, 94, 0.48);
+  background: linear-gradient(135deg, rgba(12, 58, 43, 0.94), rgba(7, 31, 54, 0.94));
+}
 .exercise-head, .split-head, .history-head {
   display: flex;
   justify-content: space-between;
@@ -586,6 +597,30 @@ input:focus, select:focus, textarea:focus {
 }
 .exercise-log[open] .summary-pill::after {
   content: "-";
+}
+.exercise-log.status-empty .summary-pill {
+  border-color: rgba(248, 113, 113, 0.54);
+  background: rgba(127, 29, 29, 0.58);
+  color: #fecaca;
+}
+.exercise-log.status-empty .summary-pill::after {
+  background: rgba(248, 113, 113, 0.22);
+}
+.exercise-log.status-partial .summary-pill {
+  border-color: rgba(245, 158, 11, 0.46);
+  background: rgba(120, 53, 15, 0.5);
+  color: #fde68a;
+}
+.exercise-log.status-partial .summary-pill::after {
+  background: rgba(245, 158, 11, 0.24);
+}
+.exercise-log.status-complete .summary-pill {
+  border-color: rgba(34, 197, 94, 0.55);
+  background: rgba(20, 83, 45, 0.64);
+  color: #bbf7d0;
+}
+.exercise-log.status-complete .summary-pill::after {
+  background: rgba(34, 197, 94, 0.22);
 }
 .exercise-log-body {
   display: grid;
