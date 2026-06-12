@@ -533,7 +533,54 @@ input:focus, select:focus, textarea:focus {
 .training-terms div, .target-details div { display: grid; gap: 7px; padding: 0 12px 12px; }
 .training-terms p, .target-details p { margin: 0; color: #b9d4e8; font-size: 13px; line-height: 1.35; }
 .training-terms strong, .target-details strong { color: var(--ink); }
-.exercise-log, .split-card, .history-card, .day-card {
+.log-dropdown {
+  overflow: hidden;
+  border: 1px solid rgba(95, 225, 255, 0.13);
+  border-radius: 18px;
+  background: rgba(9, 39, 66, 0.86);
+}
+.log-dropdown summary {
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  color: var(--primary-dark);
+  font-weight: 950;
+  list-style: none;
+  cursor: pointer;
+}
+.log-dropdown summary::-webkit-details-marker { display: none; }
+.log-dropdown summary::after {
+  content: "+";
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(19, 168, 245, 0.18);
+  color: var(--ink);
+}
+.log-dropdown[open] summary::after { content: "-"; }
+.log-dropdown-body {
+  display: grid;
+  gap: 9px;
+  padding: 0 12px 12px;
+}
+.log-dropdown-body p {
+  margin: 0;
+  color: #b9d4e8;
+  font-size: 13px;
+  line-height: 1.35;
+}
+.log-dropdown-body strong { color: var(--ink); }
+.log-dropdown .overload-card {
+  padding: 10px;
+  border-radius: 16px;
+  box-shadow: none;
+}
+.exercise-log, .split-card, .history-card, .day-card, .today-exercise-card {
   display: grid;
   gap: 10px;
   padding: 13px;
@@ -559,7 +606,7 @@ input:focus, select:focus, textarea:focus {
   align-items: flex-start;
   gap: 10px;
 }
-.exercise-summary {
+.exercise-summary, .today-exercise-summary, .pr-summary {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
@@ -567,7 +614,9 @@ input:focus, select:focus, textarea:focus {
   list-style: none;
   cursor: pointer;
 }
-.exercise-summary::-webkit-details-marker { display: none; }
+.exercise-summary::-webkit-details-marker,
+.today-exercise-summary::-webkit-details-marker,
+.pr-summary::-webkit-details-marker { display: none; }
 .summary-pill {
   display: inline-flex;
   align-items: center;
@@ -596,6 +645,10 @@ input:focus, select:focus, textarea:focus {
   color: var(--ink);
 }
 .exercise-log[open] .summary-pill::after {
+  content: "-";
+}
+.today-exercise-card[open] .summary-pill::after,
+.pr-accordion[open] .summary-pill::after {
   content: "-";
 }
 .exercise-log.status-empty .summary-pill {
@@ -628,6 +681,27 @@ input:focus, select:focus, textarea:focus {
   padding-top: 10px;
   border-top: 1px solid var(--border);
 }
+.today-exercise-body {
+  display: grid;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.target-list {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid rgba(95, 225, 255, 0.12);
+  border-radius: 18px;
+  background: #092742;
+}
+.target-list p {
+  margin: 0;
+  color: #b9d4e8;
+  font-size: 13px;
+  line-height: 1.35;
+}
+.target-list strong { color: var(--ink); }
 .overload-card {
   display: grid;
   gap: 10px;
@@ -672,8 +746,8 @@ input:focus, select:focus, textarea:focus {
   line-height: 1.15;
   overflow-wrap: anywhere;
 }
-.exercise-head strong, .split-head strong, .history-head strong { display: block; }
-.exercise-head small, .exercise-summary small, .history-head small { display: block; margin-top: 3px; color: var(--muted); line-height: 1.35; }
+.exercise-head strong, .split-head strong, .history-head strong, .today-exercise-summary strong, .pr-summary strong { display: block; }
+.exercise-head small, .exercise-summary small, .history-head small, .today-exercise-summary small, .pr-summary small { display: block; margin-top: 3px; color: var(--muted); line-height: 1.35; }
 .set-entry { display: grid; grid-template-columns: minmax(140px, 1fr) 90px 110px auto; gap: 8px; align-items: end; }
 .set-list { display: flex; flex-wrap: wrap; gap: 7px; }
 .set-chip {
@@ -1342,7 +1416,7 @@ input:focus, select:focus, textarea:focus {
   .drop-summary { grid-template-columns: minmax(0, 1fr) auto; }
   .drop-pill { display: none; }
   .dose-card-head { display: grid; }
-  .exercise-summary { grid-template-columns: 1fr; }
+  .exercise-summary, .today-exercise-summary, .pr-summary { grid-template-columns: 1fr; }
   .summary-pill { justify-self: start; }
   .tabbar button { font-size: 9px; }
 }

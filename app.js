@@ -456,6 +456,13 @@ function guidanceHtml(notes) {
   if (!notes) return "";
   return `<div class="exercise-guidance"><span>Target reps / notes</span><p>${escapeHtml(notes)}</p></div>`;
 }
+function logNotesDropdownHtml(notes) {
+  if (!notes) return "";
+  return `<details class="log-dropdown">
+    <summary>Target reps / notes</summary>
+    <div class="log-dropdown-body"><p>${escapeHtml(notes)}</p></div>
+  </details>`;
+}
 function normalizeTarget(item, index = 0) {
   if (typeof item === "string") return { id: `target-${index}-${slug(item)}`, label: item, details: item };
   const label = String(item?.label || item?.name || item?.reps || `Target ${index + 1}`).trim();
@@ -535,6 +542,17 @@ function targetOptionsHtml(targets = [], selectedId = "") {
 function targetDetailsHtml(targets = [], open = false) {
   if (!targets.length) return "";
   return `<details class="target-details"${open ? " open" : ""}><summary>Set targets</summary><div>${targets.map((item) => `<p><strong>${escapeHtml(item.label)}</strong> ${escapeHtml(item.details)}</p>`).join("")}</div></details>`;
+}
+function logTargetDetailsHtml(targets = []) {
+  if (!targets.length) return "";
+  return `<details class="log-dropdown">
+    <summary>Set targets</summary>
+    <div class="log-dropdown-body">${targets.map((item) => `<p><strong>${escapeHtml(item.label)}</strong> ${escapeHtml(item.details)}</p>`).join("")}</div>
+  </details>`;
+}
+function targetListHtml(targets = []) {
+  if (!targets.length) return `<div class="empty">No target reps saved for this exercise.</div>`;
+  return `<div class="target-list">${targets.map((item) => `<p><strong>${escapeHtml(item.label)}</strong> ${escapeHtml(item.details)}</p>`).join("")}</div>`;
 }
 function getTarget(targets = [], id = "") {
   return targets.find((item) => item.id === id) || targets[0] || null;
@@ -1002,7 +1020,18 @@ function renderToday() {
   const mealTotal = totals();
   $("#today-split").textContent = splitTitle(assign);
   $("#today-detail").textContent = assign === "rest" ? "Rest day" : `${exercises.length} exercises planned`;
-  $("#today-exercises").innerHTML = exercises.length ? `<ul>${exercises.map((exercise) => `<li><strong>${escapeHtml(exercise.name)}</strong>${guidanceHtml(exercise.notes)}${targetDetailsHtml(exercise.targets)}</li>`).join("")}</ul>${trainingTermsHtml()}` : `<div class="empty">Rest and recover.</div>`;
+  $("#today-exercises").innerHTML = exercises.length
+    ? `${exercises.map((exercise) => `<details class="today-exercise-card" data-today-exercise="${escapeHtml(exercise.id)}">
+        <summary class="today-exercise-summary">
+          <span><strong>${escapeHtml(exercise.name)}</strong><small>${escapeHtml(targetRepText(exercise.targets || []))}</small></span>
+          <span class="summary-pill">Targets</span>
+        </summary>
+        <div class="today-exercise-body">
+          ${guidanceHtml(exercise.notes)}
+          ${targetListHtml(exercise.targets)}
+        </div>
+      </details>`).join("")}${trainingTermsHtml()}`
+    : `<div class="empty">Rest and recover.</div>`;
   $("#meal-count").textContent = `${todayMeals().length} meals`;
   $("#meal-total").textContent = `${fmt(mealTotal.calories)} kcal`;
   $("#workout-count").textContent = `${todayWorkouts().length} workouts`;
@@ -1395,8 +1424,8 @@ function renderWorkoutEditor() {
           <span class="summary-pill">${escapeHtml(progress.label)}</span>
         </summary>
         <div class="exercise-log-body">
-          ${guidanceHtml(log.notes)}
-          ${targetDetailsHtml(log.targets, true)}
+          ${logNotesDropdownHtml(log.notes)}
+          ${logTargetDetailsHtml(log.targets)}
           ${progressiveOverloadHtml(log, draft.startedAt)}
           <div class="set-entry">
             <label class="target-select">Set target<select name="targetId">${targetOptionsHtml(log.targets, nextTargetId(log.targets, log.sets))}</select></label>
@@ -1479,15 +1508,20 @@ function progressiveOverloadHtml(log, before = Infinity) {
   const stats = exerciseStats(log.name, before);
   const last = stats.latest?.summary?.bestSet;
   const best = stats.bestSet;
-  return `<div class="overload-card">
-    <div class="overload-head"><strong>Progressive overload</strong><small>${escapeHtml(overloadSuggestion(log, before))}</small></div>
-    <div class="overload-grid">
-      <span><small>Last weight</small><strong>${last ? `${fmtWeight(last.weightKg)}kg` : "-"}</strong></span>
-      <span><small>Best weight</small><strong>${best ? `${fmtWeight(best.weightKg)}kg` : "-"}</strong></span>
-      <span><small>Last reps</small><strong>${last ? fmt(last.reps) : "-"}</strong></span>
-      <span><small>Target reps</small><strong>${escapeHtml(targetRepText(log.targets || []))}</strong></span>
+  return `<details class="log-dropdown overload-dropdown">
+    <summary>Progressive overload</summary>
+    <div class="log-dropdown-body">
+      <div class="overload-card">
+        <div class="overload-head"><strong>Progressive overload</strong><small>${escapeHtml(overloadSuggestion(log, before))}</small></div>
+        <div class="overload-grid">
+          <span><small>Last weight</small><strong>${last ? `${fmtWeight(last.weightKg)}kg` : "-"}</strong></span>
+          <span><small>Best weight</small><strong>${best ? `${fmtWeight(best.weightKg)}kg` : "-"}</strong></span>
+          <span><small>Last reps</small><strong>${last ? fmt(last.reps) : "-"}</strong></span>
+          <span><small>Target reps</small><strong>${escapeHtml(targetRepText(log.targets || []))}</strong></span>
+        </div>
+      </div>
     </div>
-  </div>`;
+  </details>`;
 }
 function personalRecords(limit = 10) {
   const grouped = new Map();
@@ -1511,14 +1545,17 @@ function renderPersonalRecords() {
   const el = $("#personal-record-list");
   if (!el) return;
   const records = personalRecords();
-  el.innerHTML = records.length ? records.map((record) => `<div class="pr-card">
-    <strong>${escapeHtml(record.name)}</strong>
+  el.innerHTML = records.length ? records.map((record) => `<details class="pr-card pr-accordion" data-pr-exercise="${escapeHtml(exerciseMatchKey(record.name))}">
+    <summary class="pr-summary">
+      <span><strong>${escapeHtml(record.name)}</strong><small>${record.bestSet ? `Best set ${fmtWeight(record.bestSet.weightKg)}kg x ${fmt(record.bestSet.reps)}` : "No best set yet"}</small></span>
+      <span class="summary-pill">PRs</span>
+    </summary>
     <div class="pr-metrics">
       <span><small>Best set</small><b>${record.bestSet ? `${fmtWeight(record.bestSet.weightKg)}kg x ${fmt(record.bestSet.reps)}` : "-"}</b></span>
       <span><small>Volume</small><b>${fmtWeight(record.bestVolume)}kg</b></span>
       <span><small>Est. 1RM</small><b>${fmtWeight(record.bestEst1rm)}kg</b></span>
     </div>
-  </div>`).join("") : `<div class="empty">Save workout sets to start earning PR badges.</div>`;
+  </details>`).join("") : `<div class="empty">Save workout sets to start earning PR badges.</div>`;
 }
 function exerciseTrendNote() {
   const records = personalRecords(30);
@@ -2915,16 +2952,31 @@ function bind() {
   });
   document.addEventListener("toggle", (event) => {
     const card = event.target.closest?.(".exercise-log");
-    if (!card) return;
-    const id = String(card.dataset.exerciseId || "");
-    if (!id) return;
-    if (card.open) {
-      document.querySelectorAll(".exercise-log[open]").forEach((other) => {
-        if (other !== card) other.open = false;
+    if (card) {
+      const id = String(card.dataset.exerciseId || "");
+      if (!id) return;
+      if (card.open) {
+        document.querySelectorAll(".exercise-log[open]").forEach((other) => {
+          if (other !== card) other.open = false;
+        });
+        setOpenExerciseCard(id);
+      } else {
+        openExerciseCards.delete(id);
+      }
+      return;
+    }
+    const todayCard = event.target.closest?.(".today-exercise-card");
+    if (todayCard?.open) {
+      document.querySelectorAll(".today-exercise-card[open]").forEach((other) => {
+        if (other !== todayCard) other.open = false;
       });
-      setOpenExerciseCard(id);
-    } else {
-      openExerciseCards.delete(id);
+      return;
+    }
+    const prCard = event.target.closest?.(".pr-accordion");
+    if (prCard?.open) {
+      document.querySelectorAll(".pr-accordion[open]").forEach((other) => {
+        if (other !== prCard) other.open = false;
+      });
     }
   }, true);
   document.addEventListener("change", (event) => {
