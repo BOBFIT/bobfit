@@ -398,16 +398,17 @@
       <section id="view-settings" class="view" data-title="Settings">
         <details id="motra-import-panel" class="panel drop-panel">
           <summary class="drop-summary">
-            <span><strong>Motra Workout Import</strong><small>Import workouts from Excel, CSV or copied rows</small></span>
+            <span><strong>Motra Workout Import</strong><small>Samsung upload from My Files, CSV, Excel or copied rows</small></span>
             <span class="drop-pill">Motra</span>
           </summary>
           <div class="drop-body">
-            <label class="wide file-import-card">Choose Motra file
-              <input id="motra-file" type="file" accept=".xlsx,.csv,.tsv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/*" />
-              <span>Use the Motra Excel export, or export/copy the sheet as CSV or text.</span>
+            <label class="wide file-import-card">Choose Motra file from Samsung My Files
+              <input id="motra-file" type="file" />
+              <span>Tap Browse or My Files, then choose the Motra export from Downloads, Documents or WhatsApp. Supported files: .xlsx, .csv, .tsv and .txt.</span>
             </label>
+            <div class="formula-note">Samsung tip: if the picker opens Gallery or Photos, tap the menu/back option and choose My Files, Downloads or Documents.</div>
             <label class="wide import-paste">Paste Motra rows
-              <textarea id="motra-import-text" rows="6" placeholder="Paste rows copied from Excel/Google Sheets. For screenshots, use iPhone Live Text or Samsung Extract text, then paste here."></textarea>
+              <textarea id="motra-import-text" rows="6" placeholder="Paste rows copied from Excel, Google Sheets or Samsung Extract text from a screenshot."></textarea>
             </label>
             <div class="quick-grid">
               <button id="motra-preview-button" class="secondary" type="button">Preview pasted data</button>
@@ -415,6 +416,14 @@
             </div>
             <div id="motra-import-status" class="import-status" role="status"></div>
             <div id="motra-preview-list" class="history-list"></div>
+          </div>
+        </details>
+        <details id="motra-imported-panel" class="panel drop-panel">
+          <summary class="drop-summary">
+            <span><strong>Motra Imported Workouts</strong><small>Review imported files/workouts and delete mistakes</small></span>
+            <span class="drop-pill">Imported</span>
+          </summary>
+          <div class="drop-body">
             <div id="motra-import-list" class="history-list"></div>
           </div>
         </details>

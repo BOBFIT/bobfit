@@ -199,6 +199,7 @@ const DEFAULT_TEMPLATES = {
 let saveTimer = 0;
 const openExerciseCards = new Set();
 let motraImportPreview = [];
+let motraImportSourceName = "";
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 const uid = () => `${Date.now()}${Math.random().toString(36).slice(2, 8)}`;
@@ -2434,7 +2435,7 @@ function parseMotraDate(value) {
 function motraWorkoutKey(workout) {
   return `${cleanCell(workout.start)}|${slug(workout.title)}|${workout.sets.length}|${fmt(workout.totalVolume || 0)}`;
 }
-function motraSessionFromWorkout(workout, batchId) {
+function motraSessionFromWorkout(workout, batchId, sourceName = "") {
   const started = parseMotraDate(workout.start);
   const ended = workout.end ? parseMotraDate(workout.end) : null;
   const date = dayKey(started);
@@ -2472,17 +2473,18 @@ function motraSessionFromWorkout(workout, batchId) {
     createdAt: started.getTime(),
     source: "motra",
     importBatchId: batchId,
+    importSourceName: sourceName || "Motra import",
     motraKey: motraWorkoutKey(workout),
     motraMeta: { totalSets: workout.totalSets || workout.sets.length, totalVolume: workout.totalVolume || 0 },
     exerciseLogs: Array.from(byExercise.values()),
   }, date);
 }
 async function motraWorkoutsFromFile(file) {
-  if (!file) throw new Error("Choose a Motra Excel, CSV, TSV or text file first.");
+  if (!file) throw new Error("Choose a Motra file from Samsung My Files first.");
   const name = String(file.name || "").toLowerCase();
   const type = String(file.type || "");
   const workouts = name.endsWith(".xlsx") || type.includes("spreadsheetml") ? parseMotraRows(await xlsxRowsFromFile(file)) : motraWorkoutsFromText(await file.text());
-  if (!workouts.length) throw new Error("No Motra workout rows were found. Try copying the full sheet including Workout Start and All Sets.");
+  if (!workouts.length) throw new Error("No Motra workout rows were found. On Samsung, try saving the export into My Files, or copy the full sheet including Workout Start and All Sets.");
   return workouts;
 }
 function renderMotraPreview() {
@@ -2499,19 +2501,21 @@ function existingMotraKeys() {
 function importMotraPreview() {
   if (!motraImportPreview.length) { alert("Preview Motra data first."); return; }
   const batchId = `motra-${Date.now()}`;
+  const sourceName = motraImportSourceName || "Pasted Motra rows";
   const existing = existingMotraKeys();
   let added = 0;
   let skipped = 0;
   for (const workout of motraImportPreview) {
     const key = motraWorkoutKey(workout);
     if (existing.has(key)) { skipped += 1; continue; }
-    const session = motraSessionFromWorkout(workout, batchId);
+    const session = motraSessionFromWorkout(workout, batchId, sourceName);
     const date = metricDateKey(session);
     state.workouts[date] = [session, ...(state.workouts[date] || [])];
     existing.add(key);
     added += 1;
   }
   motraImportPreview = [];
+  motraImportSourceName = "";
   save();
   render();
   setMotraImportStatus(`Imported ${added} Motra workouts${skipped ? `, skipped ${skipped} duplicate${skipped === 1 ? "" : "s"}` : ""}.`);
@@ -2533,13 +2537,18 @@ function renderMotraImportList() {
     if (!batches.has(batch)) batches.set(batch, []);
     batches.get(batch).push(session);
   }
-  el.innerHTML = Array.from(batches.entries()).map(([batchId, list]) => `<div class="history-card">
+  el.innerHTML = Array.from(batches.entries()).map(([batchId, list]) => {
+    const sourceName = list[0]?.importSourceName || "Imported Motra file";
+    const dates = list.map((workout) => workout.date).filter(Boolean).sort();
+    const range = dates.length > 1 ? `${dateLabel(dates[0])} to ${dateLabel(dates[dates.length - 1])}` : dateLabel(dates[0] || list[0].date);
+    return `<div class="history-card">
     <div class="history-head">
-      <div><strong>Motra import</strong><small>${fmt(list.length)} workouts / ${escapeHtml(dateLabel(list[0].date))}</small></div>
+      <div><strong>${escapeHtml(sourceName)}</strong><small>${fmt(list.length)} workouts / ${escapeHtml(range)}</small></div>
       <button class="danger-button" data-delete-motra-batch="${escapeHtml(batchId)}" type="button">Delete batch</button>
     </div>
     <ul>${list.map((workout) => `<li><strong>${escapeHtml(workout.name || "Motra Workout")}</strong><span>${escapeHtml(dateLabel(workout.date))} / ${fmt(workout.durationMin)} min / ${fmt((workout.exerciseLogs || []).reduce((sum, log) => sum + (log.sets?.length || 0), 0))} sets</span><button class="danger-button" data-delete-motra-workout="${escapeHtml(workout.id)}" data-delete-motra-date="${escapeHtml(workout.date)}" type="button">Delete workout</button></li>`).join("")}</ul>
-  </div>`).join("");
+  </div>`;
+  }).join("");
 }
 function deleteMotraWorkout(date, id) {
   state.workouts[date] = (state.workouts[date] || []).filter((workout) => workout.id !== id);
@@ -3116,6 +3125,7 @@ function bind() {
       setView("settings");
       const panel = $("#motra-import-panel");
       if (panel) {
+        document.querySelectorAll("#view-settings > details[open]").forEach((detail) => { if (detail !== panel) detail.open = false; });
         panel.open = true;
         requestAnimationFrame(() => panel.scrollIntoView({ behavior: "smooth", block: "start" }));
       }
@@ -3488,6 +3498,7 @@ function bind() {
   $("#motra-preview-button").addEventListener("click", () => {
     try {
       motraImportPreview = motraWorkoutsFromText($("#motra-import-text").value);
+      motraImportSourceName = "Pasted Motra rows";
       setMotraImportStatus(`Previewed ${motraImportPreview.length} Motra workouts.`);
       renderMotraPreview();
     } catch (err) {
@@ -3525,10 +3536,12 @@ function bind() {
     try {
       setMotraImportStatus(`Reading ${file.name || "Motra file"}...`);
       motraImportPreview = await motraWorkoutsFromFile(file);
+      motraImportSourceName = file.name || "Samsung My Files upload";
       setMotraImportStatus(`Previewed ${motraImportPreview.length} Motra workouts. Tap Import preview to add them.`);
       renderMotraPreview();
     } catch (err) {
       motraImportPreview = [];
+      motraImportSourceName = "";
       renderMotraPreview();
       setMotraImportStatus(err?.message || "Motra import failed.", true);
       alert(err?.message || "Motra import failed.");
