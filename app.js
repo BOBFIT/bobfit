@@ -2479,12 +2479,83 @@ function motraSessionFromWorkout(workout, batchId, sourceName = "") {
     exerciseLogs: Array.from(byExercise.values()),
   }, date);
 }
+function decodePdfLiteral(value = "") {
+  let text = String(value).slice(1, -1);
+  text = text.replace(/\\([0-7]{1,3})/g, (_, octal) => String.fromCharCode(Number.parseInt(octal, 8)));
+  return text.replace(/\\([nrtbf()\\])/g, (_, char) => ({
+    n: "\n",
+    r: "\r",
+    t: "\t",
+    b: "\b",
+    f: "\f",
+    "(": "(",
+    ")": ")",
+    "\\": "\\",
+  })[char] || char);
+}
+function decodePdfHex(value = "") {
+  const hex = String(value).replace(/[<>\s]/g, "");
+  const bytes = [];
+  for (let index = 0; index < hex.length; index += 2) bytes.push(Number.parseInt(hex.slice(index, index + 2).padEnd(2, "0"), 16));
+  if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+    let out = "";
+    for (let index = 2; index < bytes.length; index += 2) out += String.fromCharCode(((bytes[index] || 0) << 8) + (bytes[index + 1] || 0));
+    return out;
+  }
+  if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
+    let out = "";
+    for (let index = 2; index < bytes.length; index += 2) out += String.fromCharCode((bytes[index] || 0) + ((bytes[index + 1] || 0) << 8));
+    return out;
+  }
+  return new TextDecoder("iso-8859-1").decode(new Uint8Array(bytes));
+}
+function extractPdfTextOperators(pdfChunk = "") {
+  const text = [];
+  const blocks = String(pdfChunk).match(/BT[\s\S]*?ET/g) || [];
+  for (const block of blocks) {
+    const literals = block.match(/\((?:\\.|[^\\)])*\)/g) || [];
+    const hexStrings = block.match(/<([0-9A-Fa-f\s]{4,})>/g) || [];
+    text.push(...literals.map(decodePdfLiteral), ...hexStrings.map(decodePdfHex));
+  }
+  return text.join("\n");
+}
+function streamStringToBytes(value = "") {
+  const bytes = new Uint8Array(value.length);
+  for (let index = 0; index < value.length; index += 1) bytes[index] = value.charCodeAt(index) & 255;
+  return bytes;
+}
+async function inflatePdfStream(streamBytes) {
+  if (typeof DecompressionStream === "undefined") return "";
+  for (const format of ["deflate", "deflate-raw"]) {
+    try {
+      const inflated = await new Response(new Blob([streamBytes]).stream().pipeThrough(new DecompressionStream(format))).arrayBuffer();
+      return new TextDecoder("iso-8859-1").decode(inflated);
+    } catch {}
+  }
+  return "";
+}
+async function pdfTextFromFile(file) {
+  const raw = new TextDecoder("iso-8859-1").decode(await file.arrayBuffer());
+  const parts = [extractPdfTextOperators(raw)];
+  const streamPattern = /<<[\s\S]*?\/FlateDecode[\s\S]*?>>\s*stream\r?\n?([\s\S]*?)\r?\n?endstream/g;
+  for (const match of raw.matchAll(streamPattern)) {
+    const inflated = await inflatePdfStream(streamStringToBytes(match[1]));
+    if (inflated) parts.push(extractPdfTextOperators(inflated));
+  }
+  const text = parts.join("\n").replace(/\s+\n/g, "\n").trim();
+  if (!text) throw new Error("This PDF did not contain readable Motra text. On Samsung, open the PDF or screenshot, use Extract text, then paste the rows into the Motra box.");
+  return text;
+}
 async function motraWorkoutsFromFile(file) {
   if (!file) throw new Error("Choose a Motra file from Samsung My Files first.");
   const name = String(file.name || "").toLowerCase();
   const type = String(file.type || "");
-  const workouts = name.endsWith(".xlsx") || type.includes("spreadsheetml") ? parseMotraRows(await xlsxRowsFromFile(file)) : motraWorkoutsFromText(await file.text());
-  if (!workouts.length) throw new Error("No Motra workout rows were found. On Samsung, try saving the export into My Files, or copy the full sheet including Workout Start and All Sets.");
+  const workouts = name.endsWith(".xlsx") || type.includes("spreadsheetml")
+    ? parseMotraRows(await xlsxRowsFromFile(file))
+    : name.endsWith(".pdf") || type.includes("pdf")
+    ? motraWorkoutsFromText(await pdfTextFromFile(file))
+    : motraWorkoutsFromText(await file.text());
+  if (!workouts.length) throw new Error("No Motra workout rows were found. On Samsung, try saving the export into My Files, or use Extract text and paste the full sheet including Workout Start and All Sets.");
   return workouts;
 }
 function renderMotraPreview() {
@@ -3495,6 +3566,10 @@ function bind() {
   $("#backup-now").addEventListener("click", exportBackup);
   $("#weekly-report-button").addEventListener("click", exportWeeklyReport);
   $("#import-button").addEventListener("click", () => { setImportStatus(""); $("#import-file").click(); });
+  $("#motra-file-button").addEventListener("click", () => {
+    setMotraImportStatus("Choose the Motra document from Samsung My Files, Downloads, Documents or WhatsApp.");
+    $("#motra-file").click();
+  });
   $("#motra-preview-button").addEventListener("click", () => {
     try {
       motraImportPreview = motraWorkoutsFromText($("#motra-import-text").value);
