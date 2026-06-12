@@ -197,6 +197,10 @@ const DEFAULT_TEMPLATES = {
 };
 
 let saveTimer = 0;
+let saveFeedbackReady = false;
+let saveFeedbackTimer = 0;
+let lastSaveTrigger = null;
+let lastSaveTriggerAt = 0;
 const openExerciseCards = new Set();
 let motraImportPreview = [];
 let motraImportSourceName = "";
@@ -984,8 +988,29 @@ async function load() {
     if (stored) state = merge(stored);
   } catch {} finally { db?.close?.(); }
 }
-function save() {
+function flashSaved(button) {
+  if (!button) return;
+  button.classList.remove("saved-pulse");
+  void button.offsetWidth;
+  button.classList.add("saved-pulse");
+}
+function showSaveFeedback() {
+  if (!saveFeedbackReady) return;
+  const backupButton = $("#backup-now");
+  const trigger = lastSaveTrigger?.isConnected && Date.now() - lastSaveTriggerAt < 3000 ? lastSaveTrigger : null;
+  flashSaved(backupButton);
+  if (trigger && trigger !== backupButton) flashSaved(trigger);
+  clearTimeout(saveFeedbackTimer);
+  saveFeedbackTimer = setTimeout(() => {
+    backupButton?.classList.remove("saved-pulse");
+    trigger?.classList.remove("saved-pulse");
+  }, 1250);
+  lastSaveTrigger = null;
+  lastSaveTriggerAt = 0;
+}
+function save(options = {}) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch {}
+  if (!options.silent) showSaveFeedback();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
     let db;
@@ -3169,6 +3194,17 @@ function exportWeeklyReport() {
 
 function bind() {
   document.addEventListener("click", (event) => {
+    const button = event.target.closest?.("button");
+    if (button) {
+      lastSaveTrigger = button;
+      lastSaveTriggerAt = Date.now();
+    }
+  }, true);
+  document.addEventListener("submit", (event) => {
+    lastSaveTrigger = event.submitter || event.target.querySelector?.('button[type="submit"]') || lastSaveTrigger;
+    lastSaveTriggerAt = Date.now();
+  }, true);
+  document.addEventListener("click", (event) => {
     const button = event.target.closest("button");
     if (!button) return;
     if (button.dataset.seeMorePanels !== undefined) {
@@ -3617,4 +3653,4 @@ function setView(view) {
   renderPanelLimit();
 }
 
-load().then(() => { bind(); render(); save(); });
+load().then(() => { bind(); render(); save({ silent: true }); saveFeedbackReady = true; });
