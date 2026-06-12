@@ -188,6 +188,34 @@ const MOTRA_EXERCISE_ALIAS_MAP = Object.fromEntries([
   ...MOTRA_EXERCISE_ALIASES.flatMap(([motraName, ...aliases]) => [motraName, ...aliases].map((name) => [slug(name), motraName])),
   ...MOTRA_FINAL_EXERCISE_ALIASES.flatMap(([motraName, ...aliases]) => [motraName, ...aliases].map((name) => [slug(name), motraName])),
 ]);
+const EXERCISE_MATCH_GROUPS = [
+  ["Leg Press", "Machine Leg Press", "Machine Leg Press (Moving Chair)"],
+  ["Leg Extension", "Machine Leg Extension", "Machine Leg Extension superset with Machine Pendulum Squat"],
+  ["Walking Lunge", "Dumbbell Walking Lunge"],
+  ["Machine Incline Chest Press", "Machine Incline Bench Press", "Smith Machine Incline Bench Press"],
+  ["Machine Chest Press", "Machine Tricep Press", "Machine Seated Chest Press"],
+  ["Pec Deck Fly", "Machine Fly (Pec Dec)"],
+  ["Lateral Raise", "Dumbbell Lateral Raise", "Cable Single-Arm Lateral Raise"],
+  ["Cable Bar Straight Arm Pull Down", "Cable Rope Straight Arm Pull Down"],
+  ["Lat Pulldown", "Cable Lat Pull Down Single-Arm", "Cable Lat Pull Down Wide-Grip"],
+  ["Seated Cable Row", "Cable Single-Arm Row", "Machine Row", "Machine Wide-Grip Row", "Machine High Row (MTS Row)"],
+  ["T-Bar Row", "Machine T-Bar Row"],
+  ["Cable Face Pull", "Cable Upright Rear Delt Fly"],
+  ["Romanian Deadlift", "Barbell Romanian Deadlift", "Dumbbell Romanian Deadlift"],
+  ["Seated Calf Raise", "Machine Seated Calf Raise"],
+  ["Adductor Machine", "Machine Hip Adduction"],
+  ["Hip Thrust Machine", "Machine Hip Thrust (Glute Bridge)"],
+  ["Skull Crusher", "EZ-Bar Skull Crusher"],
+  ["Dumbbell Bicep Curl", "Dumbbell Drag Curl"],
+];
+const EXERCISE_MATCH_EQUIVALENTS = (() => {
+  const map = new Map();
+  for (const group of EXERCISE_MATCH_GROUPS) {
+    const keys = group.map((name) => slug(motraExerciseName(name)));
+    for (const key of keys) map.set(key, new Set([...(map.get(key) || []), ...keys]));
+  }
+  return map;
+})();
 
 const DEFAULT_TEMPLATES = {
   day1: { title: "Legs A", exercises: [
@@ -533,6 +561,16 @@ function motraExerciseName(name) {
 }
 function exerciseMatchKey(name) {
   return slug(motraExerciseName(name));
+}
+function exerciseMatchKeys(name) {
+  const key = exerciseMatchKey(name);
+  return new Set([key, ...(EXERCISE_MATCH_EQUIVALENTS.get(key) || [])]);
+}
+function exerciseNamesMatch(a, b) {
+  const aKeys = exerciseMatchKeys(a);
+  const bKeys = exerciseMatchKeys(b);
+  for (const key of aKeys) if (bKeys.has(key)) return true;
+  return false;
 }
 function escapeHtml(v) {
   return String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -1663,11 +1701,10 @@ function renderWorkoutEditor() {
     }).join("")}` : `<div class="empty">No exercises in this split yet.</div>`;
 }
 function latestExerciseSets(name, before = Date.now()) {
-  const target = exerciseMatchKey(name);
   const sessions = allWorkoutSessions();
   for (const workout of sessions) {
     if ((workout.createdAt || 0) >= before) continue;
-    const log = (workout.exerciseLogs || []).find((entry) => exerciseMatchKey(entry.name) === target && entry.sets?.length);
+    const log = (workout.exerciseLogs || []).find((entry) => exerciseNamesMatch(entry.name, name) && entry.sets?.length);
     if (log) return { date: workout.date, sets: log.sets };
   }
   return null;
@@ -1681,11 +1718,10 @@ function estimatedOneRepMax(set) {
   return weight && reps ? weight * (1 + (reps / 30)) : 0;
 }
 function exerciseSessions(name, before = Infinity) {
-  const target = exerciseMatchKey(name);
   return allWorkoutSessions()
     .filter((workout) => (workout.createdAt || 0) < before)
     .flatMap((workout) => (workout.exerciseLogs || [])
-      .filter((log) => exerciseMatchKey(log.name) === target && log.sets?.length)
+      .filter((log) => exerciseNamesMatch(log.name, name) && log.sets?.length)
       .map((log) => ({ workout, log, date: workout.date, createdAt: workout.createdAt || 0 })))
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 }
