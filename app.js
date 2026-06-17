@@ -310,6 +310,7 @@ const fmtDose = (v, digits = 3) => rawNum(v).toLocaleString(undefined, { maximum
 const todayKey = () => dayKey(new Date());
 const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const clamp = (value, min = 0, max = 100) => Math.min(max, Math.max(min, Number(value) || 0));
+const VIEW_IDS = ["today", "log", "planner", "peptides", "history", "settings"];
 let state = defaults();
 let startupDetailsCollapsed = false;
 
@@ -840,7 +841,18 @@ function dayHistoryCounts(date) {
   const meals = (state.meals[date] || []).length;
   const workouts = (state.workouts[date] || []).length;
   const weight = weightEntriesForDate(date).length;
-  return { meals, workouts, weight, total: meals + workouts + weight };
+  const peptideLogs = (state.peptideLogs || []).filter((log) => log.date === date).length;
+  const peptideDue = dueDoseSlots(date).length;
+  const peptides = Math.max(peptideLogs, peptideDue);
+  return { meals, workouts, weight, peptides, total: meals + workouts + weight + peptides };
+}
+function historyCountSummary(counts) {
+  return [
+    counts.meals ? `${counts.meals}M` : "",
+    counts.workouts ? `${counts.workouts}W` : "",
+    counts.peptides ? `${counts.peptides}P` : "",
+    counts.weight ? `${counts.weight}Wt` : "",
+  ].filter(Boolean).join(" ");
 }
 function mealsForDate(date = todayKey()) {
   return (state.meals[date] || []).map(normalizeMeal).filter(Boolean);
@@ -1141,7 +1153,8 @@ function doseLogFromCycle(cycle, timing, date = todayKey()) {
   });
 }
 function doseAlreadyLogged(cycleId, timing, date = todayKey()) {
-  return (state.peptideLogs || []).find((log) => log.cycleId === cycleId && log.timing === timing && log.date === date);
+  const cycle = (state.peptideCycles || []).find((item) => item.id === cycleId);
+  return cycle ? doseLogForSlot({ cycle, timing }, date) : (state.peptideLogs || []).find((log) => log.cycleId === cycleId && log.timing === timing && log.date === date);
 }
 
 function openDb() {
@@ -1243,6 +1256,7 @@ function save(options = {}) {
 }
 
 function render() {
+  const view = normalizeView(state.settings?.activeView || activeViewName());
   renderHeader();
   renderToday();
   renderLog();
@@ -1252,7 +1266,7 @@ function render() {
   renderSummary();
   renderMotraImportList();
   renderMotraPreview();
-  renderPanelLimit();
+  setView(view, { persist: false });
   collapseStartupDetails();
 }
 function collapseStartupDetails() {
@@ -1346,6 +1360,46 @@ function macroBarHtml(key, total, target) {
     <small>${note}</small>
   </div>`;
 }
+function macroHistoryStatus(total, target) {
+  const normalized = normalizeMacroTargets(target || {});
+  if (!hasMacroTargets(normalized)) return { className: "neutral", label: "No macro target", detail: "Set calories and macro targets in Planner." };
+  const calorieTarget = rawNum(normalized.calories);
+  const calorieGap = calorieTarget - rawNum(total.calories);
+  const score = macroCompletion(total, normalized);
+  if (!calorieTarget) return { className: score >= 90 ? "hit" : "behind", label: `${score}% complete`, detail: "Based on protein, carbs and fat targets." };
+  if (calorieGap > 50) return { className: "behind", label: "Behind target", detail: `${fmt(calorieGap)} kcal left / ${score}% complete` };
+  if (calorieGap < -50) return { className: "over", label: "Over target", detail: `${fmt(Math.abs(calorieGap))} kcal over / ${score}% complete` };
+  return { className: "hit", label: "Calorie target hit", detail: `${score}% complete across calories and macros` };
+}
+function historyDropdownHtml(title, subtitle, pill, body, className = "") {
+  return `<details class="panel drop-panel history-drop-panel ${className}">
+    <summary class="drop-summary">
+      <span><strong>${escapeHtml(title)}</strong><small>${escapeHtml(subtitle)}</small></span>
+      <span class="drop-pill">${escapeHtml(pill)}</span>
+    </summary>
+    <div class="drop-body">${body}</div>
+  </details>`;
+}
+function mealHistoryMacroSummaryHtml(date, meals) {
+  const total = totals(meals);
+  const target = normalizeMacroTargets(state.macroTargets || {});
+  const status = macroHistoryStatus(total, target);
+  const keys = ["calories", "protein", "carbs", "fat"];
+  const stats = keys.map((key) => {
+    const value = key === "calories" ? fmt(total[key]) : fmtDose(total[key], 1);
+    const targetValue = rawNum(target[key]);
+    const targetText = targetValue ? `Target ${key === "calories" ? fmt(targetValue) : fmtDose(targetValue, 1)}${macroUnit(key)}` : "No target";
+    return `<div class="macro-stat"><span>${escapeHtml(macroName(key))}</span><strong>${value}${key === "calories" ? "" : "g"}</strong><small>${escapeHtml(targetText)}</small></div>`;
+  }).join("");
+  return historyDropdownHtml("Meals Macros", `${dateLabel(date)} / ${status.detail}`, "Macros", `
+    <div class="history-mini-head">
+      <strong>${escapeHtml(dateLabel(date))} totals</strong>
+      <span class="history-status-pill ${status.className}">${escapeHtml(status.label)}</span>
+    </div>
+    <div class="macro-stat-grid">${stats}</div>
+    <div class="macro-bars">${keys.map((key) => macroBarHtml(key, total, target)).join("")}</div>
+  `, `macro-history-card ${status.className}`);
+}
 function renderMacroHero(total = totals()) {
   const el = $("#macro-hero");
   if (!el) return;
@@ -1371,8 +1425,16 @@ function dueDoseSlots(date = todayKey()) {
     .filter((cycle) => cycleDueOn(cycle, date))
     .flatMap((cycle) => (cycle.timings || []).map((timing) => ({ cycle, timing })));
 }
+function doseLogForSlot(slot, date = todayKey()) {
+  if (!slot?.cycle) return null;
+  return (state.peptideLogs || []).find((log) => {
+    if (log.date !== date || log.timing !== slot.timing) return false;
+    if (log.cycleId === slot.cycle.id) return true;
+    return !log.cycleId && log.peptideId === slot.cycle.peptideId;
+  }) || null;
+}
 function doseLoggedForSlot(slot, date = todayKey()) {
-  return Boolean((state.peptideLogs || []).find((log) => log.cycleId === slot.cycle.id && log.timing === slot.timing && log.date === date));
+  return Boolean(doseLogForSlot(slot, date));
 }
 function macroCompletion(total = totals(), target = state.macroTargets || {}) {
   const normalized = normalizeMacroTargets(target);
@@ -2120,7 +2182,7 @@ function dueDoseCards(compact = false) {
   const due = (state.peptideCycles || []).filter((cycle) => cycleDueOn(cycle, date));
   if (!due.length) return `<div class="empty">No peptide doses scheduled for today.</div>`;
   return due.flatMap((cycle) => (cycle.timings || []).map((timing) => {
-    const logged = doseAlreadyLogged(cycle.id, timing, date);
+    const logged = doseLogForSlot({ cycle, timing }, date);
     const calc = calculateDraw(cycle.peptideId, cycle.vialMg, cycle.diluentMl, cycle.doseMg);
     return `<div class="dose-card">
       <div class="dose-card-head">
@@ -2229,6 +2291,7 @@ function renderHistory() {
   $$(".tabs [data-history]").forEach((button) => button.classList.toggle("active", button.dataset.history === type));
   if (type === "meals") return renderMealHistory();
   if (type === "workouts") return renderWorkoutHistory();
+  if (type === "peptides") return renderPeptideDayHistory();
   renderWeightHistory();
 }
 function renderHistoryCalendar() {
@@ -2246,7 +2309,7 @@ function renderHistoryCalendar() {
     return `<button class="history-day${key === selected ? " active" : ""}${counts.total ? " has-data" : ""}" data-history-day="${escapeHtml(key)}" type="button">
       <span>${escapeHtml(WEEK_DAYS[index])}</span>
       <strong>${day.getDate()}</strong>
-      <small>${counts.total ? `${counts.meals}M ${counts.workouts}W ${counts.weight}Wt` : ""}</small>
+      <small>${escapeHtml(historyCountSummary(counts))}</small>
     </button>`;
   }).join("");
 }
@@ -2254,9 +2317,12 @@ function renderMealHistory() {
   const date = historySelectedDate();
   const meals = (state.meals[date] || []).map(normalizeMeal).filter(Boolean);
   const t = totals(meals);
-  $("#history-list").innerHTML = meals.length
-    ? `<div class="history-card"><div class="history-head"><div><strong>${dateLabel(date)}</strong><small>${meals.length} meals / ${fmt(t.calories)} kcal / ${fmt(t.protein)}p</small></div></div><div class="meal-list">${meals.map((meal) => mealCardHtml(meal, `${mealActionButton("Add today", `data-add-meal-date="${escapeHtml(date)}" data-add-meal-id="${escapeHtml(meal.id)}"`, "primary")}${mealActionButton("Save", `data-save-meal-date="${escapeHtml(date)}" data-save-meal-id="${escapeHtml(meal.id)}"`, "secondary")}`)).join("")}</div></div>`
+  const mealsLogged = meals.length
+    ? `<div class="meal-list">${meals.map((meal) => mealCardHtml(meal)).join("")}</div>`
     : `<div class="empty">No meals logged for ${escapeHtml(dateLabel(date))}.</div>`;
+  $("#history-list").innerHTML = meals.length
+    ? `${mealHistoryMacroSummaryHtml(date, meals)}${historyDropdownHtml("Meals Logged", `${dateLabel(date)} / ${meals.length} meals / ${fmt(t.calories)} kcal / ${fmt(t.protein)}p`, "Meals", mealsLogged, "meals-logged-card")}`
+    : `${mealHistoryMacroSummaryHtml(date, meals)}${historyDropdownHtml("Meals Logged", `${dateLabel(date)} / 0 meals`, "Meals", mealsLogged, "meals-logged-card")}`;
 }
 function renderWorkoutHistory() {
   const date = historySelectedDate();
@@ -2265,6 +2331,81 @@ function renderWorkoutHistory() {
     const logs = (workout.exerciseLogs || []).filter((log) => log.sets?.length);
     return `<div class="history-card"><div class="history-head"><div><strong>${escapeHtml(workout.name || workout.planTitle || "Workout")}</strong><small>${dateLabel(workout.date)} / ${fmt(workout.durationMin || 0)} min / ${fmt(workout.caloriesBurned || 0)} kcal</small></div><button class="danger-button" data-delete-workout-date="${escapeHtml(workout.date)}" data-delete-workout-id="${escapeHtml(workout.id)}" type="button">Delete</button></div>${logs.length ? `<ul>${logs.map((log) => `<li><strong>${escapeHtml(log.name)}</strong><span>${escapeHtml(setSummary(log.sets))}</span>${guidanceHtml(log.notes)}${targetDetailsHtml(log.targets)}</li>`).join("")}</ul>` : `<div class="empty">No set detail saved.</div>`}</div>`;
   }).join("") : `<div class="empty">No workouts logged for ${escapeHtml(dateLabel(date))}.</div>`;
+}
+function renderPeptideDayHistory() {
+  const date = historySelectedDate();
+  const slots = dueDoseSlots(date);
+  const logs = (state.peptideLogs || [])
+    .filter((log) => log.date === date)
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const matchedLogIds = new Set();
+  const scheduledTaken = slots.filter((slot) => {
+    const log = doseLogForSlot(slot, date);
+    if (log?.id) matchedLogIds.add(log.id);
+    return Boolean(log);
+  }).length;
+  const missedCount = slots.filter((slot) => !doseLogForSlot(slot, date) && String(date) < todayKey()).length;
+  const totalMg = logs.reduce((sum, log) => sum + rawNum(log.doseMg), 0);
+  const overview = `<div class="history-card peptide-history-overview ${missedCount ? "missed" : scheduledTaken || logs.length ? "taken" : "neutral"}">
+    <div class="history-head">
+      <div>
+        <strong>${escapeHtml(dateLabel(date))} peptide history</strong>
+        <small>${fmt(logs.length)} dose${logs.length === 1 ? "" : "s"} logged / ${fmt(missedCount)} missed</small>
+      </div>
+      <span class="history-status-pill ${missedCount ? "missed" : scheduledTaken || logs.length ? "hit" : "neutral"}">${missedCount ? "Missed dose" : scheduledTaken || logs.length ? "Logged" : "No doses"}</span>
+    </div>
+    <div class="macro-stat-grid">
+      <div class="macro-stat"><span>Scheduled</span><strong>${fmt(slots.length)}</strong><small>Due this day</small></div>
+      <div class="macro-stat"><span>Taken</span><strong>${fmt(scheduledTaken)}</strong><small>Matched to cycle</small></div>
+      <div class="macro-stat"><span>Missed</span><strong>${fmt(missedCount)}</strong><small>Past due only</small></div>
+      <div class="macro-stat"><span>Total mg</span><strong>${fmtDose(totalMg, 2)}</strong><small>Logged dose amount</small></div>
+    </div>
+  </div>`;
+  const scheduledHtml = slots.length ? slots.map((slot) => {
+    const log = doseLogForSlot(slot, date);
+    if (log?.id) matchedLogIds.add(log.id);
+    const missed = !log && String(date) < todayKey();
+    const status = log ? "taken" : missed ? "missed" : "due";
+    const calc = calculateDraw(slot.cycle.peptideId, slot.cycle.vialMg, slot.cycle.diluentMl, slot.cycle.doseMg);
+    const draw = calc.ok && calc.drawMl ? ` / ${fmtDose(calc.drawMl)}ml${calc.type === "peptide" ? ` / ${fmt(calc.drawUnits)} units` : ""}` : "";
+    return `<div class="dose-card peptide-history-card ${status}">
+      <div class="dose-card-head">
+        <div>
+          <strong>${escapeHtml(compoundName(slot.cycle.peptideId))}</strong>
+          <small>${escapeHtml(timingLabel(slot.timing))} / planned ${fmtDose(slot.cycle.doseMg)}mg${draw}</small>
+          ${log ? `<small>Taken: ${fmtDose(log.doseMg)}mg${log.drawMl ? ` / ${fmtDose(log.drawMl)}ml` : ""}${log.drawUnits ? ` / ${fmt(log.drawUnits)} units` : ""}</small>` : `<small>${missed ? "This dose was scheduled but not logged." : "Scheduled for this day."}</small>`}
+        </div>
+        <span class="history-status-pill ${status === "taken" ? "hit" : status}">${status === "taken" ? "Taken" : status === "missed" ? "Missed" : "Due"}</span>
+      </div>
+      ${log?.notes ? `<small>${escapeHtml(log.notes)}</small>` : ""}
+      ${log ? `<button class="danger-button" data-delete-dose="${escapeHtml(log.id)}" type="button">Delete log</button>` : ""}
+    </div>`;
+  }).join("") : `<div class="empty">No peptide doses scheduled for ${escapeHtml(dateLabel(date))}.</div>`;
+  const extraLogs = logs.filter((log) => !matchedLogIds.has(log.id));
+  const extraHtml = extraLogs.length ? `<div class="history-card">
+    <div class="history-head"><div><strong>Extra dosage logs</strong><small>Logged on this date but not matched to a cycle reminder</small></div></div>
+    <div class="dose-list">${extraLogs.map((log) => {
+      const componentHtml = log.componentDoses?.length ? `<ul class="component-list">${log.componentDoses.map((item) => `<li>${escapeHtml(item.name)}: ${fmtDose(item.mg)}mg</li>`).join("")}</ul>` : "";
+      return `<div class="dose-card peptide-history-card taken">
+        <div class="dose-card-head">
+          <div>
+            <strong>${escapeHtml(log.peptideName || compoundName(log.peptideId))}</strong>
+            <small>${escapeHtml(timingLabel(log.timing))} / ${fmtDose(log.doseMg)}mg${log.drawMl ? ` / ${fmtDose(log.drawMl)}ml` : ""}${log.drawUnits ? ` / ${fmt(log.drawUnits)} units` : ""}</small>
+          </div>
+          <button class="danger-button" data-delete-dose="${escapeHtml(log.id)}" type="button">Delete</button>
+        </div>
+        ${componentHtml}
+        ${log.notes ? `<small>${escapeHtml(log.notes)}</small>` : ""}
+      </div>`;
+    }).join("")}</div>
+  </div>` : "";
+  $("#history-list").innerHTML = historyDropdownHtml(
+    "Peptide Dosage",
+    `${dateLabel(date)} / ${fmt(logs.length)} logged / ${fmt(missedCount)} missed`,
+    "Dose",
+    `${overview}${scheduledHtml}${extraHtml}`,
+    `peptide-dosage-card ${missedCount ? "missed" : scheduledTaken || logs.length ? "taken" : "neutral"}`
+  );
 }
 function renderWeightHistory() {
   const date = historySelectedDate();
@@ -3483,26 +3624,26 @@ function bind() {
       const meal = (state.savedMeals || []).find((item) => item.id === button.dataset.addSavedMeal);
       if (!meal) return;
       addMealToToday(meal);
-      save(); render(); setView("today");
+      save(); render();
     }
     if (button.dataset.addMealDate && button.dataset.addMealId) {
       const meal = (state.meals[button.dataset.addMealDate] || []).find((item) => item.id === button.dataset.addMealId);
       if (!meal) return;
       addMealToToday(meal);
-      save(); render(); setView("today");
+      save(); render();
     }
     if (button.dataset.addMealCombo) {
       const ids = button.dataset.addMealCombo.split(",").filter(Boolean);
       const meals = ids.map((id) => (state.savedMeals || []).find((item) => item.id === id)).filter(Boolean);
       if (!meals.length) return;
       meals.forEach(addMealToToday);
-      save(); render(); setView("today");
+      save(); render();
     }
     if (button.dataset.applyMealPlan) {
       const plan = (state.mealPlans || []).find((item) => item.id === button.dataset.applyMealPlan);
       if (!plan) return;
       (plan.meals || []).forEach(addMealToToday);
-      save(); render(); setView("today");
+      save(); render();
     }
     if (button.dataset.deleteMealPlan) {
       state.mealPlans = (state.mealPlans || []).filter((plan) => plan.id !== button.dataset.deleteMealPlan);
@@ -3616,7 +3757,7 @@ function bind() {
     }
     if (button.dataset.deleteDose) {
       state.peptideLogs = (state.peptideLogs || []).filter((log) => log.id !== button.dataset.deleteDose);
-      save(); renderPeptides(); renderToday();
+      save(); render();
     }
     if (button.dataset.deleteWorkoutDate) {
       const date = button.dataset.deleteWorkoutDate;
@@ -3715,7 +3856,7 @@ function bind() {
     if (f.elements.saveMeal.checked) saveMealToLibrary(meal);
     f.reset();
     f.elements.saveMeal.checked = true;
-    save(); render(); setView("today");
+    save(); render();
   });
   $("#macro-target-form").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -3726,7 +3867,7 @@ function bind() {
       carbs: f.elements.carbs.value,
       fat: f.elements.fat.value,
     });
-    save(); render(); setView("today");
+    save(); render();
   });
   $("#meal-plan-form").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -3752,7 +3893,7 @@ function bind() {
     const key = todayKey();
     state.workouts[key] = [session, ...todayWorkouts()];
     delete state.workoutDrafts[`${key}:${split}`];
-    save(); render(); setView("today");
+    save(); render();
   });
   $("#peptide-cycle-form").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -3891,11 +4032,22 @@ function bind() {
     }
   });
 }
-function setView(view) {
-  $$(".view").forEach((el) => el.classList.toggle("active", el.id === `view-${view}`));
-  $$(".tabbar [data-view]").forEach((button) => button.classList.toggle("active", button.dataset.view === view));
+function normalizeView(view) {
+  return VIEW_IDS.includes(view) ? view : "today";
+}
+function activeViewName() {
+  const active = $(".view.active");
+  const view = active?.id?.replace(/^view-/, "");
+  return normalizeView(view || state.settings?.activeView || "today");
+}
+function setView(view, options = {}) {
+  const target = normalizeView(view);
+  state.settings.activeView = target;
+  $$(".view").forEach((el) => el.classList.toggle("active", el.id === `view-${target}`));
+  $$(".tabbar [data-view]").forEach((button) => button.classList.toggle("active", button.dataset.view === target));
   renderHeader();
   renderPanelLimit();
+  if (options.persist !== false) save({ silent: true });
 }
 
 load().then(() => { bind(); render(); save({ silent: true }); saveFeedbackReady = true; });

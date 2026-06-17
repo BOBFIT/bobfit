@@ -829,6 +829,25 @@ button.delete-pulse {
   background: rgba(7, 31, 54, 0.94);
   box-shadow: var(--soft-shadow);
 }
+.macro-history-card.hit,
+.peptide-dosage-card.taken,
+.peptide-history-card.taken,
+.peptide-history-overview.taken {
+  border-color: rgba(45, 212, 191, 0.34);
+  box-shadow: 0 12px 36px rgba(45, 212, 191, 0.12);
+}
+.macro-history-card.behind,
+.peptide-history-card.due {
+  border-color: rgba(245, 158, 11, 0.34);
+  box-shadow: 0 12px 36px rgba(245, 158, 11, 0.1);
+}
+.macro-history-card.over,
+.peptide-dosage-card.missed,
+.peptide-history-card.missed,
+.peptide-history-overview.missed {
+  border-color: rgba(248, 113, 113, 0.38);
+  box-shadow: 0 12px 36px rgba(248, 113, 113, 0.12);
+}
 .exercise-log {
   isolation: isolate;
   overflow: hidden;
@@ -1220,6 +1239,87 @@ button.delete-pulse {
   font-size: 12px;
   font-weight: 900;
 }
+.history-drop-panel {
+  background: rgba(7, 31, 54, 0.94);
+}
+.history-drop-panel .drop-body {
+  gap: 10px;
+}
+.history-mini-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.history-mini-head strong {
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.2;
+}
+.history-status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(95, 225, 255, 0.16);
+  background: var(--surface-soft);
+  color: var(--primary-dark);
+  font-size: 11px;
+  font-weight: 950;
+  white-space: nowrap;
+}
+.history-status-pill.hit {
+  border-color: rgba(45, 212, 191, 0.3);
+  background: rgba(45, 212, 191, 0.16);
+  color: #99f6e4;
+}
+.history-status-pill.behind,
+.history-status-pill.due {
+  border-color: rgba(245, 158, 11, 0.34);
+  background: rgba(245, 158, 11, 0.15);
+  color: #fde68a;
+}
+.history-status-pill.over,
+.history-status-pill.missed {
+  border-color: rgba(248, 113, 113, 0.38);
+  background: rgba(127, 29, 29, 0.34);
+  color: #fecaca;
+}
+.macro-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.macro-stat {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(95, 225, 255, 0.1);
+  border-radius: 16px;
+  background: rgba(13, 44, 73, 0.72);
+}
+.macro-stat span,
+.macro-stat strong,
+.macro-stat small { display: block; }
+.macro-stat span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.macro-stat strong {
+  margin-top: 4px;
+  color: var(--ink);
+  font-size: 17px;
+  line-height: 1.1;
+}
+.macro-stat small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.25;
+}
 .cycle-card, .coach-card, .pr-card {
   display: grid;
   gap: 10px;
@@ -1587,7 +1687,7 @@ button.delete-pulse {
 }
 .tabs {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 4px;
   padding: 5px;
   margin-bottom: 12px;
@@ -1601,6 +1701,7 @@ button.delete-pulse {
   border-radius: 999px;
   background: transparent;
   color: var(--muted);
+  font-size: 12px;
   font-weight: 950;
 }
 .tabs button.active { background: #0b4d7a; color: var(--ink); box-shadow: var(--soft-shadow); }
@@ -1698,8 +1799,9 @@ button.delete-pulse {
   .topbar h1 { font-size: 30px; }
   .app { padding-inline: 12px; }
   .grid, .quick-grid, .help-grid, .two-col, .add-line, .set-entry { grid-template-columns: 1fr; }
+  .macro-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .picker-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .hero-panel, .section-head, .exercise-head, .split-head, .history-head { display: grid; }
+  .hero-panel, .section-head, .exercise-head, .split-head, .history-head, .history-mini-head { display: grid; }
   #view-today.view.active { gap: 10px; }
   #view-today .brand-hero {
     grid-template-columns: 48px minmax(0, 1fr);
