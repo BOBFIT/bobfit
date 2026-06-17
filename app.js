@@ -2327,10 +2327,17 @@ function renderMealHistory() {
 function renderWorkoutHistory() {
   const date = historySelectedDate();
   const sessions = allWorkoutSessions().filter((workout) => workout.date === date);
-  $("#history-list").innerHTML = sessions.length ? sessions.map((workout) => {
+  const workoutBody = sessions.length ? sessions.map((workout) => {
     const logs = (workout.exerciseLogs || []).filter((log) => log.sets?.length);
     return `<div class="history-card"><div class="history-head"><div><strong>${escapeHtml(workout.name || workout.planTitle || "Workout")}</strong><small>${dateLabel(workout.date)} / ${fmt(workout.durationMin || 0)} min / ${fmt(workout.caloriesBurned || 0)} kcal</small></div><button class="danger-button" data-delete-workout-date="${escapeHtml(workout.date)}" data-delete-workout-id="${escapeHtml(workout.id)}" type="button">Delete</button></div>${logs.length ? `<ul>${logs.map((log) => `<li><strong>${escapeHtml(log.name)}</strong><span>${escapeHtml(setSummary(log.sets))}</span>${guidanceHtml(log.notes)}${targetDetailsHtml(log.targets)}</li>`).join("")}</ul>` : `<div class="empty">No set detail saved.</div>`}</div>`;
   }).join("") : `<div class="empty">No workouts logged for ${escapeHtml(dateLabel(date))}.</div>`;
+  $("#history-list").innerHTML = historyDropdownHtml(
+    "Workouts Logged",
+    `${dateLabel(date)} / ${sessions.length} workout${sessions.length === 1 ? "" : "s"}`,
+    "Logs",
+    workoutBody,
+    "workouts-logged-card"
+  );
 }
 function renderPeptideDayHistory() {
   const date = historySelectedDate();
@@ -2378,7 +2385,9 @@ function renderPeptideDayHistory() {
         <span class="history-status-pill ${status === "taken" ? "hit" : status}">${status === "taken" ? "Taken" : status === "missed" ? "Missed" : "Due"}</span>
       </div>
       ${log?.notes ? `<small>${escapeHtml(log.notes)}</small>` : ""}
-      ${log ? `<button class="danger-button" data-delete-dose="${escapeHtml(log.id)}" type="button">Delete log</button>` : ""}
+      ${log
+        ? `<button class="danger-button" data-delete-dose="${escapeHtml(log.id)}" type="button">Delete log</button>`
+        : `<button class="primary wide-button" data-log-history-dose="${escapeHtml(slot.cycle.id)}" data-dose-timing="${escapeHtml(slot.timing)}" data-dose-date="${escapeHtml(date)}" type="button">Add dosage</button>`}
     </div>`;
   }).join("") : `<div class="empty">No peptide doses scheduled for ${escapeHtml(dateLabel(date))}.</div>`;
   const extraLogs = logs.filter((log) => !matchedLogIds.has(log.id));
@@ -3685,6 +3694,15 @@ function bind() {
       const log = doseLogFromCycle(cycle, timing);
       state.peptideLogs = [log, ...(state.peptideLogs || [])];
       save(); renderPeptides(); renderToday();
+    }
+    if (button.dataset.logHistoryDose) {
+      const cycle = (state.peptideCycles || []).find((item) => item.id === button.dataset.logHistoryDose);
+      const timing = button.dataset.doseTiming || "morning";
+      const date = isDateKey(button.dataset.doseDate) ? button.dataset.doseDate : historySelectedDate();
+      if (!cycle || doseAlreadyLogged(cycle.id, timing, date)) return;
+      const log = doseLogFromCycle(cycle, timing, date);
+      state.peptideLogs = [log, ...(state.peptideLogs || [])];
+      save(); render();
     }
     if (button.dataset.addSet) {
       const card = button.closest(".exercise-log");
