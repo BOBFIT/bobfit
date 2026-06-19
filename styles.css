@@ -649,6 +649,10 @@ button.saved-pulse {
   animation: savedButtonPulse 1.15s ease-out;
   border-color: rgba(95, 225, 255, 0.82) !important;
 }
+button.meal-added-pulse {
+  animation: savedButtonPulse 1.15s ease-out;
+  border-color: rgba(95, 225, 255, 0.82) !important;
+}
 button.delete-pulse {
   animation: deletedButtonPulse 1.15s ease-out;
   border-color: rgba(248, 113, 113, 0.88) !important;
@@ -962,7 +966,9 @@ button.delete-pulse {
 }
 @media (prefers-reduced-motion: reduce) {
   button.saved-pulse,
+  button.meal-added-pulse,
   button.delete-pulse,
+  .meal-card.meal-added-card,
   .tab-open-pulse > summary,
   .tab-open-pulse > summary::before,
   .tab-closing > summary,
@@ -1403,6 +1409,26 @@ button.delete-pulse {
   border-radius: 24px;
   background: rgba(7, 31, 54, 0.94);
   box-shadow: var(--soft-shadow);
+}
+.meal-card.meal-added-card {
+  animation: mealAddedCardPulse 1.15s ease-out;
+}
+@keyframes mealAddedCardPulse {
+  0% {
+    border-color: rgba(95, 225, 255, 0.12);
+    box-shadow: var(--soft-shadow);
+    transform: translateY(0);
+  }
+  22% {
+    border-color: rgba(95, 225, 255, 0.82);
+    box-shadow: 0 0 0 5px rgba(19, 168, 245, 0.18), 0 0 30px rgba(95, 225, 255, 0.38);
+    transform: translateY(-1px);
+  }
+  100% {
+    border-color: rgba(95, 225, 255, 0.12);
+    box-shadow: var(--soft-shadow);
+    transform: translateY(0);
+  }
 }
 .meal-card-head {
   display: flex;

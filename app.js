@@ -1197,6 +1197,25 @@ function flashDeleted(button) {
   void button.offsetWidth;
   button.classList.add("delete-pulse");
 }
+function flashMealAdded(button) {
+  if (!button) return;
+  const card = button.closest(".meal-card");
+  button.classList.remove("meal-added-pulse");
+  card?.classList.remove("meal-added-card");
+  void button.offsetWidth;
+  button.textContent = "Added";
+  button.disabled = true;
+  button.classList.add("meal-added-pulse");
+  card?.classList.add("meal-added-card");
+}
+function runMealLibraryAddFeedback(button, action) {
+  if (!button?.closest?.("#saved-meal-list")) {
+    action();
+    return;
+  }
+  flashMealAdded(button);
+  setTimeout(action, 420);
+}
 function isDeleteButton(button) {
   if (!button) return false;
   if (button.classList?.contains("danger-button")) return true;
@@ -3632,14 +3651,20 @@ function bind() {
     if (button.dataset.addSavedMeal) {
       const meal = (state.savedMeals || []).find((item) => item.id === button.dataset.addSavedMeal);
       if (!meal) return;
-      addMealToToday(meal);
-      save(); render();
+      runMealLibraryAddFeedback(button, () => {
+        addMealToToday(meal);
+        save(); render();
+      });
+      return;
     }
     if (button.dataset.addMealDate && button.dataset.addMealId) {
       const meal = (state.meals[button.dataset.addMealDate] || []).find((item) => item.id === button.dataset.addMealId);
       if (!meal) return;
-      addMealToToday(meal);
-      save(); render();
+      runMealLibraryAddFeedback(button, () => {
+        addMealToToday(meal);
+        save(); render();
+      });
+      return;
     }
     if (button.dataset.addMealCombo) {
       const ids = button.dataset.addMealCombo.split(",").filter(Boolean);
