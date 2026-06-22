@@ -4543,6 +4543,7 @@ function bind() {
   $("#motra-import-button").addEventListener("click", importMotraPreview);
   $("#auth-gate-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
+    flashSaved(event.submitter || $("#auth-login-button"));
     try {
       const { email, password } = cloudAuthValues(event.currentTarget);
       await cloudSignIn(email, password);
@@ -4553,7 +4554,8 @@ function bind() {
       alert(message);
     }
   });
-  $("#auth-create-button")?.addEventListener("click", async () => {
+  $("#auth-create-button")?.addEventListener("click", async (event) => {
+    flashSaved(event.currentTarget);
     try {
       const form = $("#auth-gate-form");
       const { email, password } = cloudAuthValues(form);

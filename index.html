@@ -16,13 +16,14 @@
   <body class="auth-locked">
     <section id="auth-gate" class="auth-gate" aria-live="polite">
       <div class="auth-card">
-        <img class="auth-logo" src="assets/logo.svg" alt="Julius Trainer" />
+        <div class="auth-logo-wrap"><img class="auth-logo" src="assets/logo.svg" alt="Julius Trainer" /></div>
         <span class="brand-kicker">Julius Trainer</span>
-        <h1>Login</h1>
-        <p>Use your own account so your meals, workouts, peptides and body data stay separate and sync across your devices.</p>
+        <h1>Welcome to Julius Trainer</h1>
+        <p>Log in to sync your meals, workouts, peptides and body data across your devices.</p>
         <form id="auth-gate-form" class="auth-form">
-          <label>Email<input name="email" type="email" autocomplete="email" required placeholder="you@example.com" /></label>
-          <label>Password<input name="password" type="password" autocomplete="current-password" required minlength="6" placeholder="Minimum 6 characters" /></label>
+          <label class="auth-field"><span>Email</span><input name="email" type="email" autocomplete="email" required placeholder="you@example.com" /></label>
+          <label class="auth-field"><span>Password</span><input name="password" type="password" autocomplete="current-password" required minlength="6" placeholder="Minimum 6 characters" /></label>
+          <div class="auth-row"><label><input name="remember" type="checkbox" checked /> Remember me</label><span>Cloud sync</span></div>
           <button id="auth-login-button" class="primary wide-button" type="submit">Log in</button>
           <button id="auth-create-button" class="secondary wide-button" type="button">Create account</button>
         </form>
