@@ -313,6 +313,7 @@ let cloudProfile = null;
 let cloudProfiles = [];
 let masterStatusMessage = "Master dashboard loads for the first account once Supabase user tracking is set up.";
 let authReady = false;
+let authBusy = false;
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 const uid = () => `${Date.now()}${Math.random().toString(36).slice(2, 8)}`;
@@ -2632,6 +2633,13 @@ function setAuthGateStatus(message = "", isError = false) {
   el.textContent = message;
   el.classList.toggle("error", Boolean(isError));
 }
+function setAuthBusy(busy = false) {
+  authBusy = Boolean(busy);
+  ["#auth-login-button", "#auth-create-button", "#cloud-login-button", "#cloud-signup-button"].forEach((selector) => {
+    const button = $(selector);
+    if (button) button.disabled = authBusy;
+  });
+}
 function setAuthLocked(locked = true) {
   document.body.classList.toggle("auth-locked", Boolean(locked));
   document.body.classList.toggle("auth-ready", !locked);
@@ -2757,6 +2765,7 @@ function renderCloudPanel() {
 }
 function friendlyCloudError(error) {
   const text = String(error?.message || error || "Cloud sync failed.");
+  if (/rate limit|too many|429|over.*limit|email.*limit/i.test(text)) return "Too many account emails have been sent. Wait around 1 hour, or set up Supabase custom SMTP before adding more users.";
   if (/relation .*user_app_state|does not exist|404/i.test(text)) return "Cloud table is not ready yet. Run the Supabase SQL setup first, then try again.";
   if (/relation .*user_profiles|does not exist|user_profiles|profile/i.test(text)) return "Master user tracking is not ready yet. Run the updated Supabase SQL setup first.";
   if (/invalid login|invalid.*credentials/i.test(text)) return "Login failed. Check the email and password.";
@@ -4543,7 +4552,9 @@ function bind() {
   $("#motra-import-button").addEventListener("click", importMotraPreview);
   $("#auth-gate-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (authBusy) return;
     flashSaved(event.submitter || $("#auth-login-button"));
+    setAuthBusy(true);
     try {
       const { email, password } = cloudAuthValues(event.currentTarget);
       await cloudSignIn(email, password);
@@ -4552,10 +4563,14 @@ function bind() {
       setAuthGateStatus(message, true);
       setCloudStatus(message, true);
       alert(message);
+    } finally {
+      setAuthBusy(false);
     }
   });
   $("#auth-create-button")?.addEventListener("click", async (event) => {
+    if (authBusy) return;
     flashSaved(event.currentTarget);
+    setAuthBusy(true);
     try {
       const form = $("#auth-gate-form");
       const { email, password } = cloudAuthValues(form);
@@ -4565,25 +4580,35 @@ function bind() {
       setAuthGateStatus(message, true);
       setCloudStatus(message, true);
       alert(message);
+    } finally {
+      setAuthBusy(false);
     }
   });
   $("#cloud-auth-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (authBusy) return;
+    setAuthBusy(true);
     try {
       const { email, password } = cloudAuthValues();
       await cloudSignIn(email, password);
     } catch (err) {
       setCloudStatus(friendlyCloudError(err), true);
       alert(friendlyCloudError(err));
+    } finally {
+      setAuthBusy(false);
     }
   });
   $("#cloud-signup-button")?.addEventListener("click", async () => {
+    if (authBusy) return;
+    setAuthBusy(true);
     try {
       const { email, password } = cloudAuthValues();
       await cloudSignUp(email, password);
     } catch (err) {
       setCloudStatus(friendlyCloudError(err), true);
       alert(friendlyCloudError(err));
+    } finally {
+      setAuthBusy(false);
     }
   });
   $("#cloud-upload-button")?.addEventListener("click", async () => {
