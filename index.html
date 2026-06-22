@@ -396,6 +396,28 @@
       </section>
 
       <section id="view-settings" class="view" data-title="Settings">
+        <details id="cloud-sync-panel" class="panel drop-panel">
+          <summary class="drop-summary">
+            <span><strong>Cloud Login & Sync</strong><small>Separate accounts with automatic data sync</small></span>
+            <span class="drop-pill">Cloud</span>
+          </summary>
+          <div class="drop-body">
+            <div id="cloud-status-card" class="cloud-status-card"></div>
+            <form id="cloud-auth-form" class="grid">
+              <label class="wide">Email<input name="email" type="email" autocomplete="email" placeholder="you@example.com" /></label>
+              <label class="wide">Password<input name="password" type="password" autocomplete="current-password" placeholder="Minimum 6 characters" /></label>
+              <button id="cloud-login-button" class="primary" type="submit">Log in</button>
+              <button id="cloud-signup-button" class="secondary" type="button">Create account</button>
+            </form>
+            <div class="quick-grid">
+              <button id="cloud-upload-button" class="secondary" type="button">Upload this device</button>
+              <button id="cloud-pull-button" class="secondary" type="button">Pull cloud data</button>
+            </div>
+            <button id="cloud-logout-button" class="secondary wide-button" type="button">Log out</button>
+            <div class="formula-note">Each login has its own private cloud save. Use Upload this device once to move your current data into your account, then future saves sync automatically.</div>
+            <div id="cloud-sync-status" class="import-status" role="status"></div>
+          </div>
+        </details>
         <details id="motra-import-panel" class="panel drop-panel">
           <summary class="drop-summary">
             <span><strong>Motra Workout Import</strong><small>Import from Excel, CSV, text or readable PDF</small></span>

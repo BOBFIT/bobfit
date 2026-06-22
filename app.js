@@ -7,6 +7,10 @@ const STORE_KEY = "akyfit.website.shadow.v2";
 const IDB_NAME = "akyfit.website.v2";
 const IDB_STORE = "state";
 const IDB_KEY = "main";
+const SUPABASE_URL = "https://cylvclmnpzsdiqsneuoj.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_eVDJFuMUWYgVgXGc9dVjMw_H5uB-NGC";
+const CLOUD_TABLE = "user_app_state";
+const CLOUD_SESSION_KEY = "julius.trainer.cloud.session.v1";
 
 const TRAINING_PLAN_VERSION = "aky-training-plan-targets-v8-motra-log-rename";
 const TOP_DROPDOWN_LIMIT = 4;
@@ -298,6 +302,12 @@ const tabCloseTimers = new WeakMap();
 const openExerciseCards = new Set();
 let motraImportPreview = [];
 let motraImportSourceName = "";
+let cloudSession = null;
+let cloudUser = null;
+let cloudSyncTimer = 0;
+let cloudStatusMessage = "Log in or create an account to sync this app across devices.";
+let cloudStatusIsError = false;
+let cloudLastSyncedAt = "";
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 const uid = () => `${Date.now()}${Math.random().toString(36).slice(2, 8)}`;
@@ -1274,6 +1284,7 @@ function closeTabSmooth(panel) {
 function save(options = {}) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch {}
   if (!options.silent) showSaveFeedback();
+  if (!options.skipCloud) scheduleCloudSync();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
     let db;
@@ -1297,6 +1308,7 @@ function render() {
   renderSummary();
   renderMotraImportList();
   renderMotraPreview();
+  renderCloudPanel();
   setView(view, { persist: false });
   collapseStartupDetails();
 }
@@ -2607,6 +2619,275 @@ async function importText(text) {
 async function importFile(file) {
   if (!file) throw new Error("Choose a backup file first.");
   await importText(await file.text());
+}
+function cloudDataCounts(data = state) {
+  const meals = Object.values(data.meals || {}).reduce((sum, mealsForDay) => sum + (Array.isArray(mealsForDay) ? mealsForDay.length : 0), 0);
+  const workouts = Object.values(data.workouts || {}).reduce((sum, workoutsForDay) => sum + (Array.isArray(workoutsForDay) ? workoutsForDay.length : 0), 0);
+  const macroTargets = Object.values(data.macroTargets || {}).filter((value) => rawNum(value)).length;
+  return {
+    meals,
+    workouts,
+    savedMeals: Array.isArray(data.savedMeals) ? data.savedMeals.length : 0,
+    mealPlans: Array.isArray(data.mealPlans) ? data.mealPlans.length : 0,
+    peptideCycles: Array.isArray(data.peptideCycles) ? data.peptideCycles.length : 0,
+    peptideLogs: Array.isArray(data.peptideLogs) ? data.peptideLogs.length : 0,
+    weights: Array.isArray(data.bodyMetrics) ? data.bodyMetrics.length : 0,
+    checkins: Array.isArray(data.progressCheckins) ? data.progressCheckins.length : 0,
+    macroTargets,
+  };
+}
+function hasCloudUserData(data = state) {
+  return Object.values(cloudDataCounts(data)).some((count) => count > 0);
+}
+function cloudCountSummary(data = state) {
+  const counts = cloudDataCounts(data);
+  return `${fmt(counts.meals)} meals, ${fmt(counts.workouts)} workouts, ${fmt(counts.peptideLogs)} doses, ${fmt(counts.weights)} weights`;
+}
+function cloudSessionExpiresAt(session) {
+  if (!session) return 0;
+  if (session.expires_at) return Number(session.expires_at) * 1000;
+  return rawNum(session.expiresAt);
+}
+function saveCloudSession(session, syncEnabled = cloudSession?.syncEnabled || false) {
+  if (!session?.access_token) return;
+  const expiresAt = session.expires_at ? Number(session.expires_at) * 1000 : Date.now() + (rawNum(session.expires_in) || 3600) * 1000;
+  cloudSession = {
+    access_token: session.access_token,
+    refresh_token: session.refresh_token || cloudSession?.refresh_token || "",
+    expiresAt,
+    user: session.user || cloudSession?.user || null,
+    syncEnabled: Boolean(syncEnabled),
+  };
+  cloudUser = cloudSession.user;
+  try { localStorage.setItem(CLOUD_SESSION_KEY, JSON.stringify(cloudSession)); } catch {}
+}
+function loadCloudSession() {
+  try { cloudSession = JSON.parse(localStorage.getItem(CLOUD_SESSION_KEY) || "null"); } catch { cloudSession = null; }
+  cloudUser = cloudSession?.user || null;
+}
+function clearCloudSession() {
+  cloudSession = null;
+  cloudUser = null;
+  cloudLastSyncedAt = "";
+  try { localStorage.removeItem(CLOUD_SESSION_KEY); } catch {}
+}
+function enableCloudAutoSync() {
+  if (!cloudSession) return;
+  cloudSession.syncEnabled = true;
+  try { localStorage.setItem(CLOUD_SESSION_KEY, JSON.stringify(cloudSession)); } catch {}
+}
+function cloudAutoSyncReady() {
+  return Boolean(cloudUser?.id && cloudSession?.access_token && cloudSession?.syncEnabled);
+}
+function setCloudStatus(message = "", isError = false) {
+  cloudStatusMessage = message || (cloudUser ? "Cloud sync ready." : "Log in or create an account to sync this app across devices.");
+  cloudStatusIsError = Boolean(isError);
+  renderCloudPanel();
+}
+function renderCloudPanel() {
+  const card = $("#cloud-status-card");
+  if (!card) return;
+  const email = cloudUser?.email || "";
+  const signedIn = Boolean(cloudUser?.id);
+  const syncReady = cloudAutoSyncReady();
+  card.classList.toggle("signed-in", signedIn);
+  card.innerHTML = `<div>
+      <span>${signedIn ? "Logged in" : "Not logged in"}</span>
+      <strong>${escapeHtml(signedIn ? email || "Account connected" : "Cloud sync off")}</strong>
+      <small>${escapeHtml(signedIn ? (syncReady ? "Future saves sync automatically." : "Choose upload or pull to start automatic sync.") : "Create an account or log in to use your data on another device.")}</small>
+    </div>
+    <div>
+      <span>This device</span>
+      <strong>${escapeHtml(cloudCountSummary())}</strong>
+      <small>${escapeHtml(cloudLastSyncedAt ? `Last synced ${cloudLastSyncedAt}` : "Saved locally on this device")}</small>
+    </div>`;
+  const form = $("#cloud-auth-form");
+  if (form) form.hidden = signedIn;
+  const logout = $("#cloud-logout-button");
+  if (logout) logout.hidden = !signedIn;
+  const upload = $("#cloud-upload-button");
+  const pull = $("#cloud-pull-button");
+  if (upload) upload.disabled = !signedIn;
+  if (pull) pull.disabled = !signedIn;
+  const status = $("#cloud-sync-status");
+  if (status) {
+    status.textContent = cloudStatusMessage;
+    status.classList.toggle("error", cloudStatusIsError);
+  }
+}
+function friendlyCloudError(error) {
+  const text = String(error?.message || error || "Cloud sync failed.");
+  if (/relation .*user_app_state|does not exist|404/i.test(text)) return "Cloud table is not ready yet. Run the Supabase SQL setup first, then try again.";
+  if (/invalid login|invalid.*credentials/i.test(text)) return "Login failed. Check the email and password.";
+  if (/email not confirmed/i.test(text)) return "Check your email and confirm the account, then log in.";
+  if (/jwt|expired|unauthorized|invalid token|401/i.test(text)) return "Cloud login expired. Log in again.";
+  return text;
+}
+async function cloudRequest(path, options = {}) {
+  const { method = "GET", body = null, auth = true, headers = {} } = options;
+  if (auth) await ensureCloudSession();
+  const requestHeaders = {
+    apikey: SUPABASE_PUBLISHABLE_KEY,
+    ...headers,
+  };
+  if (body !== null) requestHeaders["Content-Type"] = "application/json";
+  if (auth && cloudSession?.access_token) requestHeaders.Authorization = `Bearer ${cloudSession.access_token}`;
+  const response = await fetch(`${SUPABASE_URL}${path}`, {
+    method,
+    headers: requestHeaders,
+    body: body === null ? undefined : JSON.stringify(body),
+  });
+  const text = await response.text();
+  let data = null;
+  if (text) {
+    try { data = JSON.parse(text); } catch { data = text; }
+  }
+  if (!response.ok) {
+    const message = data?.msg || data?.message || data?.error_description || data?.error || response.statusText;
+    throw new Error(message || `Cloud request failed (${response.status}).`);
+  }
+  return data;
+}
+async function ensureCloudSession() {
+  if (!cloudSession?.access_token) throw new Error("Log in before using cloud sync.");
+  if (cloudSessionExpiresAt(cloudSession) > Date.now() + 60000) return cloudSession;
+  if (!cloudSession.refresh_token) throw new Error("Cloud login expired. Log in again.");
+  const refreshed = await cloudRequest("/auth/v1/token?grant_type=refresh_token", {
+    method: "POST",
+    auth: false,
+    body: { refresh_token: cloudSession.refresh_token },
+  });
+  saveCloudSession(refreshed, cloudSession.syncEnabled);
+  return cloudSession;
+}
+function cloudAuthValues() {
+  const form = $("#cloud-auth-form");
+  const email = form?.elements.email.value.trim() || "";
+  const password = form?.elements.password.value || "";
+  if (!email || !password) throw new Error("Enter your email and password first.");
+  if (password.length < 6) throw new Error("Password must be at least 6 characters.");
+  return { email, password };
+}
+async function cloudSignIn(email, password) {
+  setCloudStatus("Logging in...");
+  const session = await cloudRequest("/auth/v1/token?grant_type=password", {
+    method: "POST",
+    auth: false,
+    body: { email, password },
+  });
+  saveCloudSession(session, false);
+  $("#cloud-auth-form")?.reset();
+  await cloudAfterLogin();
+}
+async function cloudSignUp(email, password) {
+  setCloudStatus("Creating account...");
+  const result = await cloudRequest("/auth/v1/signup", {
+    method: "POST",
+    auth: false,
+    body: { email, password },
+  });
+  if (result?.access_token) {
+    saveCloudSession(result, false);
+    $("#cloud-auth-form")?.reset();
+    await cloudAfterLogin();
+    return;
+  }
+  setCloudStatus("Account created. If Supabase asks for email confirmation, confirm it first, then log in.");
+}
+async function cloudSignOut() {
+  try { if (cloudSession?.access_token) await cloudRequest("/auth/v1/logout", { method: "POST" }); } catch {}
+  clearCloudSession();
+  setCloudStatus("Logged out. This device still keeps its local data.");
+  renderCloudPanel();
+}
+async function fetchCloudState() {
+  if (!cloudUser?.id) throw new Error("Log in before using cloud sync.");
+  const rows = await cloudRequest(`/rest/v1/${CLOUD_TABLE}?select=data,updated_at&user_id=eq.${encodeURIComponent(cloudUser.id)}`);
+  return Array.isArray(rows) ? rows[0] || null : null;
+}
+async function uploadCloudState() {
+  if (!cloudUser?.id) throw new Error("Log in before uploading cloud data.");
+  await cloudRequest(`/rest/v1/${CLOUD_TABLE}?on_conflict=user_id`, {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+    body: {
+      user_id: cloudUser.id,
+      data: clone(state),
+      updated_at: new Date().toISOString(),
+    },
+  });
+  enableCloudAutoSync();
+  cloudLastSyncedAt = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  setCloudStatus("Cloud saved. Future changes will sync automatically.");
+}
+async function pullCloudState(confirmFirst = true) {
+  const row = await fetchCloudState();
+  if (!row?.data) {
+    setCloudStatus("No cloud data found yet. Tap Upload this device to create your cloud save.");
+    return false;
+  }
+  if (confirmFirst && hasCloudUserData(state) && !confirm("Pull cloud data onto this device? This replaces the current local data on this device, but your cloud data will stay saved.")) {
+    setCloudStatus("Cloud pull cancelled.");
+    return false;
+  }
+  const currentView = activeViewName();
+  state = merge(row.data);
+  state.settings.activeView = currentView;
+  enableCloudAutoSync();
+  cloudLastSyncedAt = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  save({ silent: true, skipCloud: true });
+  render();
+  setCloudStatus(`Cloud data loaded: ${cloudCountSummary()}.`);
+  return true;
+}
+async function cloudAfterLogin() {
+  renderCloudPanel();
+  try {
+    const row = await fetchCloudState();
+    if (row?.data) {
+      if (hasCloudUserData(state)) {
+        setCloudStatus("Logged in. Cloud data exists. Choose Pull cloud data or Upload this device to start automatic sync.");
+      } else {
+        await pullCloudState(false);
+      }
+    } else if (hasCloudUserData(state)) {
+      setCloudStatus("Logged in. Tap Upload this device once to move this data into your account.");
+    } else {
+      enableCloudAutoSync();
+      setCloudStatus("Logged in. Start adding data and it will sync automatically.");
+    }
+  } catch (error) {
+    setCloudStatus(friendlyCloudError(error), true);
+  }
+}
+function scheduleCloudSync() {
+  if (!cloudAutoSyncReady()) return;
+  clearTimeout(cloudSyncTimer);
+  cloudSyncTimer = setTimeout(async () => {
+    try {
+      await uploadCloudState();
+    } catch (error) {
+      setCloudStatus(friendlyCloudError(error), true);
+    }
+  }, 1400);
+}
+async function initCloud() {
+  loadCloudSession();
+  renderCloudPanel();
+  if (!cloudSession?.access_token) return;
+  try {
+    await ensureCloudSession();
+    if (!cloudUser && cloudSession?.access_token) {
+      const user = await cloudRequest("/auth/v1/user");
+      cloudUser = user;
+      saveCloudSession({ ...cloudSession, user }, cloudSession.syncEnabled);
+    }
+    if (cloudAutoSyncReady() && !hasCloudUserData(state)) await pullCloudState(false);
+    else setCloudStatus(cloudAutoSyncReady() ? "Logged in. Future saves sync automatically." : "Logged in. Choose upload or pull to start automatic sync.");
+  } catch (error) {
+    clearCloudSession();
+    setCloudStatus(friendlyCloudError(error), true);
+  }
 }
 function setMotraImportStatus(message = "", isError = false) {
   const el = $("#motra-import-status");
@@ -4091,6 +4372,47 @@ function bind() {
   $("#weekly-report-button").addEventListener("click", exportWeeklyReport);
   $("#import-button").addEventListener("click", () => { setImportStatus(""); $("#import-file").click(); });
   $("#motra-import-button").addEventListener("click", importMotraPreview);
+  $("#cloud-auth-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      const { email, password } = cloudAuthValues();
+      await cloudSignIn(email, password);
+    } catch (err) {
+      setCloudStatus(friendlyCloudError(err), true);
+      alert(friendlyCloudError(err));
+    }
+  });
+  $("#cloud-signup-button")?.addEventListener("click", async () => {
+    try {
+      const { email, password } = cloudAuthValues();
+      await cloudSignUp(email, password);
+    } catch (err) {
+      setCloudStatus(friendlyCloudError(err), true);
+      alert(friendlyCloudError(err));
+    }
+  });
+  $("#cloud-upload-button")?.addEventListener("click", async () => {
+    if (!cloudUser?.id) { alert("Log in first."); return; }
+    if (!confirm("Upload this device's current Julius Trainer data to your cloud account? This becomes the copy used on your other devices.")) return;
+    try {
+      setCloudStatus("Uploading this device...");
+      await uploadCloudState();
+    } catch (err) {
+      setCloudStatus(friendlyCloudError(err), true);
+      alert(friendlyCloudError(err));
+    }
+  });
+  $("#cloud-pull-button")?.addEventListener("click", async () => {
+    if (!cloudUser?.id) { alert("Log in first."); return; }
+    try {
+      setCloudStatus("Pulling cloud data...");
+      await pullCloudState(true);
+    } catch (err) {
+      setCloudStatus(friendlyCloudError(err), true);
+      alert(friendlyCloudError(err));
+    }
+  });
+  $("#cloud-logout-button")?.addEventListener("click", cloudSignOut);
   $("#import-paste-button").addEventListener("click", async () => {
     try {
       setImportStatus("");
@@ -4152,4 +4474,4 @@ function setView(view, options = {}) {
   if (options.persist !== false) save({ silent: true });
 }
 
-load().then(() => { bind(); render(); save({ silent: true }); saveFeedbackReady = true; });
+load().then(() => { bind(); render(); save({ silent: true, skipCloud: true }); initCloud(); saveFeedbackReady = true; });

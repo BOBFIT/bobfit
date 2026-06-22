@@ -649,6 +649,11 @@ button.saved-pulse {
   animation: savedButtonPulse 1.15s ease-out;
   border-color: rgba(95, 225, 255, 0.82) !important;
 }
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+  box-shadow: none;
+}
 button.meal-added-pulse {
   animation: savedButtonPulse 1.15s ease-out;
   border-color: rgba(95, 225, 255, 0.82) !important;
@@ -700,6 +705,40 @@ button.delete-pulse {
   }
 }
 .quick-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin-top: 10px; }
+.cloud-status-card {
+  display: grid;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid rgba(95, 225, 255, 0.14);
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(9, 39, 66, 0.96), rgba(13, 44, 73, 0.86));
+  box-shadow: var(--soft-shadow);
+}
+.cloud-status-card.signed-in {
+  border-color: rgba(95, 225, 255, 0.3);
+  box-shadow: 0 14px 34px rgba(19, 168, 245, 0.16);
+}
+.cloud-status-card div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.cloud-status-card span {
+  color: var(--primary-dark);
+  font-size: 10px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+.cloud-status-card strong {
+  overflow-wrap: anywhere;
+  font-size: 17px;
+  line-height: 1.14;
+}
+.cloud-status-card small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
 .help-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
