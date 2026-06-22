@@ -419,6 +419,14 @@
           </summary>
           <div class="drop-body">
             <div id="master-summary" class="dashboard-grid"></div>
+            <form id="master-create-user-form" class="grid master-create-user-form">
+              <label class="wide">User email<input name="email" type="email" autocomplete="off" placeholder="client@example.com" /></label>
+              <label class="wide">Temporary password<input name="password" type="text" autocomplete="off" minlength="6" placeholder="Minimum 6 characters" /></label>
+              <div class="field-hint wide">This creates a normal Supabase login. If email confirmation is switched on, the user may need to confirm their email before opening the app.</div>
+              <button class="primary" type="submit">Create user login</button>
+              <button class="secondary" data-master-refresh type="button">Refresh users</button>
+            </form>
+            <div id="master-action-status" class="import-status" role="status"></div>
             <div id="master-user-list" class="history-list"></div>
           </div>
         </details>

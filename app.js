@@ -312,6 +312,9 @@ let cloudLastSyncedAt = "";
 let cloudProfile = null;
 let cloudProfiles = [];
 let masterStatusMessage = "Master dashboard loads for the first account once Supabase user tracking is set up.";
+let masterActionMessage = "";
+let masterActionIsError = false;
+let masterBusy = false;
 let authReady = false;
 let authBusy = false;
 const $ = (s) => document.querySelector(s);
@@ -2640,6 +2643,18 @@ function setAuthBusy(busy = false) {
     if (button) button.disabled = authBusy;
   });
 }
+function setMasterBusy(busy = false) {
+  masterBusy = Boolean(busy);
+  document.querySelectorAll("#view-master button, #view-master input").forEach((el) => { el.disabled = masterBusy; });
+}
+function setMasterActionStatus(message = "", isError = false) {
+  masterActionMessage = message;
+  masterActionIsError = Boolean(isError);
+  const el = $("#master-action-status");
+  if (!el) return;
+  el.textContent = message;
+  el.classList.toggle("error", Boolean(isError));
+}
 function setAuthLocked(locked = true) {
   document.body.classList.toggle("auth-locked", Boolean(locked));
   document.body.classList.toggle("auth-ready", !locked);
@@ -2647,6 +2662,19 @@ function setAuthLocked(locked = true) {
 }
 function isMasterAccount() {
   return cloudProfile?.role === "master";
+}
+function profileDisabled(profile) {
+  return Boolean(profile?.data_counts?.disabled || profile?.data_counts?.deletedByMaster);
+}
+function lockDisabledAccount() {
+  clearCloudSession();
+  state = defaults();
+  save({ silent: true, skipCloud: true });
+  render();
+  setView("today", { persist: false });
+  setAuthLocked(true);
+  setAuthGateStatus("This account has been deactivated by the master user.", true);
+  setCloudStatus("This account has been deactivated by the master user.", true);
 }
 function isoDisplay(value) {
   if (!value) return "Not yet";
@@ -2888,6 +2916,7 @@ async function refreshCloudProfile() {
     const rows = await cloudRequest(`/rest/v1/${CLOUD_PROFILE_TABLE}?select=*&user_id=eq.${encodeURIComponent(cloudUser.id)}`);
     cloudProfile = Array.isArray(rows) ? rows[0] || null : null;
     if (!cloudProfile) cloudProfile = await upsertCloudProfile();
+    if (profileDisabled(cloudProfile) && !isMasterAccount()) lockDisabledAccount();
     return cloudProfile;
   } catch (error) {
     setCloudStatus(friendlyCloudError(error), true);
@@ -2911,6 +2940,79 @@ async function refreshMasterProfiles() {
   renderMasterDashboard();
   return cloudProfiles;
 }
+function masterProfileCounts(user = {}) {
+  return user.data_counts && typeof user.data_counts === "object" ? user.data_counts : {};
+}
+async function masterCreateUser(email, password) {
+  if (!isMasterAccount()) throw new Error("Only the master account can create users.");
+  const cleanEmail = String(email || "").trim().toLowerCase();
+  if (!cleanEmail || !password) throw new Error("Enter the new user's email and password.");
+  if (String(password).length < 6) throw new Error("Password must be at least 6 characters.");
+  const result = await cloudRequest("/auth/v1/signup", {
+    method: "POST",
+    auth: false,
+    body: { email: cleanEmail, password },
+  });
+  const createdUserId = result?.user?.id || result?.id || "";
+  let profileNote = "";
+  if (createdUserId) {
+    try {
+      await cloudRequest(`/rest/v1/${CLOUD_PROFILE_TABLE}?on_conflict=user_id`, {
+        method: "POST",
+        headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+        body: {
+          user_id: createdUserId,
+          email: cleanEmail,
+          role: "user",
+          data_counts: { createdByMaster: true, createdByMasterAt: new Date().toISOString() },
+        },
+      });
+    } catch (error) {
+      profileNote = ` The login was created, but it will appear in the Master list after the user logs in, or after you run the master admin SQL update.`;
+    }
+  }
+  setMasterActionStatus(`Created login for ${cleanEmail}. If email confirmation is switched on, they must confirm the email before logging in.${profileNote}`);
+  setTimeout(refreshMasterProfiles, 900);
+}
+async function masterPatchProfile(userId, patch = {}) {
+  if (!isMasterAccount()) throw new Error("Only the master account can update users.");
+  await cloudRequest(`/rest/v1/${CLOUD_PROFILE_TABLE}?user_id=eq.${encodeURIComponent(userId)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: patch,
+  });
+}
+async function masterSetUserDisabled(userId, disabled) {
+  if (!isMasterAccount()) throw new Error("Only the master account can update users.");
+  if (userId === cloudUser?.id) throw new Error("You cannot deactivate your own master account.");
+  const user = (cloudProfiles || []).find((item) => item.user_id === userId) || {};
+  const counts = { ...masterProfileCounts(user), disabled: Boolean(disabled), disabledAt: disabled ? new Date().toISOString() : null };
+  if (!disabled) {
+    delete counts.disabled;
+    delete counts.disabledAt;
+    delete counts.deletedByMaster;
+    delete counts.deletedAt;
+  }
+  await masterPatchProfile(userId, { data_counts: counts });
+  setMasterActionStatus(`${disabled ? "Deactivated" : "Reactivated"} ${user.email || "user"}.`);
+  await refreshMasterProfiles();
+}
+async function masterDeleteUserData(userId) {
+  if (!isMasterAccount()) throw new Error("Only the master account can delete user data.");
+  if (userId === cloudUser?.id) throw new Error("You cannot delete your own master data here.");
+  const user = (cloudProfiles || []).find((item) => item.user_id === userId) || {};
+  await cloudRequest(`/rest/v1/${CLOUD_TABLE}?user_id=eq.${encodeURIComponent(userId)}`, {
+    method: "DELETE",
+    headers: { Prefer: "return=minimal" },
+  });
+  await masterPatchProfile(userId, {
+    data_counts: { ...masterProfileCounts(user), disabled: true, deletedByMaster: true, deletedAt: new Date().toISOString() },
+    last_data_at: null,
+    last_synced_at: null,
+  });
+  setMasterActionStatus(`Deleted Julius Trainer app data for ${user.email || "user"} and deactivated app access. Their Supabase Auth login still exists.`);
+  await refreshMasterProfiles();
+}
 function renderMasterDashboard() {
   const masterButton = $('.tabbar [data-view="master"]');
   const master = isMasterAccount();
@@ -2918,6 +3020,11 @@ function renderMasterDashboard() {
   if (!master && activeViewName() === "master") setView("today", { persist: false });
   const summary = $("#master-summary");
   const list = $("#master-user-list");
+  const status = $("#master-action-status");
+  if (status) {
+    status.textContent = masterActionMessage;
+    status.classList.toggle("error", masterActionIsError);
+  }
   if (!summary || !list) return;
   if (!master) {
     summary.innerHTML = `<div class="dash-card"><span>Access</span><strong>Master only</strong><small>The first created account becomes master after Supabase user tracking is set up.</small></div>`;
@@ -2942,13 +3049,15 @@ function renderMasterDashboard() {
   }
   list.innerHTML = users.length ? users.map((user) => {
     const counts = user.data_counts || {};
+    const disabled = profileDisabled(user);
+    const isSelf = user.user_id === cloudUser?.id;
     return `<div class="history-card user-activity-card">
       <div class="history-head">
         <div>
           <strong>${escapeHtml(user.email || "User")}</strong>
-          <small>${escapeHtml(user.role === "master" ? "Master account" : "User account")}</small>
+          <small>${escapeHtml(user.role === "master" ? "Master account" : disabled ? "Deactivated account" : "User account")}</small>
         </div>
-        <span class="user-role-pill">${escapeHtml(user.role || "user")}</span>
+        <span class="user-role-pill ${disabled ? "disabled" : ""}">${escapeHtml(disabled ? "inactive" : user.role || "user")}</span>
       </div>
       <div class="activity-grid">
         <div><span>Created</span><strong>${escapeHtml(isoDisplay(user.created_at))}</strong></div>
@@ -2957,6 +3066,10 @@ function renderMasterDashboard() {
         <div><span>Last data</span><strong>${escapeHtml(isoDisplay(user.last_data_at))}</strong></div>
       </div>
       <small class="activity-note">${fmt(counts.meals || 0)} meals / ${fmt(counts.workouts || 0)} workouts / ${fmt(counts.peptideLogs || 0)} doses / ${fmt(counts.weights || 0)} weights</small>
+      <div class="master-user-actions">
+        <button class="secondary" data-master-toggle-user="${escapeHtml(user.user_id)}" data-disabled="${disabled ? "true" : "false"}" type="button"${isSelf ? " disabled" : ""}>${disabled ? "Reactivate" : "Deactivate"}</button>
+        <button class="danger-button" data-master-delete-user-data="${escapeHtml(user.user_id)}" type="button"${isSelf ? " disabled" : ""}>Delete app data</button>
+      </div>
     </div>`;
   }).join("") : `<div class="empty">No user profiles found yet.</div>`;
 }
@@ -3006,6 +3119,7 @@ async function cloudAfterLogin() {
   renderCloudPanel();
   try {
     await refreshCloudProfile();
+    if (!cloudUser?.id || (profileDisabled(cloudProfile) && !isMasterAccount())) return;
     if (isMasterAccount()) refreshMasterProfiles();
     const row = await fetchCloudState();
     if (row?.data) {
@@ -3056,6 +3170,7 @@ async function initCloud() {
     setAuthLocked(false);
     setAuthGateStatus("Logged in.");
     await refreshCloudProfile();
+    if (!cloudUser?.id || (profileDisabled(cloudProfile) && !isMasterAccount())) return;
     if (isMasterAccount()) refreshMasterProfiles();
     if (cloudAutoSyncReady() && !hasCloudUserData(state)) await pullCloudState(false);
     else setCloudStatus(cloudAutoSyncReady() ? "Logged in. Future saves sync automatically." : "Logged in. Choose upload or pull to start automatic sync.");
@@ -4084,14 +4199,14 @@ function exportWeeklyReport() {
 }
 
 function bind() {
-  document.addEventListener("click", (event) => {
+  document.addEventListener("click", async (event) => {
     const button = event.target.closest?.("button");
     if (button) {
       lastSaveTrigger = button;
       lastSaveTriggerAt = Date.now();
     }
   }, true);
-  document.addEventListener("click", (event) => {
+  document.addEventListener("click", async (event) => {
     const button = event.target.closest?.("button");
     if (!isDeleteButton(button) || button.dataset.deletePulseDone === "true") return;
     event.preventDefault();
@@ -4116,13 +4231,45 @@ function bind() {
     if (panel.classList.contains("tab-closing")) return;
     closeTabSmooth(panel);
   }, true);
-  document.addEventListener("click", (event) => {
+  document.addEventListener("click", async (event) => {
     const button = event.target.closest("button");
     if (!button) return;
     if (button.dataset.seeMorePanels !== undefined) {
       const view = button.closest(".view");
       view?.classList.toggle("show-extra-panels");
       renderPanelLimit();
+    }
+    if (button.dataset.masterRefresh !== undefined) {
+      setMasterActionStatus("Refreshing users...");
+      refreshMasterProfiles();
+      return;
+    }
+    if (button.dataset.masterToggleUser) {
+      const disabled = button.dataset.disabled === "true";
+      if (!confirm(`${disabled ? "Reactivate" : "Deactivate"} this user's app access?`)) return;
+      setMasterBusy(true);
+      try {
+        await masterSetUserDisabled(button.dataset.masterToggleUser, !disabled);
+      } catch (err) {
+        setMasterActionStatus(friendlyCloudError(err), true);
+        alert(friendlyCloudError(err));
+      } finally {
+        setMasterBusy(false);
+      }
+      return;
+    }
+    if (button.dataset.masterDeleteUserData) {
+      if (!confirm("Delete this user's Julius Trainer app data and deactivate their access? This does not delete the Supabase Auth login.")) return;
+      setMasterBusy(true);
+      try {
+        await masterDeleteUserData(button.dataset.masterDeleteUserData);
+      } catch (err) {
+        setMasterActionStatus(friendlyCloudError(err), true);
+        alert(friendlyCloudError(err));
+      } finally {
+        setMasterBusy(false);
+      }
+      return;
     }
     if (button.dataset.deleteMotraBatch) {
       if (confirm("Delete every workout from this Motra import batch?")) {
@@ -4550,6 +4697,23 @@ function bind() {
   $("#weekly-report-button").addEventListener("click", exportWeeklyReport);
   $("#import-button").addEventListener("click", () => { setImportStatus(""); $("#import-file").click(); });
   $("#motra-import-button").addEventListener("click", importMotraPreview);
+  $("#master-create-user-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (masterBusy) return;
+    const f = event.currentTarget;
+    setMasterBusy(true);
+    setMasterActionStatus("Creating user login...");
+    try {
+      await masterCreateUser(f.elements.email.value, f.elements.password.value);
+      f.reset();
+      await refreshMasterProfiles();
+    } catch (err) {
+      setMasterActionStatus(friendlyCloudError(err), true);
+      alert(friendlyCloudError(err));
+    } finally {
+      setMasterBusy(false);
+    }
+  });
   $("#auth-gate-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (authBusy) return;

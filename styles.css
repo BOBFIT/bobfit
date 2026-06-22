@@ -918,6 +918,25 @@ button.delete-pulse {
   font-weight: 950;
   text-transform: uppercase;
 }
+.user-role-pill.disabled {
+  background: rgba(248, 113, 113, 0.16);
+  color: #fecaca;
+}
+.master-create-user-form {
+  padding: 13px;
+  border: 1px solid rgba(95, 225, 255, 0.12);
+  border-radius: 24px;
+  background: rgba(7, 31, 54, 0.72);
+}
+.master-user-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.master-user-actions button {
+  min-height: 42px;
+  padding-inline: 10px;
+}
 .help-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
