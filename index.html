@@ -13,7 +13,22 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body>
+  <body class="auth-locked">
+    <section id="auth-gate" class="auth-gate" aria-live="polite">
+      <div class="auth-card">
+        <img class="auth-logo" src="assets/logo.svg" alt="Julius Trainer" />
+        <span class="brand-kicker">Julius Trainer</span>
+        <h1>Login</h1>
+        <p>Use your own account so your meals, workouts, peptides and body data stay separate and sync across your devices.</p>
+        <form id="auth-gate-form" class="auth-form">
+          <label>Email<input name="email" type="email" autocomplete="email" required placeholder="you@example.com" /></label>
+          <label>Password<input name="password" type="password" autocomplete="current-password" required minlength="6" placeholder="Minimum 6 characters" /></label>
+          <button id="auth-login-button" class="primary wide-button" type="submit">Log in</button>
+          <button id="auth-create-button" class="secondary wide-button" type="button">Create account</button>
+        </form>
+        <div id="auth-gate-status" class="import-status" role="status">Checking saved login...</div>
+      </div>
+    </section>
     <header class="topbar">
       <div class="brand-head">
         <img class="brand-logo" src="assets/logo.svg" alt="Julius Trainer" />
@@ -395,10 +410,23 @@
         </details>
       </section>
 
+      <section id="view-master" class="view" data-title="Master">
+        <details class="panel drop-panel">
+          <summary class="drop-summary">
+            <span><strong>Master Dashboard</strong><small>User accounts, last activity and cloud sync status</small></span>
+            <span class="drop-pill">Users</span>
+          </summary>
+          <div class="drop-body">
+            <div id="master-summary" class="dashboard-grid"></div>
+            <div id="master-user-list" class="history-list"></div>
+          </div>
+        </details>
+      </section>
+
       <section id="view-settings" class="view" data-title="Settings">
         <details id="cloud-sync-panel" class="panel drop-panel">
           <summary class="drop-summary">
-            <span><strong>Cloud Login & Sync</strong><small>Separate accounts with automatic data sync</small></span>
+            <span><strong>Cloud Login &amp; Sync</strong><small>Separate accounts with automatic data sync</small></span>
             <span class="drop-pill">Cloud</span>
           </summary>
           <div class="drop-body">
@@ -445,7 +473,7 @@
         </details>
         <details class="panel drop-panel">
           <summary class="drop-summary">
-            <span><strong>Backup & Restore</strong><small>Import old Replit/Julius Trainer data or download a backup</small></span>
+            <span><strong>Backup &amp; Restore</strong><small>Import old Replit/Julius Trainer data or download a backup</small></span>
             <span class="drop-pill">Data</span>
           </summary>
           <div class="drop-body">
@@ -483,6 +511,7 @@
       <button data-view="planner" type="button">Planner</button>
       <button data-view="peptides" type="button">Peptides</button>
       <button data-view="history" type="button">History</button>
+      <button data-view="master" type="button" hidden>Master</button>
       <button data-view="settings" type="button">Settings</button>
     </nav>
 

@@ -10,6 +10,7 @@ const IDB_KEY = "main";
 const SUPABASE_URL = "https://cylvclmnpzsdiqsneuoj.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_eVDJFuMUWYgVgXGc9dVjMw_H5uB-NGC";
 const CLOUD_TABLE = "user_app_state";
+const CLOUD_PROFILE_TABLE = "user_profiles";
 const CLOUD_SESSION_KEY = "julius.trainer.cloud.session.v1";
 
 const TRAINING_PLAN_VERSION = "aky-training-plan-targets-v8-motra-log-rename";
@@ -308,6 +309,10 @@ let cloudSyncTimer = 0;
 let cloudStatusMessage = "Log in or create an account to sync this app across devices.";
 let cloudStatusIsError = false;
 let cloudLastSyncedAt = "";
+let cloudProfile = null;
+let cloudProfiles = [];
+let masterStatusMessage = "Master dashboard loads for the first account once Supabase user tracking is set up.";
+let authReady = false;
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 const uid = () => `${Date.now()}${Math.random().toString(36).slice(2, 8)}`;
@@ -320,7 +325,7 @@ const fmtDose = (v, digits = 3) => rawNum(v).toLocaleString(undefined, { maximum
 const todayKey = () => dayKey(new Date());
 const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const clamp = (value, min = 0, max = 100) => Math.min(max, Math.max(min, Number(value) || 0));
-const VIEW_IDS = ["today", "log", "planner", "peptides", "history", "settings"];
+const VIEW_IDS = ["today", "log", "planner", "peptides", "history", "master", "settings"];
 let state = defaults();
 let startupDetailsCollapsed = false;
 
@@ -1309,6 +1314,7 @@ function render() {
   renderMotraImportList();
   renderMotraPreview();
   renderCloudPanel();
+  renderMasterDashboard();
   setView(view, { persist: false });
   collapseStartupDetails();
 }
@@ -2620,6 +2626,36 @@ async function importFile(file) {
   if (!file) throw new Error("Choose a backup file first.");
   await importText(await file.text());
 }
+function setAuthGateStatus(message = "", isError = false) {
+  const el = $("#auth-gate-status");
+  if (!el) return;
+  el.textContent = message;
+  el.classList.toggle("error", Boolean(isError));
+}
+function setAuthLocked(locked = true) {
+  document.body.classList.toggle("auth-locked", Boolean(locked));
+  document.body.classList.toggle("auth-ready", !locked);
+  if (locked) renderMasterDashboard();
+}
+function isMasterAccount() {
+  return cloudProfile?.role === "master";
+}
+function isoDisplay(value) {
+  if (!value) return "Not yet";
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? "Not yet" : d.toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+function latestStateActivityIso() {
+  const times = [];
+  const add = (value) => { const n = rawNum(value); if (n) times.push(n); };
+  Object.values(state.meals || {}).flat().forEach((meal) => add(meal.createdAt));
+  Object.values(state.workouts || {}).flat().forEach((workout) => add(workout.createdAt));
+  (state.peptideLogs || []).forEach((log) => add(log.createdAt));
+  (state.bodyMetrics || []).forEach((metric) => add(metric.createdAt));
+  (state.progressCheckins || []).forEach((entry) => add(entry.createdAt));
+  (state.savedMeals || []).forEach((meal) => add(meal.createdAt));
+  return times.length ? new Date(Math.max(...times)).toISOString() : null;
+}
 function cloudDataCounts(data = state) {
   const meals = Object.values(data.meals || {}).reduce((sum, mealsForDay) => sum + (Array.isArray(mealsForDay) ? mealsForDay.length : 0), 0);
   const workouts = Object.values(data.workouts || {}).reduce((sum, workoutsForDay) => sum + (Array.isArray(workoutsForDay) ? workoutsForDay.length : 0), 0);
@@ -2669,6 +2705,8 @@ function clearCloudSession() {
   cloudSession = null;
   cloudUser = null;
   cloudLastSyncedAt = "";
+  cloudProfile = null;
+  cloudProfiles = [];
   try { localStorage.removeItem(CLOUD_SESSION_KEY); } catch {}
 }
 function enableCloudAutoSync() {
@@ -2686,21 +2724,22 @@ function setCloudStatus(message = "", isError = false) {
 }
 function renderCloudPanel() {
   const card = $("#cloud-status-card");
-  if (!card) return;
   const email = cloudUser?.email || "";
   const signedIn = Boolean(cloudUser?.id);
   const syncReady = cloudAutoSyncReady();
-  card.classList.toggle("signed-in", signedIn);
-  card.innerHTML = `<div>
+  if (card) {
+    card.classList.toggle("signed-in", signedIn);
+    card.innerHTML = `<div>
       <span>${signedIn ? "Logged in" : "Not logged in"}</span>
       <strong>${escapeHtml(signedIn ? email || "Account connected" : "Cloud sync off")}</strong>
-      <small>${escapeHtml(signedIn ? (syncReady ? "Future saves sync automatically." : "Choose upload or pull to start automatic sync.") : "Create an account or log in to use your data on another device.")}</small>
+      <small>${escapeHtml(signedIn ? `${cloudProfile?.role === "master" ? "Master account. " : ""}${syncReady ? "Future saves sync automatically." : "Choose upload or pull to start automatic sync."}` : "Create an account or log in to use your data on another device.")}</small>
     </div>
     <div>
       <span>This device</span>
       <strong>${escapeHtml(cloudCountSummary())}</strong>
       <small>${escapeHtml(cloudLastSyncedAt ? `Last synced ${cloudLastSyncedAt}` : "Saved locally on this device")}</small>
     </div>`;
+  }
   const form = $("#cloud-auth-form");
   if (form) form.hidden = signedIn;
   const logout = $("#cloud-logout-button");
@@ -2714,10 +2753,12 @@ function renderCloudPanel() {
     status.textContent = cloudStatusMessage;
     status.classList.toggle("error", cloudStatusIsError);
   }
+  renderMasterDashboard();
 }
 function friendlyCloudError(error) {
   const text = String(error?.message || error || "Cloud sync failed.");
   if (/relation .*user_app_state|does not exist|404/i.test(text)) return "Cloud table is not ready yet. Run the Supabase SQL setup first, then try again.";
+  if (/relation .*user_profiles|does not exist|user_profiles|profile/i.test(text)) return "Master user tracking is not ready yet. Run the updated Supabase SQL setup first.";
   if (/invalid login|invalid.*credentials/i.test(text)) return "Login failed. Check the email and password.";
   if (/email not confirmed/i.test(text)) return "Check your email and confirm the account, then log in.";
   if (/jwt|expired|unauthorized|invalid token|401/i.test(text)) return "Cloud login expired. Log in again.";
@@ -2760,8 +2801,7 @@ async function ensureCloudSession() {
   saveCloudSession(refreshed, cloudSession.syncEnabled);
   return cloudSession;
 }
-function cloudAuthValues() {
-  const form = $("#cloud-auth-form");
+function cloudAuthValues(form = $("#cloud-auth-form")) {
   const email = form?.elements.email.value.trim() || "";
   const password = form?.elements.password.value || "";
   if (!email || !password) throw new Error("Enter your email and password first.");
@@ -2770,6 +2810,7 @@ function cloudAuthValues() {
 }
 async function cloudSignIn(email, password) {
   setCloudStatus("Logging in...");
+  setAuthGateStatus("Logging in...");
   const session = await cloudRequest("/auth/v1/token?grant_type=password", {
     method: "POST",
     auth: false,
@@ -2777,10 +2818,14 @@ async function cloudSignIn(email, password) {
   });
   saveCloudSession(session, false);
   $("#cloud-auth-form")?.reset();
+  $("#auth-gate-form")?.reset();
+  setAuthLocked(false);
+  setAuthGateStatus("Logged in.");
   await cloudAfterLogin();
 }
 async function cloudSignUp(email, password) {
   setCloudStatus("Creating account...");
+  setAuthGateStatus("Creating account...");
   const result = await cloudRequest("/auth/v1/signup", {
     method: "POST",
     auth: false,
@@ -2789,16 +2834,122 @@ async function cloudSignUp(email, password) {
   if (result?.access_token) {
     saveCloudSession(result, false);
     $("#cloud-auth-form")?.reset();
+    $("#auth-gate-form")?.reset();
+    setAuthLocked(false);
+    setAuthGateStatus("Account created.");
     await cloudAfterLogin();
     return;
   }
   setCloudStatus("Account created. If Supabase asks for email confirmation, confirm it first, then log in.");
+  setAuthGateStatus("Account created. Check your email if confirmation is required, then log in.");
 }
 async function cloudSignOut() {
   try { if (cloudSession?.access_token) await cloudRequest("/auth/v1/logout", { method: "POST" }); } catch {}
   clearCloudSession();
-  setCloudStatus("Logged out. This device still keeps its local data.");
+  state = defaults();
+  save({ silent: true, skipCloud: true });
+  render();
+  setView("today", { persist: false });
+  setAuthLocked(true);
+  setAuthGateStatus("Logged out. Log in to open your account.");
+  setCloudStatus("Logged out. The local copy on this device was cleared for privacy.");
   renderCloudPanel();
+}
+async function upsertCloudProfile(fields = {}) {
+  if (!cloudUser?.id) return null;
+  const payload = {
+    user_id: cloudUser.id,
+    email: cloudUser.email || "",
+    last_seen_at: new Date().toISOString(),
+    data_counts: cloudDataCounts(),
+    last_data_at: latestStateActivityIso(),
+    ...fields,
+  };
+  const rows = await cloudRequest(`/rest/v1/${CLOUD_PROFILE_TABLE}?on_conflict=user_id`, {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+    body: payload,
+  });
+  cloudProfile = Array.isArray(rows) ? rows[0] || cloudProfile : cloudProfile;
+  return cloudProfile;
+}
+async function refreshCloudProfile() {
+  if (!cloudUser?.id) return null;
+  try {
+    const rows = await cloudRequest(`/rest/v1/${CLOUD_PROFILE_TABLE}?select=*&user_id=eq.${encodeURIComponent(cloudUser.id)}`);
+    cloudProfile = Array.isArray(rows) ? rows[0] || null : null;
+    if (!cloudProfile) cloudProfile = await upsertCloudProfile();
+    return cloudProfile;
+  } catch (error) {
+    setCloudStatus(friendlyCloudError(error), true);
+    return null;
+  }
+}
+async function refreshMasterProfiles() {
+  if (!isMasterAccount()) {
+    cloudProfiles = [];
+    renderMasterDashboard();
+    return [];
+  }
+  try {
+    const rows = await cloudRequest(`/rest/v1/${CLOUD_PROFILE_TABLE}?select=*&order=created_at.asc`);
+    cloudProfiles = Array.isArray(rows) ? rows : [];
+    masterStatusMessage = "";
+  } catch (error) {
+    cloudProfiles = [];
+    masterStatusMessage = friendlyCloudError(error);
+  }
+  renderMasterDashboard();
+  return cloudProfiles;
+}
+function renderMasterDashboard() {
+  const masterButton = $('.tabbar [data-view="master"]');
+  const master = isMasterAccount();
+  if (masterButton) masterButton.hidden = !master;
+  if (!master && activeViewName() === "master") setView("today", { persist: false });
+  const summary = $("#master-summary");
+  const list = $("#master-user-list");
+  if (!summary || !list) return;
+  if (!master) {
+    summary.innerHTML = `<div class="dash-card"><span>Access</span><strong>Master only</strong><small>The first created account becomes master after Supabase user tracking is set up.</small></div>`;
+    list.innerHTML = `<div class="empty">Log in with the master account to view user activity.</div>`;
+    return;
+  }
+  const now = Date.now();
+  const dayMs = 86400000;
+  const users = cloudProfiles || [];
+  const activeToday = users.filter((user) => user.last_seen_at && now - new Date(user.last_seen_at).getTime() <= dayMs).length;
+  const syncedWeek = users.filter((user) => user.last_synced_at && now - new Date(user.last_synced_at).getTime() <= dayMs * 7).length;
+  const enteredWeek = users.filter((user) => user.last_data_at && now - new Date(user.last_data_at).getTime() <= dayMs * 7).length;
+  summary.innerHTML = [
+    `<div class="dash-card done"><span>Total users</span><strong>${fmt(users.length)}</strong><small>Created accounts with profiles</small></div>`,
+    `<div class="dash-card ${activeToday ? "done" : "mid"}"><span>Active today</span><strong>${fmt(activeToday)}</strong><small>Opened the app in the last 24h</small></div>`,
+    `<div class="dash-card ${syncedWeek ? "done" : "mid"}"><span>Synced this week</span><strong>${fmt(syncedWeek)}</strong><small>Cloud save updated in 7 days</small></div>`,
+    `<div class="dash-card ${enteredWeek ? "done" : "mid"}"><span>Data entered</span><strong>${fmt(enteredWeek)}</strong><small>Logged data in 7 days</small></div>`,
+  ].join("");
+  if (masterStatusMessage) {
+    list.innerHTML = `<div class="empty">${escapeHtml(masterStatusMessage)}</div>`;
+    return;
+  }
+  list.innerHTML = users.length ? users.map((user) => {
+    const counts = user.data_counts || {};
+    return `<div class="history-card user-activity-card">
+      <div class="history-head">
+        <div>
+          <strong>${escapeHtml(user.email || "User")}</strong>
+          <small>${escapeHtml(user.role === "master" ? "Master account" : "User account")}</small>
+        </div>
+        <span class="user-role-pill">${escapeHtml(user.role || "user")}</span>
+      </div>
+      <div class="activity-grid">
+        <div><span>Created</span><strong>${escapeHtml(isoDisplay(user.created_at))}</strong></div>
+        <div><span>Last opened</span><strong>${escapeHtml(isoDisplay(user.last_seen_at))}</strong></div>
+        <div><span>Last sync</span><strong>${escapeHtml(isoDisplay(user.last_synced_at))}</strong></div>
+        <div><span>Last data</span><strong>${escapeHtml(isoDisplay(user.last_data_at))}</strong></div>
+      </div>
+      <small class="activity-note">${fmt(counts.meals || 0)} meals / ${fmt(counts.workouts || 0)} workouts / ${fmt(counts.peptideLogs || 0)} doses / ${fmt(counts.weights || 0)} weights</small>
+    </div>`;
+  }).join("") : `<div class="empty">No user profiles found yet.</div>`;
 }
 async function fetchCloudState() {
   if (!cloudUser?.id) throw new Error("Log in before using cloud sync.");
@@ -2816,9 +2967,11 @@ async function uploadCloudState() {
       updated_at: new Date().toISOString(),
     },
   });
+  try { await upsertCloudProfile({ last_synced_at: new Date().toISOString() }); } catch (error) { setCloudStatus(friendlyCloudError(error), true); }
   enableCloudAutoSync();
   cloudLastSyncedAt = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   setCloudStatus("Cloud saved. Future changes will sync automatically.");
+  if (isMasterAccount()) refreshMasterProfiles();
 }
 async function pullCloudState(confirmFirst = true) {
   const row = await fetchCloudState();
@@ -2843,6 +2996,8 @@ async function pullCloudState(confirmFirst = true) {
 async function cloudAfterLogin() {
   renderCloudPanel();
   try {
+    await refreshCloudProfile();
+    if (isMasterAccount()) refreshMasterProfiles();
     const row = await fetchCloudState();
     if (row?.data) {
       if (hasCloudUserData(state)) {
@@ -2874,18 +3029,32 @@ function scheduleCloudSync() {
 async function initCloud() {
   loadCloudSession();
   renderCloudPanel();
-  if (!cloudSession?.access_token) return;
+  if (!cloudSession?.access_token) {
+    authReady = true;
+    setAuthLocked(true);
+    setAuthGateStatus("Log in or create an account to open Julius Trainer.");
+    return;
+  }
   try {
+    setAuthGateStatus("Restoring saved login...");
     await ensureCloudSession();
     if (!cloudUser && cloudSession?.access_token) {
       const user = await cloudRequest("/auth/v1/user");
       cloudUser = user;
       saveCloudSession({ ...cloudSession, user }, cloudSession.syncEnabled);
     }
+    authReady = true;
+    setAuthLocked(false);
+    setAuthGateStatus("Logged in.");
+    await refreshCloudProfile();
+    if (isMasterAccount()) refreshMasterProfiles();
     if (cloudAutoSyncReady() && !hasCloudUserData(state)) await pullCloudState(false);
     else setCloudStatus(cloudAutoSyncReady() ? "Logged in. Future saves sync automatically." : "Logged in. Choose upload or pull to start automatic sync.");
   } catch (error) {
     clearCloudSession();
+    authReady = true;
+    setAuthLocked(true);
+    setAuthGateStatus(friendlyCloudError(error), true);
     setCloudStatus(friendlyCloudError(error), true);
   }
 }
@@ -4372,6 +4541,30 @@ function bind() {
   $("#weekly-report-button").addEventListener("click", exportWeeklyReport);
   $("#import-button").addEventListener("click", () => { setImportStatus(""); $("#import-file").click(); });
   $("#motra-import-button").addEventListener("click", importMotraPreview);
+  $("#auth-gate-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      const { email, password } = cloudAuthValues(event.currentTarget);
+      await cloudSignIn(email, password);
+    } catch (err) {
+      const message = friendlyCloudError(err);
+      setAuthGateStatus(message, true);
+      setCloudStatus(message, true);
+      alert(message);
+    }
+  });
+  $("#auth-create-button")?.addEventListener("click", async () => {
+    try {
+      const form = $("#auth-gate-form");
+      const { email, password } = cloudAuthValues(form);
+      await cloudSignUp(email, password);
+    } catch (err) {
+      const message = friendlyCloudError(err);
+      setAuthGateStatus(message, true);
+      setCloudStatus(message, true);
+      alert(message);
+    }
+  });
   $("#cloud-auth-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     try {
@@ -4465,7 +4658,7 @@ function activeViewName() {
   return normalizeView(view || state.settings?.activeView || "today");
 }
 function setView(view, options = {}) {
-  const target = normalizeView(view);
+  const target = normalizeView(view) === "master" && !isMasterAccount() ? "today" : normalizeView(view);
   state.settings.activeView = target;
   $$(".view").forEach((el) => el.classList.toggle("active", el.id === `view-${target}`));
   $$(".tabbar [data-view]").forEach((button) => button.classList.toggle("active", button.dataset.view === target));
