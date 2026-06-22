@@ -1234,6 +1234,12 @@ button.delete-pulse {
   flex-wrap: wrap;
   gap: 6px;
 }
+.cycle-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+}
 .pill {
   display: inline-flex;
   align-items: center;
@@ -1244,6 +1250,63 @@ button.delete-pulse {
   color: var(--primary-dark);
   font-size: 12px;
   font-weight: 900;
+}
+.peptide-date-strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px 2px 5px;
+  scrollbar-width: none;
+}
+.peptide-date-strip::-webkit-scrollbar { display: none; }
+.peptide-date-chip {
+  flex: 0 0 44px;
+  min-height: 60px;
+  display: grid;
+  place-items: center;
+  gap: 1px;
+  border: 1px solid rgba(95, 225, 255, 0.13);
+  border-radius: 999px;
+  background: rgba(9, 39, 66, 0.86);
+  color: var(--ink);
+  box-shadow: none;
+}
+.peptide-date-chip span,
+.peptide-date-chip small {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 950;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.peptide-date-chip strong {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 13px;
+  line-height: 1;
+}
+.peptide-date-chip.has-data {
+  border-color: rgba(95, 225, 255, 0.36);
+}
+.peptide-date-chip.is-today:not(.active) {
+  box-shadow: inset 0 0 0 1px rgba(95, 225, 255, 0.2);
+}
+.peptide-date-chip.active {
+  border-color: transparent;
+  background: linear-gradient(180deg, #11c4ff, #0b7fe8);
+  color: #fff;
+  box-shadow: 0 10px 26px rgba(17, 196, 255, 0.26);
+}
+.peptide-date-chip.active span,
+.peptide-date-chip.active small {
+  color: rgba(255, 255, 255, 0.88);
+}
+.peptide-date-chip.active strong {
+  background: rgba(3, 16, 31, 0.28);
 }
 .history-drop-panel {
   background: rgba(7, 31, 54, 0.94);

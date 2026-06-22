@@ -332,7 +332,7 @@ function defaults() {
     weeklyPlan: { assignments: { ...DEFAULT_WEEKLY_ASSIGNMENTS }, doseDays: [] },
     workoutTemplates: clone(DEFAULT_TEMPLATES),
     workoutDrafts: {},
-    settings: { activeView: "today", selectedSplit: "", selectedSplitDate: "", historyType: "meals", historyDate: todayKey(), trainingPlanVersion: TRAINING_PLAN_VERSION },
+    settings: { activeView: "today", selectedSplit: "", selectedSplitDate: "", historyType: "meals", historyDate: todayKey(), peptideReminderDate: todayKey(), trainingPlanVersion: TRAINING_PLAN_VERSION },
     createdAt: Date.now(),
   };
 }
@@ -818,6 +818,15 @@ function historySelectedDate() {
   state.settings.historyDate = date;
   return date;
 }
+function peptideReminderDate() {
+  const today = parseDay(todayKey()) || new Date();
+  const min = dayKey(addDays(today, -7));
+  const max = dayKey(addDays(today, 7));
+  const date = isDateKey(state.settings.peptideReminderDate) ? state.settings.peptideReminderDate : todayKey();
+  const safeDate = date < min || date > max ? todayKey() : date;
+  state.settings.peptideReminderDate = safeDate;
+  return safeDate;
+}
 function startOfWeek(date = new Date()) {
   const d = new Date(date);
   d.setHours(12, 0, 0, 0);
@@ -825,6 +834,7 @@ function startOfWeek(date = new Date()) {
   return d;
 }
 function metricDateKey(metric) {
+  if (isDateKey(metric?.date)) return metric.date;
   const d = new Date(metric?.createdAt || Date.now());
   return Number.isNaN(d.getTime()) ? todayKey() : dayKey(d);
 }
@@ -1004,6 +1014,7 @@ function normalizeCycle(cycle) {
     diluentMl: rawNum(cycle.diluentMl || compound.diluentMl),
     days: Array.isArray(cycle.days) ? cycle.days.map(Number).filter((day) => day >= 0 && day <= 6) : [],
     timings: Array.isArray(cycle.timings) ? cycle.timings.filter((time) => PEPTIDE_TIMINGS.some(([key]) => key === time)) : [],
+    endedAt: isDateKey(cycle.endedAt) ? String(cycle.endedAt) : "",
     createdAt: cycle.createdAt || Date.now(),
   };
 }
@@ -1044,6 +1055,7 @@ function cycleEndDate(startDate, weeks) {
   return dayKey(addDays(start, (count * 7) - 1));
 }
 function cycleIsActive(cycle, date = todayKey()) {
+  if (isDateKey(cycle?.endedAt) && String(cycle.endedAt) <= String(date)) return false;
   return String(cycle.startDate) <= date && String(cycle.endDate) >= date;
 }
 function cycleDueOn(cycle, date = todayKey()) {
@@ -1480,12 +1492,14 @@ function latestWeightTrend() {
   const latestWeight = rawNum(latest.weightKg || latest.weight);
   const latestDate = metricDateKey(latest);
   if (!previous) return { label: `${fmtWeight(latestWeight)}kg`, detail: dateLabel(latestDate), recent: daysBetween(latestDate, todayKey()) <= 7, score: 80 };
-  const diff = latestWeight - rawNum(previous.weightKg || previous.weight);
+  const previousWeight = rawNum(previous.weightKg || previous.weight);
+  const previousDate = metricDateKey(previous);
+  const diff = latestWeight - previousWeight;
   const sign = diff > 0 ? "+" : "";
   const recent = daysBetween(latestDate, todayKey()) <= 7;
   return {
     label: `${fmtWeight(latestWeight)}kg`,
-    detail: `${sign}${fmtWeight(diff)}kg vs last`,
+    detail: `${sign}${fmtWeight(diff)}kg vs ${fmtWeight(previousWeight)}kg on ${dateLabel(previousDate)}`,
     recent,
     score: recent ? 100 : 65,
   };
@@ -1568,12 +1582,12 @@ function dailyScoreDetailHtml(item, total = totals()) {
     if (!latest) return scoreRowsHtml([{ label: "Latest", value: "No weight yet", detail: "Add your first weight entry in History." }]);
     const latestWeight = rawNum(latest.weightKg || latest.weight);
     const latestDate = metricDateKey(latest);
-    const diff = previous ? latestWeight - rawNum(previous.weightKg || previous.weight) : 0;
-    const todayEntries = weightEntriesForDate(todayKey());
+    const previousWeight = previous ? rawNum(previous.weightKg || previous.weight) : 0;
+    const previousDate = previous ? metricDateKey(previous) : "";
+    const diff = previous ? latestWeight - previousWeight : 0;
     return scoreRowsHtml([
       { label: "Latest", value: `${fmtWeight(latestWeight)}kg`, detail: dateLabel(latestDate) },
-      { label: "Trend", value: previous ? `${diff > 0 ? "+" : ""}${fmtWeight(diff)}kg` : "First entry", detail: previous ? "Change from previous weigh-in." : "Add another weigh-in to show trend." },
-      { label: "Today", value: todayEntries.length ? `${todayEntries.length} entry${todayEntries.length === 1 ? "" : "ies"}` : "Not logged", detail: todayEntries.length ? `${fmtWeight(rawNum(todayEntries[0].weightKg || todayEntries[0].weight))}kg latest today.` : "No weight entered today." },
+      { label: "Trend", value: previous ? `${diff > 0 ? "+" : ""}${fmtWeight(diff)}kg` : "First entry", detail: previous ? `Previous ${fmtWeight(previousWeight)}kg on ${dateLabel(previousDate)}.` : "Add another weigh-in to show trend." },
     ]);
   }
   return `<div class="empty">No detail available.</div>`;
@@ -2139,7 +2153,8 @@ function scheduledDoseSlots(cycle, fromDate = cycle.startDate, toDate = cycle.en
 function cycleDashboardData(cycle) {
   const today = todayKey();
   const totalDays = Math.max(1, daysBetween(cycle.startDate, cycle.endDate) + 1);
-  const elapsedDays = clamp(daysBetween(cycle.startDate, today) + 1, 0, totalDays);
+  const effectiveToday = isDateKey(cycle.endedAt) && cycle.endedAt < today ? cycle.endedAt : today;
+  const elapsedDays = clamp(daysBetween(cycle.startDate, effectiveToday) + 1, 0, totalDays);
   const week = Math.max(1, Math.ceil(Math.max(1, elapsedDays) / 7));
   const weeks = Math.max(1, Math.ceil(totalDays / 7));
   const logs = cycleLogs(cycle);
@@ -2150,14 +2165,14 @@ function cycleDashboardData(cycle) {
   const next = scheduledDoseSlots(cycle, today, cycle.endDate)
     .find((slot) => !logs.some((log) => log.date === slot.date && log.timing === slot.timing));
   return {
-    progress: Math.round((elapsedDays / totalDays) * 100),
+    progress: isDateKey(cycle.endedAt) ? 100 : Math.round((elapsedDays / totalDays) * 100),
     week,
     weeks,
     logs,
     totalMg,
     missed,
     next,
-    daysLeft: Math.max(0, daysBetween(today, cycle.endDate) + 1),
+    daysLeft: isDateKey(cycle.endedAt) ? 0 : Math.max(0, daysBetween(today, cycle.endDate) + 1),
   };
 }
 function renderPeptideDashboard() {
@@ -2166,7 +2181,7 @@ function renderPeptideDashboard() {
   const cycles = [...(state.peptideCycles || [])].sort((a, b) => cycleIsActive(b) - cycleIsActive(a) || (b.createdAt || 0) - (a.createdAt || 0));
   el.innerHTML = cycles.length ? cycles.map((cycle) => {
     const data = cycleDashboardData(cycle);
-    const status = cycleIsActive(cycle) ? `Week ${data.week} of ${data.weeks}` : String(cycle.startDate) > todayKey() ? "Upcoming" : "Complete";
+    const status = isDateKey(cycle.endedAt) ? `Ended ${dateLabel(cycle.endedAt)}` : cycleIsActive(cycle) ? `Week ${data.week} of ${data.weeks}` : String(cycle.startDate) > todayKey() ? "Upcoming" : "Complete";
     const next = data.next ? `${dateLabel(data.next.date)} / ${timingLabel(data.next.timing)}` : "No upcoming dose";
     return `<div class="cycle-card">
       <div class="dose-card-head">
@@ -2189,27 +2204,51 @@ function renderPeptideDashboard() {
 function renderTodayPeptideReminders() {
   const el = $("#today-peptide-reminders");
   if (!el) return;
-  el.innerHTML = dueDoseCards(true);
+  const selected = peptideReminderDate();
+  el.innerHTML = `${peptideReminderDateStripHtml(selected)}${dueDoseCards(true, selected)}`;
 }
 function renderPeptideDueList() {
   const el = $("#peptide-due-list");
   if (!el) return;
-  el.innerHTML = dueDoseCards(false);
+  el.innerHTML = dueDoseCards(false, todayKey());
 }
-function dueDoseCards(compact = false) {
-  const date = todayKey();
+function peptideReminderDateStripHtml(selected = peptideReminderDate()) {
+  const today = parseDay(todayKey()) || new Date();
+  return `<div class="peptide-date-strip" aria-label="Peptide reminder dates">
+    ${Array.from({ length: 15 }, (_, index) => {
+      const date = dayKey(addDays(today, index - 7));
+      const day = parseDay(date) || today;
+      const due = dueDoseSlots(date);
+      const logged = due.filter((slot) => doseLoggedForSlot(slot, date)).length;
+      const isToday = date === todayKey();
+      return `<button class="peptide-date-chip${date === selected ? " active" : ""}${due.length ? " has-data" : ""}${isToday ? " is-today" : ""}" data-peptide-reminder-date="${escapeHtml(date)}" type="button" aria-label="${escapeHtml(dateLabel(date))}">
+        <span>${escapeHtml(WEEK_DAYS[weekdayIndex(day)].slice(0, 1))}</span>
+        <strong>${day.getDate()}</strong>
+        <small>${due.length ? `${logged}/${due.length}` : ""}</small>
+      </button>`;
+    }).join("")}
+  </div>`;
+}
+function dueDoseCards(compact = false, date = todayKey()) {
   const due = (state.peptideCycles || []).filter((cycle) => cycleDueOn(cycle, date));
-  if (!due.length) return `<div class="empty">No peptide doses scheduled for today.</div>`;
+  if (!due.length) return `<div class="empty">No peptide doses scheduled for ${escapeHtml(dateLabel(date))}.</div>`;
   return due.flatMap((cycle) => (cycle.timings || []).map((timing) => {
     const logged = doseLogForSlot({ cycle, timing }, date);
     const calc = calculateDraw(cycle.peptideId, cycle.vialMg, cycle.diluentMl, cycle.doseMg);
+    const action = logged
+      ? `<span class="pill">Logged</span>`
+      : date === todayKey()
+      ? `<button class="primary" data-log-dose="${escapeHtml(cycle.id)}" data-dose-timing="${escapeHtml(timing)}" type="button">Log</button>`
+      : date < todayKey()
+      ? `<button class="primary" data-log-history-dose="${escapeHtml(cycle.id)}" data-dose-timing="${escapeHtml(timing)}" data-dose-date="${escapeHtml(date)}" type="button">Add dosage</button>`
+      : `<span class="pill">Due</span>`;
     return `<div class="dose-card">
       <div class="dose-card-head">
         <div>
           <strong>${escapeHtml(compoundName(cycle.peptideId))}</strong>
           <small>${escapeHtml(timingLabel(timing))} / ${fmtDose(cycle.doseMg)}mg${calc.ok && calc.drawMl ? ` / ${fmtDose(calc.drawMl)}ml${calc.type === "peptide" ? ` / ${fmt(calc.drawUnits)} units` : ""}` : ""}</small>
         </div>
-        ${logged ? `<span class="pill">Logged</span>` : `<button class="primary" data-log-dose="${escapeHtml(cycle.id)}" data-dose-timing="${escapeHtml(timing)}" type="button">Log</button>`}
+        ${action}
       </div>
       ${compact ? "" : `<div class="dose-meta"><span class="pill">${escapeHtml(dateLabel(cycle.startDate))}</span><span class="pill">${escapeHtml(dateLabel(cycle.endDate))}</span></div>`}
     </div>`;
@@ -2219,13 +2258,17 @@ function renderPeptideCycles() {
   const cycles = [...(state.peptideCycles || [])].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   $("#peptide-cycle-list").innerHTML = cycles.length ? cycles.map((cycle) => {
     const calc = calculateDraw(cycle.peptideId, cycle.vialMg, cycle.diluentMl, cycle.doseMg);
+    const ended = isDateKey(cycle.endedAt);
     return `<div class="dose-card">
       <div class="dose-card-head">
         <div>
           <strong>${escapeHtml(compoundName(cycle.peptideId))}</strong>
-          <small>${escapeHtml(dateLabel(cycle.startDate))} to ${escapeHtml(dateLabel(cycle.endDate))} / ${fmtDose(cycle.doseMg)}mg per dose</small>
+          <small>${escapeHtml(dateLabel(cycle.startDate))} to ${escapeHtml(dateLabel(cycle.endDate))} / ${fmtDose(cycle.doseMg)}mg per dose${ended ? ` / Ended ${escapeHtml(dateLabel(cycle.endedAt))}` : ""}</small>
         </div>
-        <button class="danger-button" data-delete-cycle="${escapeHtml(cycle.id)}" type="button">Delete</button>
+        <div class="cycle-actions">
+          ${ended ? `<span class="pill">Ended</span>` : `<button class="secondary" data-end-cycle="${escapeHtml(cycle.id)}" type="button">End cycle</button>`}
+          <button class="danger-button" data-delete-cycle="${escapeHtml(cycle.id)}" type="button">Delete</button>
+        </div>
       </div>
       <div class="dose-meta">
         <span class="pill">${escapeHtml(cycleDaysText(cycle.days))}</span>
@@ -2438,7 +2481,7 @@ function renderPeptideDayHistory() {
 function renderWeightHistory() {
   const date = historySelectedDate();
   const entries = weightEntriesForDate(date);
-  $("#history-list").innerHTML = entries.length ? entries.map((m) => `<div class="history-card"><div class="history-head"><div><strong>${dateLabel(date)}</strong><small>${fmtWeight(m.weightKg || m.weight)} kg${m.fatPercent ? ` / ${m.fatPercent}% fat` : ""}</small></div><button class="danger-button" data-delete-weight="${escapeHtml(m.id)}" type="button">Delete</button></div></div>`).join("") : `<div class="empty">No weight entries for ${escapeHtml(dateLabel(date))}.</div>`;
+  $("#history-list").innerHTML = entries.length ? entries.map((m) => `<div class="history-card"><div class="history-head"><div><strong>${dateLabel(date)}</strong><small>${fmtWeight(m.weightKg || m.weight)} kg${rawNum(m.fatPercent) ? ` / ${fmtWeight(m.fatPercent)}% fat` : ""}</small></div><button class="danger-button" data-delete-weight="${escapeHtml(m.id)}" type="button">Delete</button></div></div>`).join("") : `<div class="empty">No weight entries for ${escapeHtml(dateLabel(date))}.</div>`;
 }
 function progressCheckinsForDate(date) {
   return (state.progressCheckins || []).filter((entry) => entry.date === date).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -3712,6 +3755,10 @@ function bind() {
       state.settings.historyDate = todayKey();
       save(); renderHistory();
     }
+    if (button.dataset.peptideReminderDate) {
+      state.settings.peptideReminderDate = button.dataset.peptideReminderDate;
+      save(); renderTodayPeptideReminders();
+    }
     if (button.dataset.logDose) {
       const cycle = (state.peptideCycles || []).find((item) => item.id === button.dataset.logDose);
       const timing = button.dataset.doseTiming || "morning";
@@ -3793,6 +3840,12 @@ function bind() {
       save(); render();
     }
     if (button.dataset.history) { state.settings.historyType = button.dataset.history; save(); renderHistory(); }
+    if (button.dataset.endCycle) {
+      const cycle = (state.peptideCycles || []).find((item) => item.id === button.dataset.endCycle);
+      if (!cycle || !confirm(`End ${compoundName(cycle.peptideId)} cycle? Saved dose history will stay, but reminders will stop.`)) return;
+      cycle.endedAt = todayKey();
+      save(); render();
+    }
     if (button.dataset.deleteCycle) {
       if (!confirm("Delete this peptide cycle? Existing dosage history stays saved.")) return;
       state.peptideCycles = (state.peptideCycles || []).filter((cycle) => cycle.id !== button.dataset.deleteCycle);
@@ -3995,7 +4048,7 @@ function bind() {
   $("#weight-form").addEventListener("submit", (event) => {
     event.preventDefault();
     const f = event.currentTarget;
-    state.bodyMetrics = [{ id: uid(), weightKg: rawNum(f.elements.weightKg.value), fatPercent: f.elements.fatPercent.value, createdAt: Date.now() }, ...state.bodyMetrics];
+    state.bodyMetrics = [{ id: uid(), weightKg: rawNum(f.elements.weightKg.value), fatPercent: rawNum(f.elements.fatPercent.value), createdAt: Date.now() }, ...state.bodyMetrics];
     f.reset();
     save(); render();
   });
