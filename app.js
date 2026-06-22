@@ -2205,7 +2205,8 @@ function renderTodayPeptideReminders() {
   const el = $("#today-peptide-reminders");
   if (!el) return;
   const selected = peptideReminderDate();
-  el.innerHTML = `${peptideReminderDateStripHtml(selected)}${dueDoseCards(true, selected)}`;
+  const isToday = selected === todayKey();
+  el.innerHTML = `<button class="secondary wide-button peptide-today-button${isToday ? " active" : ""}" data-peptide-reminder-today type="button">Today</button>${peptideReminderDateStripHtml(selected)}${dueDoseCards(true, selected)}`;
 }
 function renderPeptideDueList() {
   const el = $("#peptide-due-list");
@@ -2221,7 +2222,8 @@ function peptideReminderDateStripHtml(selected = peptideReminderDate()) {
       const due = dueDoseSlots(date);
       const logged = due.filter((slot) => doseLoggedForSlot(slot, date)).length;
       const isToday = date === todayKey();
-      return `<button class="peptide-date-chip${date === selected ? " active" : ""}${due.length ? " has-data" : ""}${isToday ? " is-today" : ""}" data-peptide-reminder-date="${escapeHtml(date)}" type="button" aria-label="${escapeHtml(dateLabel(date))}">
+      const active = date === selected;
+      return `<button class="peptide-date-chip${active ? " active tab-open-pulse" : ""}${due.length ? " has-data" : ""}${isToday ? " is-today" : ""}" data-peptide-reminder-date="${escapeHtml(date)}" type="button" aria-label="${escapeHtml(dateLabel(date))}">
         <span>${escapeHtml(WEEK_DAYS[weekdayIndex(day)].slice(0, 1))}</span>
         <strong>${day.getDate()}</strong>
         <small>${due.length ? `${logged}/${due.length}` : ""}</small>
@@ -3757,6 +3759,10 @@ function bind() {
     }
     if (button.dataset.peptideReminderDate) {
       state.settings.peptideReminderDate = button.dataset.peptideReminderDate;
+      save(); renderTodayPeptideReminders();
+    }
+    if (button.dataset.peptideReminderToday !== undefined) {
+      state.settings.peptideReminderDate = todayKey();
       save(); renderTodayPeptideReminders();
     }
     if (button.dataset.logDose) {
