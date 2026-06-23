@@ -299,6 +299,7 @@ let saveFeedbackReady = false;
 let saveFeedbackTimer = 0;
 let lastSaveTrigger = null;
 let lastSaveTriggerAt = 0;
+let calendarScrollTimer = 0;
 const tabCloseTimers = new WeakMap();
 const openExerciseCards = new Set();
 let motraImportPreview = [];
@@ -329,7 +330,7 @@ const fmtDose = (v, digits = 3) => rawNum(v).toLocaleString(undefined, { maximum
 const todayKey = () => dayKey(new Date());
 const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const clamp = (value, min = 0, max = 100) => Math.min(max, Math.max(min, Number(value) || 0));
-const VIEW_IDS = ["today", "log", "planner", "peptides", "history", "master", "settings"];
+const VIEW_IDS = ["today", "log", "planner", "peptides", "history", "settings"];
 let state = defaults();
 let startupDetailsCollapsed = false;
 
@@ -837,6 +838,11 @@ function historySelectedDate() {
   state.settings.historyDate = date;
   return date;
 }
+function resetCalendarDatesToToday() {
+  const today = todayKey();
+  state.settings.historyDate = today;
+  state.settings.peptideReminderDate = today;
+}
 function peptideReminderDate() {
   const today = parseDay(todayKey()) || new Date();
   const min = dayKey(addDays(today, -7));
@@ -1213,6 +1219,7 @@ async function load() {
     });
     if (stored) state = merge(stored);
   } catch {} finally { db?.close?.(); }
+  resetCalendarDatesToToday();
 }
 function flashSaved(button) {
   if (!button) return;
@@ -1328,6 +1335,29 @@ function collapseStartupDetails() {
   openExerciseCards.clear();
   startupDetailsCollapsed = true;
 }
+function centerScrollerItem(strip, target) {
+  if (!strip || !target || strip.clientWidth <= 0) return false;
+  const left = target.offsetLeft - ((strip.clientWidth - target.offsetWidth) / 2);
+  strip.scrollTo({ left: Math.max(0, left), behavior: "auto" });
+  return true;
+}
+function centerCalendarScrollers() {
+  const pairs = [
+    [".peptide-date-strip", ".peptide-date-chip.active, .peptide-date-chip.is-today"],
+    [".history-day-strip", ".history-day.active, .history-day.is-today"],
+    [".consistency-strip", ".consistency-day.active"],
+  ];
+  pairs.forEach(([stripSelector, targetSelector]) => {
+    document.querySelectorAll(stripSelector).forEach((strip) => centerScrollerItem(strip, strip.querySelector(targetSelector)));
+  });
+}
+function scheduleCalendarScroll() {
+  window.cancelAnimationFrame(calendarScrollTimer);
+  calendarScrollTimer = window.requestAnimationFrame(() => {
+    centerCalendarScrollers();
+    setTimeout(centerCalendarScrollers, 120);
+  });
+}
 function renderHeader() {
   $("#date-label").textContent = new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" }).toUpperCase();
   const active = $(".view.active");
@@ -1364,7 +1394,7 @@ function renderToday() {
   renderTodayPeptideReminders();
 }
 function topLevelDropdowns(view) {
-  return Array.from(view.children).filter((el) => el.classList?.contains("drop-panel"));
+  return Array.from(view.children).filter((el) => el.classList?.contains("drop-panel") && !el.hidden);
 }
 function renderPanelLimit() {
   $$(".view").forEach((view) => {
@@ -1663,6 +1693,7 @@ function renderConsistencyCalendar() {
       </div>
     </div>`;
   }).join("");
+  scheduleCalendarScroll();
 }
 function coachNotes() {
   const notes = [];
@@ -2229,6 +2260,7 @@ function renderTodayPeptideReminders() {
   const selected = peptideReminderDate();
   const isToday = selected === todayKey();
   el.innerHTML = `<button class="secondary wide-button peptide-today-button${isToday ? " active" : ""}" data-peptide-reminder-today type="button">Today</button>${peptideReminderDateStripHtml(selected)}${dueDoseCards(true, selected)}`;
+  scheduleCalendarScroll();
 }
 function renderPeptideDueList() {
   const el = $("#peptide-due-list");
@@ -2392,12 +2424,13 @@ function renderHistoryCalendar() {
     const day = addDays(weekStart, index);
     const key = dayKey(day);
     const counts = dayHistoryCounts(key);
-    return `<button class="history-day${key === selected ? " active" : ""}${counts.total ? " has-data" : ""}" data-history-day="${escapeHtml(key)}" type="button">
+    return `<button class="history-day${key === selected ? " active" : ""}${counts.total ? " has-data" : ""}${key === todayKey() ? " is-today" : ""}" data-history-day="${escapeHtml(key)}" type="button">
       <span>${escapeHtml(WEEK_DAYS[index])}</span>
       <strong>${day.getDate()}</strong>
       <small>${escapeHtml(historyCountSummary(counts))}</small>
     </button>`;
   }).join("");
+  scheduleCalendarScroll();
 }
 function renderMealHistory() {
   const date = historySelectedDate();
@@ -2619,6 +2652,7 @@ function importBackup(raw) {
     return;
   }
   state = merge(data);
+  resetCalendarDatesToToday();
   save();
   render();
   setImportStatus(`Imported ${summary}.`);
@@ -2645,7 +2679,7 @@ function setAuthBusy(busy = false) {
 }
 function setMasterBusy(busy = false) {
   masterBusy = Boolean(busy);
-  document.querySelectorAll("#view-master button, #view-master input").forEach((el) => { el.disabled = masterBusy; });
+  document.querySelectorAll("#master-dashboard-panel button, #master-dashboard-panel input").forEach((el) => { el.disabled = masterBusy; });
 }
 function setMasterActionStatus(message = "", isError = false) {
   masterActionMessage = message;
@@ -3014,10 +3048,9 @@ async function masterDeleteUserData(userId) {
   await refreshMasterProfiles();
 }
 function renderMasterDashboard() {
-  const masterButton = $('.tabbar [data-view="master"]');
+  const panel = $("#master-dashboard-panel");
   const master = isMasterAccount();
-  if (masterButton) masterButton.hidden = !master;
-  if (!master && activeViewName() === "master") setView("today", { persist: false });
+  if (panel) panel.hidden = !master;
   const summary = $("#master-summary");
   const list = $("#master-user-list");
   const status = $("#master-action-status");
@@ -3027,8 +3060,8 @@ function renderMasterDashboard() {
   }
   if (!summary || !list) return;
   if (!master) {
-    summary.innerHTML = `<div class="dash-card"><span>Access</span><strong>Master only</strong><small>The first created account becomes master after Supabase user tracking is set up.</small></div>`;
-    list.innerHTML = `<div class="empty">Log in with the master account to view user activity.</div>`;
+    summary.innerHTML = "";
+    list.innerHTML = "";
     return;
   }
   const now = Date.now();
@@ -3108,6 +3141,7 @@ async function pullCloudState(confirmFirst = true) {
   const currentView = activeViewName();
   state = merge(row.data);
   state.settings.activeView = currentView;
+  resetCalendarDatesToToday();
   enableCloudAutoSync();
   cloudLastSyncedAt = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   save({ silent: true, skipCloud: true });
@@ -4841,6 +4875,7 @@ function bind() {
   });
 }
 function normalizeView(view) {
+  if (view === "master") return "settings";
   return VIEW_IDS.includes(view) ? view : "today";
 }
 function activeViewName() {
@@ -4849,12 +4884,13 @@ function activeViewName() {
   return normalizeView(view || state.settings?.activeView || "today");
 }
 function setView(view, options = {}) {
-  const target = normalizeView(view) === "master" && !isMasterAccount() ? "today" : normalizeView(view);
+  const target = normalizeView(view);
   state.settings.activeView = target;
   $$(".view").forEach((el) => el.classList.toggle("active", el.id === `view-${target}`));
   $$(".tabbar [data-view]").forEach((button) => button.classList.toggle("active", button.dataset.view === target));
   renderHeader();
   renderPanelLimit();
+  scheduleCalendarScroll();
   if (options.persist !== false) save({ silent: true });
 }
 
