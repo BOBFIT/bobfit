@@ -13,6 +13,7 @@ const CLOUD_TABLE = "user_app_state";
 const CLOUD_PROFILE_TABLE = "user_profiles";
 const CLOUD_SESSION_KEY = "just.train.cloud.session.v1";
 const LEGACY_CLOUD_SESSION_KEY = ["julius", "trainer", "cloud", "session", "v1"].join(".");
+const WELCOME_SEEN_PREFIX = "just.train.welcome.seen.";
 
 const TRAINING_PLAN_VERSION = "aky-training-plan-targets-v8-motra-log-rename";
 const TOP_DROPDOWN_LIMIT = 4;
@@ -2996,7 +2997,19 @@ function cloudAuthValues(form = $("#cloud-auth-form")) {
   if (password.length < 6) throw new Error("Password must be at least 6 characters.");
   return { email, password };
 }
-function showSignupWelcomePopup() {
+function welcomeSeenKey(email = cloudUser?.email || "") {
+  return `${WELCOME_SEEN_PREFIX}${String(cloudUser?.id || email || "local").toLowerCase()}`;
+}
+function welcomeAlreadyShown(email = cloudUser?.email || "") {
+  try { return localStorage.getItem(welcomeSeenKey(email)) === "true"; } catch { return false; }
+}
+function markWelcomeShown(email = cloudUser?.email || "") {
+  try { localStorage.setItem(welcomeSeenKey(email), "true"); } catch {}
+}
+function showSignupWelcomePopup(options = {}) {
+  const { force = false, email = cloudUser?.email || "" } = options;
+  if (!force && welcomeAlreadyShown(email)) return;
+  markWelcomeShown(email);
   setTimeout(() => {
     $("#signup-welcome-modal")?.remove();
     const modal = document.createElement("div");
@@ -3023,6 +3036,9 @@ function showSignupWelcomePopup() {
     requestAnimationFrame(() => modal.classList.add("show"));
   }, 250);
 }
+function showWelcomeIfFirstLogin(email = cloudUser?.email || "") {
+  showSignupWelcomePopup({ email });
+}
 async function cloudSignIn(email, password) {
   setCloudStatus("Logging in...");
   setAuthGateStatus("Logging in...");
@@ -3037,6 +3053,7 @@ async function cloudSignIn(email, password) {
   setAuthLocked(false);
   setAuthGateStatus("Logged in.");
   await cloudAfterLogin();
+  showWelcomeIfFirstLogin(email);
 }
 async function cloudSignUp(email, password) {
   setCloudStatus("Creating account...");
@@ -3052,13 +3069,13 @@ async function cloudSignUp(email, password) {
     $("#auth-gate-form")?.reset();
     setAuthLocked(false);
     setAuthGateStatus("Account created.");
+    showSignupWelcomePopup({ force: true, email });
     await cloudAfterLogin();
-    showSignupWelcomePopup();
     return;
   }
   setCloudStatus("Account created. If Supabase asks for email confirmation, confirm it first, then log in.");
   setAuthGateStatus("Account created. Check your email if confirmation is required, then log in.");
-  showSignupWelcomePopup();
+  showSignupWelcomePopup({ force: true, email });
 }
 async function cloudSignOut() {
   try { if (cloudSession?.access_token) await cloudRequest("/auth/v1/logout", { method: "POST" }); } catch {}
@@ -3382,6 +3399,7 @@ async function initCloud() {
     if (isMasterAccount()) refreshMasterProfiles();
     if (cloudAutoSyncReady() && !hasCloudUserData(state)) await pullCloudState(false);
     else setCloudStatus(cloudAutoSyncReady() ? "Logged in. Future saves sync automatically." : "Logged in. Choose upload or pull to start automatic sync.");
+    showWelcomeIfFirstLogin();
   } catch (error) {
     clearCloudSession();
     authReady = true;
