@@ -12,6 +12,7 @@ const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_eVDJFuMUWYgVgXGc9dVjMw_H5uB-NGC
 const CLOUD_TABLE = "user_app_state";
 const CLOUD_PROFILE_TABLE = "user_profiles";
 const CLOUD_SESSION_KEY = "just.train.cloud.session.v1";
+const LEGACY_CLOUD_SESSION_KEY = ["julius", "trainer", "cloud", "session", "v1"].join(".");
 
 const TRAINING_PLAN_VERSION = "aky-training-plan-targets-v8-motra-log-rename";
 const TOP_DROPDOWN_LIMIT = 4;
@@ -1331,6 +1332,15 @@ function renderFeatureAccess() {
   if (!canUsePeptides && state.settings.historyType === "peptides") state.settings.historyType = "meals";
   if (!canUsePeptides && state.settings.activeView === "peptides") state.settings.activeView = "today";
   renderPanelLimit();
+}
+function refreshPeptideAccessUi() {
+  renderFeatureAccess();
+  renderToday();
+  renderPeptides();
+  renderHistory();
+  renderSummary();
+  renderPanelLimit();
+  scheduleCalendarScroll();
 }
 function collapseStartupDetails() {
   if (startupDetailsCollapsed) return;
@@ -2809,6 +2819,12 @@ function saveCloudSession(session, syncEnabled = cloudSession?.syncEnabled || fa
 }
 function loadCloudSession() {
   try { cloudSession = JSON.parse(localStorage.getItem(CLOUD_SESSION_KEY) || "null"); } catch { cloudSession = null; }
+  if (!cloudSession?.access_token) {
+    try {
+      cloudSession = JSON.parse(localStorage.getItem(LEGACY_CLOUD_SESSION_KEY) || "null");
+      if (cloudSession?.access_token) localStorage.setItem(CLOUD_SESSION_KEY, JSON.stringify(cloudSession));
+    } catch { cloudSession = null; }
+  }
   cloudUser = cloudSession?.user || null;
 }
 function clearCloudSession() {
@@ -2817,7 +2833,10 @@ function clearCloudSession() {
   cloudLastSyncedAt = "";
   cloudProfile = null;
   cloudProfiles = [];
-  try { localStorage.removeItem(CLOUD_SESSION_KEY); } catch {}
+  try {
+    localStorage.removeItem(CLOUD_SESSION_KEY);
+    localStorage.removeItem(LEGACY_CLOUD_SESSION_KEY);
+  } catch {}
 }
 function enableCloudAutoSync() {
   if (!cloudSession) return;
@@ -2992,7 +3011,11 @@ async function refreshCloudProfile() {
     const rows = await cloudRequest(`/rest/v1/${CLOUD_PROFILE_TABLE}?select=*&user_id=eq.${encodeURIComponent(cloudUser.id)}`);
     cloudProfile = Array.isArray(rows) ? rows[0] || null : null;
     if (!cloudProfile) cloudProfile = await upsertCloudProfile();
-    if (profileDisabled(cloudProfile) && !isMasterAccount()) lockDisabledAccount();
+    if (profileDisabled(cloudProfile) && !isMasterAccount()) {
+      lockDisabledAccount();
+      return cloudProfile;
+    }
+    refreshPeptideAccessUi();
     return cloudProfile;
   } catch (error) {
     setCloudStatus(friendlyCloudError(error), true);
