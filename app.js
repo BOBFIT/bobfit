@@ -1358,12 +1358,15 @@ function centerScrollerItem(strip, target) {
 }
 function centerCalendarScrollers() {
   const pairs = [
-    [".peptide-date-strip", ".peptide-date-chip.active, .peptide-date-chip.is-today"],
-    [".history-day-strip", ".history-day.active, .history-day.is-today"],
-    [".consistency-strip", ".consistency-day.active"],
+    [".peptide-date-strip", ".peptide-date-chip.active", ".peptide-date-chip.is-today"],
+    [".history-day-strip", ".history-day.active", ".history-day.is-today"],
+    [".consistency-strip", ".consistency-day.active", ""],
   ];
-  pairs.forEach(([stripSelector, targetSelector]) => {
-    document.querySelectorAll(stripSelector).forEach((strip) => centerScrollerItem(strip, strip.querySelector(targetSelector)));
+  pairs.forEach(([stripSelector, activeSelector, fallbackSelector]) => {
+    document.querySelectorAll(stripSelector).forEach((strip) => {
+      const target = strip.querySelector(activeSelector) || (fallbackSelector ? strip.querySelector(fallbackSelector) : null);
+      centerScrollerItem(strip, target);
+    });
   });
 }
 function scheduleCalendarScroll() {

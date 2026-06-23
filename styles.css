@@ -2114,6 +2114,15 @@ button.delete-pulse {
 .history-day.has-data {
   border-color: rgba(95, 225, 255, 0.36);
 }
+.history-day.is-today:not(.active) {
+  border-color: rgba(95, 225, 255, 0.7);
+  background: rgba(19, 168, 245, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(95, 225, 255, 0.36), 0 0 18px rgba(19, 168, 245, 0.18);
+}
+.history-day.is-today:not(.active) strong {
+  background: rgba(95, 225, 255, 0.18);
+  color: #dff8ff;
+}
 .history-day.active {
   border-color: transparent;
   background: linear-gradient(180deg, #11c4ff, #0b7fe8);
