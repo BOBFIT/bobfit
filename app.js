@@ -2997,7 +2997,31 @@ function cloudAuthValues(form = $("#cloud-auth-form")) {
   return { email, password };
 }
 function showSignupWelcomePopup() {
-  setTimeout(() => alert("Welcome to Just.Train.\nLet's get to work, fatty."), 250);
+  setTimeout(() => {
+    $("#signup-welcome-modal")?.remove();
+    const modal = document.createElement("div");
+    modal.id = "signup-welcome-modal";
+    modal.className = "signup-welcome-modal";
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    modal.setAttribute("aria-label", "Welcome to Just.Train");
+    modal.innerHTML = `<div class="signup-welcome-card">
+      <div class="signup-welcome-logo"><img src="assets/logo.svg" alt="" /></div>
+      <span class="brand-kicker">Just.Train</span>
+      <h2>Welcome to Just.Train</h2>
+      <div class="welcome-fatty" aria-label="Fatty">Fatty</div>
+      <p>Let's get to work.</p>
+      <button class="primary wide-button" data-close-welcome type="button">Start training</button>
+    </div>`;
+    const close = () => {
+      modal.classList.add("leaving");
+      setTimeout(() => modal.remove(), 360);
+    };
+    modal.addEventListener("click", (event) => { if (event.target === modal) close(); });
+    modal.querySelector("[data-close-welcome]")?.addEventListener("click", close);
+    document.body.appendChild(modal);
+    requestAnimationFrame(() => modal.classList.add("show"));
+  }, 250);
 }
 async function cloudSignIn(email, password) {
   setCloudStatus("Logging in...");
