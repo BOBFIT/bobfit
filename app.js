@@ -1405,7 +1405,6 @@ function renderToday() {
   renderHomeDashboard(mealTotal);
   renderCoachNotes();
   renderTodayMealList();
-  renderMacroSuggestions();
   renderTodayPeptideReminders();
 }
 function topLevelDropdowns(view) {
@@ -1843,33 +1842,6 @@ function suggestedMealCombos(limit = 3, remaining = macroRemaining()) {
     .slice(0, limit)
     .map((item) => item.combo);
 }
-function renderMacroSuggestions() {
-  const el = $("#macro-suggestion-list");
-  if (!el) return;
-  if (!hasMacroTargets()) {
-    el.innerHTML = `<div class="empty">Set your macro targets in Planner first.</div>`;
-    return;
-  }
-  const currentMeals = todayMeals().map(normalizeMeal).filter(Boolean);
-  const remaining = macroRemaining(currentMeals);
-  if (!macroGapOpen(remaining)) {
-    el.innerHTML = `<div class="empty">You are on or above today's targets.</div>`;
-    return;
-  }
-  const suggestions = suggestedMealCombos(3, remaining);
-  if (!suggestions.length) {
-    el.innerHTML = `<div class="formula-note">Remaining after today's logged meals: ${escapeHtml(macroRemainingText(remaining))}.</div><div class="empty">No saved meals fit the remaining calories and macros. Save a lighter meal or adjust today's target.</div>`;
-    return;
-  }
-  const gap = `<div class="formula-note">Remaining after today's logged meals: ${escapeHtml(macroRemainingText(remaining))}.</div>`;
-  el.innerHTML = `${gap}${suggestions.map((meal) => {
-    const buttonAttr = meal.meals?.length > 1 ? `data-add-meal-combo="${escapeHtml(meal.id)}"` : `data-add-saved-meal="${escapeHtml(meal.id)}"`;
-    const after = remainingAfterMeal(meal, remaining);
-    const parts = [meal.meals?.length > 1 ? `${meal.meals.length} saved meals` : "", `Leaves ${macroRemainingText(after)}`].filter(Boolean).join(" / ");
-    const extra = parts;
-    return mealCardHtml(meal, mealActionButton("Add today", buttonAttr, "primary"), extra);
-  }).join("")}`;
-}
 function renderLog() {
   const options = templateKeys();
   const select = $("#split-select");
@@ -2122,7 +2094,6 @@ function exerciseTrendNote() {
 }
 function renderPlanner() {
   renderMacroTargetForm();
-  renderMealPlanBuilder();
   $("#week-grid").innerHTML = WEEK_DAYS.map((day, index) => {
     const assign = state.weeklyPlan.assignments[index] || "rest";
     return `<div class="day-card"><strong>${day}</strong><button data-cycle-day="${index}" type="button">${escapeHtml(splitTitle(assign))}</button><small>${assign === "rest" ? "Rest day" : `${state.workoutTemplates[assign]?.exercises?.length || 0} exercises`}</small></div>`;
@@ -2152,29 +2123,6 @@ function renderMacroTargetForm() {
   f.elements.protein.value = target.protein || "";
   f.elements.carbs.value = target.carbs || "";
   f.elements.fat.value = target.fat || "";
-}
-function renderMealPlanBuilder() {
-  const picker = $("#meal-plan-saved-picker");
-  const list = $("#meal-plan-list");
-  if (!picker || !list) return;
-  const saved = (state.savedMeals || []).map(normalizeMeal).filter(Boolean);
-  picker.innerHTML = saved.length
-    ? saved.map((meal) => `<label class="meal-plan-choice"><input name="mealPlanMeal" type="checkbox" value="${escapeHtml(meal.id)}" /><span><strong>${escapeHtml(meal.name)}</strong><small>${escapeHtml(macroText(meal))}</small></span></label>`).join("")
-    : `<div class="empty">Save meals from the Log tab first, then build a full-day plan here.</div>`;
-  const plans = (state.mealPlans || []).map(normalizeMealPlan).filter(Boolean);
-  list.innerHTML = plans.length ? plans.map((plan) => {
-    const total = totals(plan.meals);
-    return `<div class="meal-card">
-      <div class="meal-card-head">
-        <div><strong>${escapeHtml(plan.name)}</strong><small>${plan.meals.length} meals / ${escapeHtml(macroText(total))}</small></div>
-        <div class="meal-actions">
-          <button class="primary" data-apply-meal-plan="${escapeHtml(plan.id)}" type="button">Add day</button>
-          <button class="danger-button" data-delete-meal-plan="${escapeHtml(plan.id)}" type="button">Delete</button>
-        </div>
-      </div>
-      <div class="dose-meta">${plan.meals.map((meal) => `<span class="pill">${escapeHtml(meal.name)}</span>`).join("")}</div>
-    </div>`;
-  }).join("") : `<div class="empty">No daily meal plans saved yet.</div>`;
 }
 function mealLibraryBlock(title, subtitle, content) {
   return `<section class="meal-library-block">
@@ -2206,7 +2154,6 @@ function renderPeptides() {
   renderTodayPeptideReminders();
   renderPeptideDueList();
   renderPeptideCycles();
-  renderPeptideInfo();
   renderReconstitution();
   renderPeptideHistory();
 }
@@ -2414,25 +2361,6 @@ function renderPeptideCycles() {
 }
 function cycleDaysText(days = []) {
   return days.length ? days.map((day) => WEEK_DAYS[day] || "").filter(Boolean).join(", ") : "No days";
-}
-function renderPeptideInfo() {
-  $("#peptide-info-list").innerHTML = DEFAULT_COMPOUNDS.map((compound) => {
-    const components = Array.isArray(compound.components) && compound.components.length
-      ? `<ul class="component-list">${compound.components.map((item) => `<li>${escapeHtml(item.name)}: ${fmtDose(item.mg)}mg</li>`).join("")}</ul>`
-      : "";
-    const fixedWater = fixedBacWaterMl(compound.vialMg, compound.id);
-    const meta = compound.type === "oil"
-      ? `Concentration from vial label`
-      : compound.vialMg
-      ? `${fmtDose(compound.vialMg)}mg vial / ${fmtDose(fixedWater)}ml bac water`
-      : "Enter vial mg / standard rule, unless NAD+ or Glow Stack";
-    return `<div class="compound-card">
-      <strong>${escapeHtml(compound.name)}</strong>
-      <small>${escapeHtml(compound.info)}</small>
-      <div class="compound-meta"><span class="pill">${escapeHtml(meta)}</span></div>
-      ${components}
-    </div>`;
-  }).join("");
 }
 function renderReconstitution() {
   const resultEl = $("#reconstitution-result");
@@ -4572,23 +4500,6 @@ function bind() {
       });
       return;
     }
-    if (button.dataset.addMealCombo) {
-      const ids = button.dataset.addMealCombo.split(",").filter(Boolean);
-      const meals = ids.map((id) => (state.savedMeals || []).find((item) => item.id === id)).filter(Boolean);
-      if (!meals.length) return;
-      meals.forEach(addMealToToday);
-      save(); render();
-    }
-    if (button.dataset.applyMealPlan) {
-      const plan = (state.mealPlans || []).find((item) => item.id === button.dataset.applyMealPlan);
-      if (!plan) return;
-      (plan.meals || []).forEach(addMealToToday);
-      save(); render();
-    }
-    if (button.dataset.deleteMealPlan) {
-      state.mealPlans = (state.mealPlans || []).filter((plan) => plan.id !== button.dataset.deleteMealPlan);
-      save(); render();
-    }
     if (button.dataset.saveMealDate && button.dataset.saveMealId) {
       const meal = (state.meals[button.dataset.saveMealDate] || []).find((item) => item.id === button.dataset.saveMealId);
       if (!meal) return;
@@ -4841,17 +4752,6 @@ function bind() {
       fat: f.elements.fat.value,
     });
     save(); render();
-  });
-  $("#meal-plan-form").addEventListener("submit", (event) => {
-    event.preventDefault();
-    const f = event.currentTarget;
-    const ids = $$('input[name="mealPlanMeal"]:checked').map((input) => input.value);
-    const meals = ids.map((id) => (state.savedMeals || []).find((meal) => meal.id === id)).filter(Boolean).map((meal) => ({ ...meal, id: uid(), createdAt: Date.now() }));
-    if (!meals.length) { alert("Tick at least one saved meal for this plan."); return; }
-    const plan = normalizeMealPlan({ id: uid(), name: f.elements.name.value.trim() || "Meal plan", meals, createdAt: Date.now() });
-    state.mealPlans = [plan, ...(state.mealPlans || []).filter((item) => item.name.toLowerCase() !== plan.name.toLowerCase())];
-    f.reset();
-    save(); renderPlanner();
   });
   $("#split-select").addEventListener("change", (event) => { state.settings.selectedSplit = event.currentTarget.value; state.settings.selectedSplitDate = todayKey(); save(); renderLog(); });
   $("#workout-form").addEventListener("submit", (event) => {

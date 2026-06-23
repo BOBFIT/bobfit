@@ -11,7 +11,7 @@
     <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="assets/icon.png" />
     <link rel="manifest" href="manifest.webmanifest" />
-    <link rel="stylesheet" href="styles.css?v=99" />
+    <link rel="stylesheet" href="styles.css?v=101" />
   </head>
   <body class="auth-locked">
     <section id="auth-gate" class="auth-gate" aria-live="polite">
@@ -80,31 +80,13 @@
             </div>
           </div>
         </details>
-        <details id="today-peptide-panel" class="panel drop-panel" data-peptide-feature hidden>
-          <summary class="drop-summary">
-            <span><strong>Today's Exercises</strong><small>Rep ranges and training notes</small></span>
-            <span class="drop-pill">View</span>
-          </summary>
-          <div class="drop-body">
-            <div id="today-exercises" class="exercise-list"></div>
-          </div>
-        </details>
-        <details class="panel drop-panel">
+        <details class="panel drop-panel" data-peptide-feature hidden>
           <summary class="drop-summary">
             <span><strong>Peptide Reminders</strong><small>Due doses from your cycle planner</small></span>
             <span class="drop-pill">View</span>
           </summary>
           <div class="drop-body">
             <div id="today-peptide-reminders" class="dose-list"></div>
-          </div>
-        </details>
-        <details class="panel drop-panel">
-          <summary class="drop-summary">
-            <span><strong>Coach Notes</strong><small>Progress trends from your logged data</small></span>
-            <span class="drop-pill">AI</span>
-          </summary>
-          <div class="drop-body">
-            <div id="coach-notes" class="coach-list"></div>
           </div>
         </details>
         <details class="panel drop-panel">
@@ -118,11 +100,20 @@
         </details>
         <details class="panel drop-panel">
           <summary class="drop-summary">
-            <span><strong>Macro Suggestions</strong><small>Saved meals that help close today's gap</small></span>
-            <span class="drop-pill">Food</span>
+            <span><strong>Today's Exercises</strong><small>Rep ranges and training notes</small></span>
+            <span class="drop-pill">View</span>
           </summary>
           <div class="drop-body">
-            <div id="macro-suggestion-list" class="meal-list"></div>
+            <div id="today-exercises" class="exercise-list"></div>
+          </div>
+        </details>
+        <details class="panel drop-panel">
+          <summary class="drop-summary">
+            <span><strong>Coach Notes</strong><small>Progress trends from your logged data</small></span>
+            <span class="drop-pill">AI</span>
+          </summary>
+          <div class="drop-body">
+            <div id="coach-notes" class="coach-list"></div>
           </div>
         </details>
       </section>
@@ -198,23 +189,6 @@
               <label>Fat g<input name="fat" type="number" min="0" inputmode="decimal" placeholder="e.g. 70" /></label>
               <button class="primary wide" type="submit">Save macro targets</button>
             </form>
-          </div>
-        </details>
-        <details class="panel drop-panel">
-          <summary class="drop-summary">
-            <span><strong>Meal Plan Builder</strong><small>Create one-tap full-day saved meal plans</small></span>
-            <span class="drop-pill">Meals</span>
-          </summary>
-          <div class="drop-body">
-            <form id="meal-plan-form" class="grid">
-              <label class="wide">Plan name<input name="name" required placeholder="Cutting Day" /></label>
-              <div class="wide">
-                <span class="field-title">Saved meals in this plan</span>
-                <div id="meal-plan-saved-picker" class="meal-plan-picker"></div>
-              </div>
-              <button class="primary wide" type="submit">Save meal plan</button>
-            </form>
-            <div id="meal-plan-list" class="meal-list"></div>
           </div>
         </details>
         <details class="panel drop-panel">
@@ -314,13 +288,6 @@
             </form>
             <div id="reconstitution-result" class="calc-result"></div>
           </div>
-        </details>
-        <details class="panel drop-panel">
-          <summary class="drop-summary">
-            <span><strong>Compound Information</strong><small>Saved vial details and stack composition</small></span>
-            <span class="drop-pill">Info</span>
-          </summary>
-          <div class="drop-body"><div id="peptide-info-list" class="compound-grid"></div></div>
         </details>
         <details class="panel drop-panel">
           <summary class="drop-summary">
@@ -534,7 +501,7 @@
       <button data-view="settings" type="button">Settings</button>
     </nav>
 
-    <script src="app.js?v=99"></script>
+    <script src="app.js?v=101"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js").catch(() => {}));
