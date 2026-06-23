@@ -1295,6 +1295,7 @@ function closeTabSmooth(panel) {
 function save(options = {}) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch {}
   if (!options.silent) showSaveFeedback();
+  if (!options.silent) renderCoachNotes();
   if (!options.skipCloud) scheduleCloudSync();
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
@@ -1716,17 +1717,17 @@ function coachNotes() {
   if (hasMacroTargets()) {
     const protein = Math.max(0, rawNum(remaining.protein));
     const carbs = Math.max(0, rawNum(remaining.carbs));
-    notes.push(protein || carbs ? `You still need about ${fmtDose(protein, 1)}g protein and ${fmtDose(carbs, 1)}g carbs today.` : "Macros are on track today. Keep the next meal controlled.");
+    notes.push(protein || carbs ? `Macros are still short: ${fmtDose(protein, 1)}g protein and ${fmtDose(carbs, 1)}g carbs. The app cannot eat for you. Pick a saved meal and fix it.` : "Macros are behaving today. Rare bit of discipline. Keep the next meal clean.");
   } else {
-    notes.push("Set macro targets in Planner so meal suggestions can get sharper.");
+    notes.push("Set macro targets in Planner. Guessing macros is just dieting with a blindfold.");
   }
   const trend = exerciseTrendNote();
   if (trend) notes.push(trend);
   const due = dueDoseSlots();
   const loggedDoses = due.filter((slot) => doseLoggedForSlot(slot)).length;
-  if (userCanUsePeptides() && due.length && loggedDoses < due.length) notes.push(`Peptides due today: ${loggedDoses}/${due.length} logged.`);
-  else if (todayWorkouts().length) notes.push("Today's workout is logged. Review overload suggestions before the next matching session.");
-  else notes.push("Open Log when you are ready to record today's planned workout.");
+  if (userCanUsePeptides() && due.length && loggedDoses < due.length) notes.push(`Peptides due today: ${loggedDoses}/${due.length} logged. If it is due, log it. Future-you does not need mystery dosing.`);
+  else if (todayWorkouts().length) notes.push("Today's workout is logged. Now use the overload notes so next time is not copy-paste suffering.");
+  else notes.push("Today's workout is still blank. Open Log and put numbers in before the excuses get comfortable.");
   return notes.slice(0, 4);
 }
 function renderCoachNotes() {
@@ -2045,7 +2046,63 @@ function renderPersonalRecords() {
     </div>
   </details>`).join("") : `<div class="empty">Save workout sets to start earning PR badges.</div>`;
 }
+function setResultText(set) {
+  return `${fmtWeight(set.weightKg)}kg x ${fmt(set.reps)}`;
+}
+function performanceComparisonNote(name, current, previous, source = "saved") {
+  if (!current || !previous) return "";
+  const exercise = motraExerciseName(name);
+  const currentWeight = rawNum(current.weightKg);
+  const previousWeight = rawNum(previous.weightKg);
+  const currentReps = num(current.reps);
+  const previousReps = num(previous.reps);
+  const weightDiff = previousWeight - currentWeight;
+  if (weightDiff > 0.24) {
+    const prefix = source === "draft" ? "Live warning" : "Brutal truth";
+    return `${prefix}: you're getting weaker on ${exercise}. Previous best was ${setResultText(previous)}, this one is ${setResultText(current)}. That is ${fmtWeight(weightDiff)}kg missing. Stop donating strength back to the gym and match the old lift next time.`;
+  }
+  if (currentWeight === previousWeight && currentReps < previousReps) {
+    const repDiff = previousReps - currentReps;
+    return `Hard truth: ${exercise} stayed at ${fmtWeight(currentWeight)}kg but dropped ${fmt(repDiff)} rep${repDiff === 1 ? "" : "s"} from last time. Same weight, less output. Eat, rest, and win those reps back.`;
+  }
+  if (currentWeight > previousWeight || (currentWeight === previousWeight && currentReps > previousReps)) {
+    return `Good. ${exercise} beat the previous log: ${setResultText(previous)} became ${setResultText(current)}. Finally, numbers moving the right way. Keep the form honest.`;
+  }
+  return "";
+}
+function draftExerciseTrendNote() {
+  const split = selectedSplit();
+  const draft = state.workoutDrafts?.[`${todayKey()}:${split}`];
+  if (!draft?.exerciseLogs?.length) return "";
+  for (const log of draft.exerciseLogs) {
+    const current = summarizeExerciseLog({ log }).bestSet;
+    if (!current) continue;
+    const previousSession = exerciseSessions(log.name, draft.startedAt || Date.now())[0];
+    const previous = previousSession ? summarizeExerciseLog(previousSession).bestSet : null;
+    const note = performanceComparisonNote(log.name, current, previous, "draft");
+    if (note) return note;
+  }
+  return "";
+}
+function latestWorkoutPerformanceNote() {
+  const latestWorkout = allWorkoutSessions()[0];
+  if (!latestWorkout?.exerciseLogs?.length) return "";
+  const before = latestWorkout.createdAt || Date.now();
+  for (const log of latestWorkout.exerciseLogs) {
+    const current = summarizeExerciseLog({ log }).bestSet;
+    if (!current) continue;
+    const previousSession = exerciseSessions(log.name, before)[0];
+    const previous = previousSession ? summarizeExerciseLog(previousSession).bestSet : null;
+    const note = performanceComparisonNote(log.name, current, previous, "saved");
+    if (note) return note;
+  }
+  return "";
+}
 function exerciseTrendNote() {
+  const liveNote = draftExerciseTrendNote();
+  if (liveNote) return liveNote;
+  const latestNote = latestWorkoutPerformanceNote();
+  if (latestNote) return latestNote;
   const records = personalRecords(30);
   for (const record of records) {
     const sessions = exerciseSessions(record.name).slice(0, 3).map((entry) => summarizeExerciseLog(entry));
@@ -2054,13 +2111,13 @@ function exerciseTrendNote() {
     const previous = sessions[1].bestSet;
     if (!latest || !previous) continue;
     if (rawNum(latest.weightKg) > rawNum(previous.weightKg) || (rawNum(latest.weightKg) === rawNum(previous.weightKg) && num(latest.reps) > num(previous.reps))) {
-      return `${record.name} is improving versus the previous session. Keep the same form standard.`;
+      return `${record.name} is actually moving forward. Keep the same form standard and do not turn the next session into a sightseeing tour.`;
     }
     if (sessions.length >= 3 && sessions.every((session) => session.bestSet && rawNum(session.bestSet.weightKg) <= rawNum(previous.weightKg))) {
-      return `${record.name} looks stalled across recent logs. Aim to match last week before adding load.`;
+      return `${record.name} is stuck across recent logs. The numbers are not impressed. Match last week's load first, then steal another rep.`;
     }
   }
-  return allWorkoutSessions().length ? "Keep logging set detail so training trend notes become more accurate." : "Log your first full workout to unlock overload and trend notes.";
+  return allWorkoutSessions().length ? "Keep logging proper set detail. Vague workouts get vague advice, and nobody needs that nonsense." : "Log your first full workout. Until there are numbers, the coach is just judging the empty page.";
 }
 function renderPlanner() {
   renderMacroTargetForm();
@@ -2939,6 +2996,9 @@ function cloudAuthValues(form = $("#cloud-auth-form")) {
   if (password.length < 6) throw new Error("Password must be at least 6 characters.");
   return { email, password };
 }
+function showSignupWelcomePopup() {
+  setTimeout(() => alert("Welcome to Just.Train.\nLet's get to work, fatty."), 250);
+}
 async function cloudSignIn(email, password) {
   setCloudStatus("Logging in...");
   setAuthGateStatus("Logging in...");
@@ -2969,10 +3029,12 @@ async function cloudSignUp(email, password) {
     setAuthLocked(false);
     setAuthGateStatus("Account created.");
     await cloudAfterLogin();
+    showSignupWelcomePopup();
     return;
   }
   setCloudStatus("Account created. If Supabase asks for email confirmation, confirm it first, then log in.");
   setAuthGateStatus("Account created. Check your email if confirmation is required, then log in.");
+  showSignupWelcomePopup();
 }
 async function cloudSignOut() {
   try { if (cloudSession?.access_token) await cloudRequest("/auth/v1/logout", { method: "POST" }); } catch {}
