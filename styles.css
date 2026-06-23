@@ -937,6 +937,16 @@ button.delete-pulse {
   min-height: 42px;
   padding-inline: 10px;
 }
+.protected-master-note {
+  padding: 10px 12px;
+  border: 1px solid rgba(95, 225, 255, 0.14);
+  border-radius: 18px;
+  background: rgba(19, 168, 245, 0.1);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+}
 .help-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

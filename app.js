@@ -838,11 +838,6 @@ function historySelectedDate() {
   state.settings.historyDate = date;
   return date;
 }
-function resetCalendarDatesToToday() {
-  const today = todayKey();
-  state.settings.historyDate = today;
-  state.settings.peptideReminderDate = today;
-}
 function peptideReminderDate() {
   const today = parseDay(todayKey()) || new Date();
   const min = dayKey(addDays(today, -7));
@@ -1219,7 +1214,6 @@ async function load() {
     });
     if (stored) state = merge(stored);
   } catch {} finally { db?.close?.(); }
-  resetCalendarDatesToToday();
 }
 function flashSaved(button) {
   if (!button) return;
@@ -2652,7 +2646,6 @@ function importBackup(raw) {
     return;
   }
   state = merge(data);
-  resetCalendarDatesToToday();
   save();
   render();
   setImportStatus(`Imported ${summary}.`);
@@ -2827,7 +2820,7 @@ function renderCloudPanel() {
 }
 function friendlyCloudError(error) {
   const text = String(error?.message || error || "Cloud sync failed.");
-  if (/rate limit|too many|429|over.*limit|email.*limit/i.test(text)) return "Too many account emails have been sent. Wait around 1 hour, or set up Supabase custom SMTP before adding more users.";
+  if (/rate limit|too many|429|over.*limit|email.*limit/i.test(text)) return "Supabase email limit hit. Wait around 1 hour, turn off email confirmation for manual password accounts, or set up custom SMTP before adding more users.";
   if (/relation .*user_app_state|does not exist|404/i.test(text)) return "Cloud table is not ready yet. Run the Supabase SQL setup first, then try again.";
   if (/relation .*user_profiles|does not exist|user_profiles|profile/i.test(text)) return "Master user tracking is not ready yet. Run the updated Supabase SQL setup first.";
   if (/invalid login|invalid.*credentials/i.test(text)) return "Login failed. Check the email and password.";
@@ -2977,6 +2970,14 @@ async function refreshMasterProfiles() {
 function masterProfileCounts(user = {}) {
   return user.data_counts && typeof user.data_counts === "object" ? user.data_counts : {};
 }
+function masterUserProtected(user = {}, userId = "") {
+  const id = user?.user_id || userId;
+  return Boolean(id && id === cloudUser?.id) || user?.role === "master";
+}
+function masterUserDeleted(user = {}) {
+  const counts = masterProfileCounts(user);
+  return Boolean(counts.deletedByMaster || counts.hiddenFromMaster);
+}
 async function masterCreateUser(email, password) {
   if (!isMasterAccount()) throw new Error("Only the master account can create users.");
   const cleanEmail = String(email || "").trim().toLowerCase();
@@ -3018,33 +3019,34 @@ async function masterPatchProfile(userId, patch = {}) {
 }
 async function masterSetUserDisabled(userId, disabled) {
   if (!isMasterAccount()) throw new Error("Only the master account can update users.");
-  if (userId === cloudUser?.id) throw new Error("You cannot deactivate your own master account.");
   const user = (cloudProfiles || []).find((item) => item.user_id === userId) || {};
+  if (masterUserProtected(user, userId)) throw new Error("The master account is protected and cannot be deactivated or deleted.");
   const counts = { ...masterProfileCounts(user), disabled: Boolean(disabled), disabledAt: disabled ? new Date().toISOString() : null };
   if (!disabled) {
     delete counts.disabled;
     delete counts.disabledAt;
     delete counts.deletedByMaster;
     delete counts.deletedAt;
+    delete counts.hiddenFromMaster;
   }
   await masterPatchProfile(userId, { data_counts: counts });
   setMasterActionStatus(`${disabled ? "Deactivated" : "Reactivated"} ${user.email || "user"}.`);
   await refreshMasterProfiles();
 }
-async function masterDeleteUserData(userId) {
+async function masterDeleteUser(userId) {
   if (!isMasterAccount()) throw new Error("Only the master account can delete user data.");
-  if (userId === cloudUser?.id) throw new Error("You cannot delete your own master data here.");
   const user = (cloudProfiles || []).find((item) => item.user_id === userId) || {};
+  if (masterUserProtected(user, userId)) throw new Error("The master account is protected and cannot be deactivated or deleted.");
   await cloudRequest(`/rest/v1/${CLOUD_TABLE}?user_id=eq.${encodeURIComponent(userId)}`, {
     method: "DELETE",
     headers: { Prefer: "return=minimal" },
   });
   await masterPatchProfile(userId, {
-    data_counts: { ...masterProfileCounts(user), disabled: true, deletedByMaster: true, deletedAt: new Date().toISOString() },
+    data_counts: { ...masterProfileCounts(user), disabled: true, deletedByMaster: true, hiddenFromMaster: true, deletedAt: new Date().toISOString() },
     last_data_at: null,
     last_synced_at: null,
   });
-  setMasterActionStatus(`Deleted Julius Trainer app data for ${user.email || "user"} and deactivated app access. Their Supabase Auth login still exists.`);
+  setMasterActionStatus(`Deleted ${user.email || "user"} from the Master dashboard and blocked their app access. Their Supabase Auth login still exists.`);
   await refreshMasterProfiles();
 }
 function renderMasterDashboard() {
@@ -3066,7 +3068,7 @@ function renderMasterDashboard() {
   }
   const now = Date.now();
   const dayMs = 86400000;
-  const users = cloudProfiles || [];
+  const users = (cloudProfiles || []).filter((user) => masterUserProtected(user) || !masterUserDeleted(user));
   const activeToday = users.filter((user) => user.last_seen_at && now - new Date(user.last_seen_at).getTime() <= dayMs).length;
   const syncedWeek = users.filter((user) => user.last_synced_at && now - new Date(user.last_synced_at).getTime() <= dayMs * 7).length;
   const enteredWeek = users.filter((user) => user.last_data_at && now - new Date(user.last_data_at).getTime() <= dayMs * 7).length;
@@ -3083,7 +3085,7 @@ function renderMasterDashboard() {
   list.innerHTML = users.length ? users.map((user) => {
     const counts = user.data_counts || {};
     const disabled = profileDisabled(user);
-    const isSelf = user.user_id === cloudUser?.id;
+    const protectedUser = masterUserProtected(user);
     return `<div class="history-card user-activity-card">
       <div class="history-head">
         <div>
@@ -3099,10 +3101,10 @@ function renderMasterDashboard() {
         <div><span>Last data</span><strong>${escapeHtml(isoDisplay(user.last_data_at))}</strong></div>
       </div>
       <small class="activity-note">${fmt(counts.meals || 0)} meals / ${fmt(counts.workouts || 0)} workouts / ${fmt(counts.peptideLogs || 0)} doses / ${fmt(counts.weights || 0)} weights</small>
-      <div class="master-user-actions">
-        <button class="secondary" data-master-toggle-user="${escapeHtml(user.user_id)}" data-disabled="${disabled ? "true" : "false"}" type="button"${isSelf ? " disabled" : ""}>${disabled ? "Reactivate" : "Deactivate"}</button>
-        <button class="danger-button" data-master-delete-user-data="${escapeHtml(user.user_id)}" type="button"${isSelf ? " disabled" : ""}>Delete app data</button>
-      </div>
+      ${protectedUser ? `<div class="protected-master-note">Master account protected. This account and its data cannot be deleted here.</div>` : `<div class="master-user-actions">
+        <button class="secondary" data-master-toggle-user="${escapeHtml(user.user_id)}" data-disabled="${disabled ? "true" : "false"}" type="button">${disabled ? "Reactivate" : "Deactivate"}</button>
+        <button class="danger-button" data-master-delete-user="${escapeHtml(user.user_id)}" type="button">Delete user</button>
+      </div>`}
     </div>`;
   }).join("") : `<div class="empty">No user profiles found yet.</div>`;
 }
@@ -3141,7 +3143,6 @@ async function pullCloudState(confirmFirst = true) {
   const currentView = activeViewName();
   state = merge(row.data);
   state.settings.activeView = currentView;
-  resetCalendarDatesToToday();
   enableCloudAutoSync();
   cloudLastSyncedAt = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   save({ silent: true, skipCloud: true });
@@ -4286,20 +4287,18 @@ function bind() {
         await masterSetUserDisabled(button.dataset.masterToggleUser, !disabled);
       } catch (err) {
         setMasterActionStatus(friendlyCloudError(err), true);
-        alert(friendlyCloudError(err));
       } finally {
         setMasterBusy(false);
       }
       return;
     }
-    if (button.dataset.masterDeleteUserData) {
-      if (!confirm("Delete this user's Julius Trainer app data and deactivate their access? This does not delete the Supabase Auth login.")) return;
+    if (button.dataset.masterDeleteUser) {
+      if (!confirm("Delete this user from the Master dashboard, remove their Julius Trainer app data and block app access? This does not delete the Supabase Auth login.")) return;
       setMasterBusy(true);
       try {
-        await masterDeleteUserData(button.dataset.masterDeleteUserData);
+        await masterDeleteUser(button.dataset.masterDeleteUser);
       } catch (err) {
         setMasterActionStatus(friendlyCloudError(err), true);
-        alert(friendlyCloudError(err));
       } finally {
         setMasterBusy(false);
       }
@@ -4743,7 +4742,6 @@ function bind() {
       await refreshMasterProfiles();
     } catch (err) {
       setMasterActionStatus(friendlyCloudError(err), true);
-      alert(friendlyCloudError(err));
     } finally {
       setMasterBusy(false);
     }
