@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#071b32" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="Julius Trainer" />
+    <meta name="apple-mobile-web-app-title" content="Just.Train" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <title>Julius Trainer</title>
+    <title>Just.Train</title>
     <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="assets/icon.png" />
     <link rel="manifest" href="manifest.webmanifest" />
@@ -16,10 +16,10 @@
   <body class="auth-locked">
     <section id="auth-gate" class="auth-gate" aria-live="polite">
       <div class="auth-card">
-        <div class="auth-logo-wrap"><img class="auth-logo" src="assets/logo.svg" alt="Julius Trainer" /></div>
-        <span class="brand-kicker">Julius Trainer</span>
-        <h1>Welcome to Julius Trainer</h1>
-        <p>Log in to sync your meals, workouts, peptides and body data across your devices.</p>
+        <div class="auth-logo-wrap"><img class="auth-logo" src="assets/logo.svg" alt="Just.Train" /></div>
+        <span class="brand-kicker">Just.Train</span>
+        <h1>Welcome to Just.Train</h1>
+        <p>Log in to sync your meals, workouts and body data across your devices.</p>
         <form id="auth-gate-form" class="auth-form">
           <label class="auth-field"><span>Email</span><input name="email" type="email" autocomplete="email" required placeholder="you@example.com" /></label>
           <label class="auth-field"><span>Password</span><input name="password" type="password" autocomplete="current-password" required minlength="6" placeholder="Minimum 6 characters" /></label>
@@ -32,7 +32,7 @@
     </section>
     <header class="topbar">
       <div class="brand-head">
-        <img class="brand-logo" src="assets/logo.svg" alt="Julius Trainer" />
+        <img class="brand-logo" src="assets/logo.svg" alt="Just.Train" />
         <div>
           <p id="date-label">TODAY</p>
           <h1 id="screen-title">Today</h1>
@@ -46,7 +46,7 @@
         <section class="panel hero-panel brand-hero">
           <img class="hero-logo" src="assets/logo.svg" alt="" />
           <div>
-            <span class="brand-kicker">Julius Trainer</span>
+            <span class="brand-kicker">Just.Train</span>
             <h2 id="today-split">Workout split</h2>
             <p id="today-detail">Planned from weekly planner</p>
           </div>
@@ -64,7 +64,7 @@
         </div>
         <details class="panel drop-panel">
           <summary class="drop-summary">
-            <span><strong>Daily Score</strong><small>Macros, workout, peptides and weight trend</small></span>
+            <span><strong>Daily Score</strong><small>Macros, workout and weight trend</small></span>
             <span class="drop-pill">Score</span>
           </summary>
           <div class="drop-body">
@@ -73,14 +73,14 @@
                 <div id="readiness-score" class="score-ring" style="--pct:0%"><strong>0</strong><span>Score</span></div>
                 <div>
                   <h2>Daily Score</h2>
-                  <p id="readiness-summary">Macros, workout, peptides and weight trend.</p>
+                  <p id="readiness-summary">Macros, workout and weight trend.</p>
                 </div>
               </div>
               <div id="dashboard-metrics" class="dashboard-grid"></div>
             </div>
           </div>
         </details>
-        <details class="panel drop-panel">
+        <details id="today-peptide-panel" class="panel drop-panel" data-peptide-feature hidden>
           <summary class="drop-summary">
             <span><strong>Today's Exercises</strong><small>Rep ranges and training notes</small></span>
             <span class="drop-pill">View</span>
@@ -242,7 +242,7 @@
         </details>
       </section>
 
-      <section id="view-peptides" class="view" data-title="Peptides">
+      <section id="view-peptides" class="view" data-title="Peptides" data-peptide-feature hidden>
         <section class="panel hero-panel">
           <div>
             <h2>Peptide Planner</h2>
@@ -363,7 +363,7 @@
             <div class="tabs">
               <button class="active" data-history="meals" type="button">Meals</button>
               <button data-history="workouts" type="button">Workouts</button>
-              <button data-history="peptides" type="button">Peptides</button>
+              <button id="history-peptides-tab" data-history="peptides" data-peptide-feature type="button" hidden>Peptides</button>
               <button data-history="weight" type="button">Weight</button>
             </div>
             <div id="history-list" class="history-list"></div>
@@ -371,7 +371,7 @@
         </details>
         <details class="panel drop-panel">
           <summary class="drop-summary">
-            <span><strong>Consistency Calendar</strong><small>Training, meals and peptide completion</small></span>
+            <span><strong>Consistency Calendar</strong><small>Training, meals and completion</small></span>
             <span class="drop-pill">Streak</span>
           </summary>
           <div class="drop-body">
@@ -441,15 +441,27 @@
           </summary>
           <div class="drop-body">
             <div id="master-summary" class="dashboard-grid"></div>
-            <form id="master-create-user-form" class="grid master-create-user-form">
-              <label class="wide">User email<input name="email" type="email" autocomplete="off" placeholder="client@example.com" /></label>
-              <label class="wide">Temporary password<input name="password" type="text" autocomplete="off" minlength="6" placeholder="Minimum 6 characters" /></label>
-              <div class="field-hint wide">This creates a normal Supabase login. If email confirmation is switched on, the user may need to confirm their email before opening the app.</div>
-              <button class="primary" type="submit">Create user login</button>
-              <button class="secondary" data-master-refresh type="button">Refresh users</button>
-            </form>
+            <details class="history-card master-add-user-panel">
+              <summary class="master-user-summary">
+                <div>
+                  <strong>Add user</strong>
+                  <small>Create a login with email and temporary password</small>
+                </div>
+                <span class="drop-pill">Add</span>
+              </summary>
+              <div class="master-user-detail">
+                <form id="master-create-user-form" class="grid master-create-user-form">
+                  <label class="wide">User email<input name="email" type="email" autocomplete="off" placeholder="client@example.com" /></label>
+                  <label class="wide">Temporary password<input name="password" type="text" autocomplete="off" minlength="6" placeholder="Minimum 6 characters" /></label>
+                  <div class="field-hint wide">This creates a normal Supabase login. If email confirmation is switched on, the user may need to confirm their email before opening the app.</div>
+                  <button class="primary wide" type="submit">Create user login</button>
+                </form>
+              </div>
+            </details>
+            <button class="secondary wide-button" data-master-refresh type="button">Refresh users</button>
             <div class="formula-note">If Supabase says too many account emails have been sent, wait around 1 hour, turn off email confirmation for manual password accounts, or set up custom SMTP in Supabase.</div>
-            <div class="formula-note">Delete user removes the user from this dashboard, clears their Julius Trainer app data and blocks app access. The master account is protected and cannot be deleted here.</div>
+            <div class="formula-note">Peptide features are hidden for normal users until you unlock them from that user's dropdown.</div>
+            <div class="formula-note">Delete user removes the user from this dashboard, clears their Just.Train app data and blocks app access. The master account is protected and cannot be deleted here.</div>
             <div id="master-action-status" class="import-status" role="status"></div>
             <div id="master-user-list" class="history-list"></div>
           </div>
@@ -481,7 +493,7 @@
         </details>
         <details class="panel drop-panel">
           <summary class="drop-summary">
-            <span><strong>Backup &amp; Restore</strong><small>Import old Replit/Julius Trainer data or download a backup</small></span>
+            <span><strong>Backup &amp; Restore</strong><small>Import old Replit/Just.Train data or download a backup</small></span>
             <span class="drop-pill">Data</span>
           </summary>
           <div class="drop-body">
@@ -503,7 +515,7 @@
         </details>
         <details class="panel drop-panel">
           <summary class="drop-summary">
-            <span><strong>Weekly Report</strong><small>PDF with workouts, meals, averages, weight, peptides and adherence</small></span>
+            <span><strong>Weekly Report</strong><small>PDF with workouts, meals, averages, weight and adherence</small></span>
             <span class="drop-pill">Report</span>
           </summary>
           <div class="drop-body">
@@ -517,7 +529,7 @@
       <button class="active" data-view="today" type="button">Today</button>
       <button data-view="log" type="button">Log</button>
       <button data-view="planner" type="button">Planner</button>
-      <button data-view="peptides" type="button">Peptides</button>
+      <button data-view="peptides" data-peptide-feature type="button" hidden>Peptides</button>
       <button data-view="history" type="button">History</button>
       <button data-view="settings" type="button">Settings</button>
     </nav>

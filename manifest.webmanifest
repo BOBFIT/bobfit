@@ -1,6 +1,6 @@
 {
-  "name": "Julius Trainer",
-  "short_name": "Julius",
+  "name": "Just.Train",
+  "short_name": "Just.Train",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#05172c",

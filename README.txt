@@ -1,7 +1,7 @@
-Julius Trainer iPhone website
+Just.Train website
 
 Upload every file in this folder to GitHub Pages or another HTTPS static host.
-Open the HTTPS URL in Safari on your iPhone, then use Share > Add to Home Screen.
+Open the HTTPS URL on your phone, then add it to your home screen from the browser menu.
 
 Workout planner:
 The planner includes Legs A, Legs B, Push A, Push B, Pull A, Pull B,
@@ -20,8 +20,8 @@ drop sets, and other execution notes. These appear on Today, Log, Planner, and
 Workout History. The Log page also includes a Set terminology expander.
 
 Data:
-Data is saved on the iPhone using IndexedDB with a localStorage shadow copy.
-Use Download backup regularly. Import backup accepts Julius Trainer, AkyFit, and Replit backup JSON.
+Data is saved in the browser using IndexedDB with a localStorage shadow copy.
+Use Download backup regularly. Import backup accepts Just.Train, AkyFit, and Replit backup JSON.
 If a Samsung browser only offers Camera or Photos when importing, open the backup JSON file,
 use Settings > Backup & Restore > Choose backup file and pick it from My Files/Documents.
 The paste box is still available as a fallback.

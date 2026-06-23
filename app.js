@@ -1,7 +1,7 @@
 "use strict";
 
-const APP_NAME = "Julius Trainer";
-const BACKUP_PREFIX = "julius-trainer";
+const APP_NAME = "Just.Train";
+const BACKUP_PREFIX = "just-train";
 const BACKUP_APP_NAMES = new Set([APP_NAME, "AkyFit"]);
 const STORE_KEY = "akyfit.website.shadow.v2";
 const IDB_NAME = "akyfit.website.v2";
@@ -11,7 +11,7 @@ const SUPABASE_URL = "https://cylvclmnpzsdiqsneuoj.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_eVDJFuMUWYgVgXGc9dVjMw_H5uB-NGC";
 const CLOUD_TABLE = "user_app_state";
 const CLOUD_PROFILE_TABLE = "user_profiles";
-const CLOUD_SESSION_KEY = "julius.trainer.cloud.session.v1";
+const CLOUD_SESSION_KEY = "just.train.cloud.session.v1";
 
 const TRAINING_PLAN_VERSION = "aky-training-plan-targets-v8-motra-log-rename";
 const TOP_DROPDOWN_LIMIT = 4;
@@ -871,8 +871,8 @@ function dayHistoryCounts(date) {
   const meals = (state.meals[date] || []).length;
   const workouts = (state.workouts[date] || []).length;
   const weight = weightEntriesForDate(date).length;
-  const peptideLogs = (state.peptideLogs || []).filter((log) => log.date === date).length;
-  const peptideDue = dueDoseSlots(date).length;
+  const peptideLogs = userCanUsePeptides() ? (state.peptideLogs || []).filter((log) => log.date === date).length : 0;
+  const peptideDue = userCanUsePeptides() ? dueDoseSlots(date).length : 0;
   const peptides = Math.max(peptideLogs, peptideDue);
   return { meals, workouts, weight, peptides, total: meals + workouts + weight + peptides };
 }
@@ -1309,6 +1309,7 @@ function save(options = {}) {
 
 function render() {
   const view = normalizeView(state.settings?.activeView || activeViewName());
+  renderFeatureAccess();
   renderHeader();
   renderToday();
   renderLog();
@@ -1322,6 +1323,14 @@ function render() {
   renderMasterDashboard();
   setView(view, { persist: false });
   collapseStartupDetails();
+}
+function renderFeatureAccess() {
+  const canUsePeptides = userCanUsePeptides();
+  document.body.classList.toggle("peptides-locked", !canUsePeptides);
+  document.querySelectorAll("[data-peptide-feature]").forEach((el) => { el.hidden = !canUsePeptides; });
+  if (!canUsePeptides && state.settings.historyType === "peptides") state.settings.historyType = "meals";
+  if (!canUsePeptides && state.settings.activeView === "peptides") state.settings.activeView = "today";
+  renderPanelLimit();
 }
 function collapseStartupDetails() {
   if (startupDetailsCollapsed) return;
@@ -1498,6 +1507,7 @@ function plannedAssignForDate(date = todayKey()) {
   return state.weeklyPlan.assignments[weekdayIndex(day)] || "rest";
 }
 function dueDoseSlots(date = todayKey()) {
+  if (!userCanUsePeptides()) return [];
   return (state.peptideCycles || [])
     .filter((cycle) => cycleDueOn(cycle, date))
     .flatMap((cycle) => (cycle.timings || []).map((timing) => ({ cycle, timing })));
@@ -1560,10 +1570,10 @@ function readinessData(total = totals()) {
   const metrics = [
     { key: "macros", label: "Macros", value: hasMacroTargets(target) ? `${macroCompletion(total, target)}%` : "Set", detail: hasMacroTargets(target) ? `${fmt(total.calories)} / ${fmt(target.calories)} kcal` : "Add targets", score: hasMacroTargets(target) ? macroCompletion(total, target) : 40 },
     { key: "workout", label: "Workout", value: restDay ? "Rest" : todayWorkouts().length ? "Done" : "Due", detail: splitTitle(assign), score: restDay || todayWorkouts().length ? 100 : 0 },
-    { key: "peptides", label: "Peptides", value: due.length ? `${loggedDoses}/${due.length}` : "None", detail: due.length ? "Due today" : "No dose due", score: due.length ? clamp((loggedDoses / due.length) * 100) : 100 },
     { key: "weight", label: "Weight", value: weight.label, detail: weight.detail, score: weight.score },
   ];
-  const weights = { macros: 35, workout: 25, peptides: 20, weight: 20 };
+  if (userCanUsePeptides()) metrics.splice(2, 0, { key: "peptides", label: "Peptides", value: due.length ? `${loggedDoses}/${due.length}` : "None", detail: due.length ? "Due today" : "No dose due", score: due.length ? clamp((loggedDoses / due.length) * 100) : 100 });
+  const weights = userCanUsePeptides() ? { macros: 35, workout: 25, peptides: 20, weight: 20 } : { macros: 40, workout: 35, weight: 25 };
   const score = Math.round(metrics.reduce((sum, item) => sum + (item.score * (weights[item.key] || 10)), 0) / metrics.reduce((sum, item) => sum + (weights[item.key] || 10), 0));
   const summary = score >= 85 ? "Strong day. Keep the boxes green." : score >= 65 ? "Good base. Finish the remaining targets." : "Focus on the next easy win first.";
   return { score, summary, metrics };
@@ -1672,6 +1682,7 @@ function renderConsistencyCalendar() {
   const el = $("#consistency-calendar");
   if (!el) return;
   const today = parseDay(todayKey()) || new Date();
+  const canUsePeptides = userCanUsePeptides();
   el.innerHTML = Array.from({ length: 14 }, (_, index) => {
     const date = dayKey(addDays(today, index - 13));
     const d = parseDay(date);
@@ -1683,7 +1694,7 @@ function renderConsistencyCalendar() {
       <div class="consistency-dots">
         <i class="${workoutClass}" title="Workout"></i>
         <i class="${data.meals ? "hit" : "miss"}" title="Meals"></i>
-        <i class="${data.peptide ? "hit" : "miss"}" title="Peptides"></i>
+        ${canUsePeptides ? `<i class="${data.peptide ? "hit" : "miss"}" title="Peptides"></i>` : ""}
       </div>
     </div>`;
   }).join("");
@@ -1703,7 +1714,7 @@ function coachNotes() {
   if (trend) notes.push(trend);
   const due = dueDoseSlots();
   const loggedDoses = due.filter((slot) => doseLoggedForSlot(slot)).length;
-  if (due.length && loggedDoses < due.length) notes.push(`Peptides due today: ${loggedDoses}/${due.length} logged.`);
+  if (userCanUsePeptides() && due.length && loggedDoses < due.length) notes.push(`Peptides due today: ${loggedDoses}/${due.length} logged.`);
   else if (todayWorkouts().length) notes.push("Today's workout is logged. Review overload suggestions before the next matching session.");
   else notes.push("Open Log when you are ready to record today's planned workout.");
   return notes.slice(0, 4);
@@ -2121,6 +2132,7 @@ function renderMealLibrary() {
 }
 function renderPeptides() {
   if (!$("#cycle-peptide")) return;
+  if (!userCanUsePeptides()) return;
   hydratePeptideControls();
   renderPeptideDashboard();
   renderTodayPeptideReminders();
@@ -2251,6 +2263,10 @@ function renderPeptideDashboard() {
 function renderTodayPeptideReminders() {
   const el = $("#today-peptide-reminders");
   if (!el) return;
+  if (!userCanUsePeptides()) {
+    el.innerHTML = "";
+    return;
+  }
   const selected = peptideReminderDate();
   const isToday = selected === todayKey();
   el.innerHTML = `<button class="secondary wide-button peptide-today-button${isToday ? " active" : ""}" data-peptide-reminder-today type="button">Today</button>${peptideReminderDateStripHtml(selected)}${dueDoseCards(true, selected)}`;
@@ -2399,7 +2415,11 @@ function renderHistory() {
   renderHistoryCalendar();
   renderConsistencyCalendar();
   renderProgressCheckins();
-  const type = state.settings.historyType || "meals";
+  let type = state.settings.historyType || "meals";
+  if (type === "peptides" && !userCanUsePeptides()) {
+    type = "meals";
+    state.settings.historyType = "meals";
+  }
   $$(".tabs [data-history]").forEach((button) => button.classList.toggle("active", button.dataset.history === type));
   if (type === "meals") return renderMealHistory();
   if (type === "workouts") return renderWorkoutHistory();
@@ -2453,6 +2473,7 @@ function renderWorkoutHistory() {
   );
 }
 function renderPeptideDayHistory() {
+  if (!userCanUsePeptides()) return renderMealHistory();
   const date = historySelectedDate();
   const slots = dueDoseSlots(date);
   const logs = (state.peptideLogs || [])
@@ -2566,18 +2587,21 @@ function dateLabel(date) {
 function renderSummary() {
   const el = $("#data-summary");
   if (!el) return;
-  el.textContent = JSON.stringify({
+  const summary = {
     mealsToday: todayMeals().length,
     savedMeals: state.savedMeals.length,
     mealPlans: state.mealPlans.length,
     macroTargets: state.macroTargets,
     workoutSessions: allWorkoutSessions().length,
-    peptideCycles: state.peptideCycles.length,
-    peptideDoseLogs: state.peptideLogs.length,
     weightEntries: state.bodyMetrics.length,
     progressCheckins: state.progressCheckins.length,
     workoutSplits: templateKeys().map((key) => splitTitle(key)),
-  }, null, 2);
+  };
+  if (userCanUsePeptides()) {
+    summary.peptideCycles = state.peptideCycles.length;
+    summary.peptideDoseLogs = state.peptideLogs.length;
+  }
+  el.textContent = JSON.stringify(summary, null, 2);
 }
 
 function estimateCalories(minutes) {
@@ -2636,11 +2660,21 @@ function hasImportableData(data) {
   const stats = importStats(data);
   return stats.meals || stats.workouts || stats.savedMeals || stats.splits || stats.peptideLogs || data.weeklyPlan || data.macroTargets || data.goals;
 }
+function backupPayload(raw) {
+  if (raw?.data && typeof raw.data === "object" && (raw.appName || raw.version || raw.exportedAt)) return raw.data;
+  return raw;
+}
 function importBackup(raw) {
-  const data = normalizeImportedData(BACKUP_APP_NAMES.has(raw?.appName) && raw.data ? raw.data : raw);
-  if (!hasImportableData(data)) throw new Error("This backup did not contain meals, workouts, planner data, saved meals or peptide logs.");
+  const data = normalizeImportedData(backupPayload(raw));
+  if (!hasImportableData(data)) throw new Error("This backup did not contain meals, workouts, planner data, saved meals or usable logs.");
   const stats = importStats(data);
-  const summary = `${stats.meals} meals, ${stats.workouts} workouts, ${stats.savedMeals} saved meals, ${stats.splits} workout splits, ${stats.peptideLogs} peptide logs`;
+  const summary = [
+    `${stats.meals} meals`,
+    `${stats.workouts} workouts`,
+    `${stats.savedMeals} saved meals`,
+    `${stats.splits} workout splits`,
+    ...(userCanUsePeptides() ? [`${stats.peptideLogs} peptide logs`] : []),
+  ].join(", ");
   if (!confirm(`Import this backup? It replaces the website data on this device.\n\nFound: ${summary}.`)) {
     setImportStatus("Import cancelled.");
     return;
@@ -2690,8 +2724,19 @@ function setAuthLocked(locked = true) {
 function isMasterAccount() {
   return cloudProfile?.role === "master";
 }
+function profileAllowsPeptides(profile = cloudProfile) {
+  if (profile?.role === "master") return true;
+  const counts = profile?.data_counts && typeof profile.data_counts === "object" ? profile.data_counts : {};
+  return Boolean(counts.allowPeptides || counts.peptidesUnlocked || counts.peptideAccess);
+}
+function userCanUsePeptides() {
+  return profileAllowsPeptides(cloudProfile);
+}
 function profileDisabled(profile) {
   return Boolean(profile?.data_counts?.disabled || profile?.data_counts?.deletedByMaster);
+}
+function isPeptideActionButton(button) {
+  return Boolean(button?.dataset?.peptideReminderDate || button?.dataset?.peptideReminderToday !== undefined || button?.dataset?.logDose || button?.dataset?.logHistoryDose || button?.dataset?.endCycle || button?.dataset?.deleteCycle || button?.dataset?.deleteDose);
 }
 function lockDisabledAccount() {
   clearCloudSession();
@@ -2740,7 +2785,9 @@ function hasCloudUserData(data = state) {
 }
 function cloudCountSummary(data = state) {
   const counts = cloudDataCounts(data);
-  return `${fmt(counts.meals)} meals, ${fmt(counts.workouts)} workouts, ${fmt(counts.peptideLogs)} doses, ${fmt(counts.weights)} weights`;
+  return userCanUsePeptides()
+    ? `${fmt(counts.meals)} meals, ${fmt(counts.workouts)} workouts, ${fmt(counts.peptideLogs)} doses, ${fmt(counts.weights)} weights`
+    : `${fmt(counts.meals)} meals, ${fmt(counts.workouts)} workouts, ${fmt(counts.weights)} weights`;
 }
 function cloudSessionExpiresAt(session) {
   if (!session) return 0;
@@ -2786,6 +2833,7 @@ function setCloudStatus(message = "", isError = false) {
   renderCloudPanel();
 }
 function renderCloudPanel() {
+  renderFeatureAccess();
   const card = $("#cloud-status-card");
   const email = cloudUser?.email || "";
   const signedIn = Boolean(cloudUser?.id);
@@ -2921,11 +2969,12 @@ async function cloudSignOut() {
 }
 async function upsertCloudProfile(fields = {}) {
   if (!cloudUser?.id) return null;
+  const existingCounts = cloudProfile?.data_counts && typeof cloudProfile.data_counts === "object" ? cloudProfile.data_counts : {};
   const payload = {
     user_id: cloudUser.id,
     email: cloudUser.email || "",
     last_seen_at: new Date().toISOString(),
-    data_counts: cloudDataCounts(),
+    data_counts: { ...existingCounts, ...cloudDataCounts() },
     last_data_at: latestStateActivityIso(),
     ...fields,
   };
@@ -3033,6 +3082,16 @@ async function masterSetUserDisabled(userId, disabled) {
   setMasterActionStatus(`${disabled ? "Deactivated" : "Reactivated"} ${user.email || "user"}.`);
   await refreshMasterProfiles();
 }
+async function masterSetPeptideAccess(userId, allowed) {
+  if (!isMasterAccount()) throw new Error("Only the master account can update users.");
+  const user = (cloudProfiles || []).find((item) => item.user_id === userId) || {};
+  if (masterUserProtected(user, userId)) throw new Error("The master account always has peptide access and cannot be changed here.");
+  const counts = { ...masterProfileCounts(user), allowPeptides: Boolean(allowed), peptideAccessUpdatedAt: new Date().toISOString() };
+  if (!allowed) delete counts.allowPeptides;
+  await masterPatchProfile(userId, { data_counts: counts });
+  setMasterActionStatus(`${allowed ? "Unlocked" : "Locked"} peptide features for ${user.email || "user"}.`);
+  await refreshMasterProfiles();
+}
 async function masterDeleteUser(userId) {
   if (!isMasterAccount()) throw new Error("Only the master account can delete user data.");
   const user = (cloudProfiles || []).find((item) => item.user_id === userId) || {};
@@ -3086,26 +3145,31 @@ function renderMasterDashboard() {
     const counts = user.data_counts || {};
     const disabled = profileDisabled(user);
     const protectedUser = masterUserProtected(user);
-    return `<div class="history-card user-activity-card">
-      <div class="history-head">
+    const peptideAllowed = profileAllowsPeptides(user);
+    const userStatus = user.role === "master" ? "Master account" : disabled ? "Deactivated account" : "User account";
+    return `<details class="history-card user-activity-card master-user-card">
+      <summary class="master-user-summary">
         <div>
           <strong>${escapeHtml(user.email || "User")}</strong>
-          <small>${escapeHtml(user.role === "master" ? "Master account" : disabled ? "Deactivated account" : "User account")}</small>
+          <small>${escapeHtml(userStatus)} / Peptides ${peptideAllowed ? "unlocked" : "locked"}</small>
         </div>
         <span class="user-role-pill ${disabled ? "disabled" : ""}">${escapeHtml(disabled ? "inactive" : user.role || "user")}</span>
+      </summary>
+      <div class="master-user-detail">
+        <div class="activity-grid">
+          <div><span>Created</span><strong>${escapeHtml(isoDisplay(user.created_at))}</strong></div>
+          <div><span>Last opened</span><strong>${escapeHtml(isoDisplay(user.last_seen_at))}</strong></div>
+          <div><span>Last sync</span><strong>${escapeHtml(isoDisplay(user.last_synced_at))}</strong></div>
+          <div><span>Last data</span><strong>${escapeHtml(isoDisplay(user.last_data_at))}</strong></div>
+        </div>
+        <small class="activity-note">${fmt(counts.meals || 0)} meals / ${fmt(counts.workouts || 0)} workouts / ${fmt(counts.peptideLogs || 0)} doses / ${fmt(counts.weights || 0)} weights</small>
+        ${protectedUser ? `<div class="protected-master-note">Master account protected. This account always has peptide access and cannot be deleted here.</div>` : `<div class="master-user-actions">
+          <button class="secondary" data-master-toggle-peptides="${escapeHtml(user.user_id)}" data-allowed="${peptideAllowed ? "true" : "false"}" type="button">${peptideAllowed ? "Lock peptides" : "Unlock peptides"}</button>
+          <button class="secondary" data-master-toggle-user="${escapeHtml(user.user_id)}" data-disabled="${disabled ? "true" : "false"}" type="button">${disabled ? "Reactivate" : "Deactivate"}</button>
+          <button class="danger-button wide" data-master-delete-user="${escapeHtml(user.user_id)}" type="button">Delete user</button>
+        </div>`}
       </div>
-      <div class="activity-grid">
-        <div><span>Created</span><strong>${escapeHtml(isoDisplay(user.created_at))}</strong></div>
-        <div><span>Last opened</span><strong>${escapeHtml(isoDisplay(user.last_seen_at))}</strong></div>
-        <div><span>Last sync</span><strong>${escapeHtml(isoDisplay(user.last_synced_at))}</strong></div>
-        <div><span>Last data</span><strong>${escapeHtml(isoDisplay(user.last_data_at))}</strong></div>
-      </div>
-      <small class="activity-note">${fmt(counts.meals || 0)} meals / ${fmt(counts.workouts || 0)} workouts / ${fmt(counts.peptideLogs || 0)} doses / ${fmt(counts.weights || 0)} weights</small>
-      ${protectedUser ? `<div class="protected-master-note">Master account protected. This account and its data cannot be deleted here.</div>` : `<div class="master-user-actions">
-        <button class="secondary" data-master-toggle-user="${escapeHtml(user.user_id)}" data-disabled="${disabled ? "true" : "false"}" type="button">${disabled ? "Reactivate" : "Deactivate"}</button>
-        <button class="danger-button" data-master-delete-user="${escapeHtml(user.user_id)}" type="button">Delete user</button>
-      </div>`}
-    </div>`;
+    </details>`;
   }).join("") : `<div class="empty">No user profiles found yet.</div>`;
 }
 async function fetchCloudState() {
@@ -3190,7 +3254,7 @@ async function initCloud() {
   if (!cloudSession?.access_token) {
     authReady = true;
     setAuthLocked(true);
-    setAuthGateStatus("Log in or create an account to open Julius Trainer.");
+    setAuthGateStatus("Log in or create an account to open Just.Train.");
     return;
   }
   try {
@@ -3741,7 +3805,7 @@ function shortDateLabel(date) {
   return Number.isNaN(d.getTime()) ? String(date || "") : d.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" });
 }
 function reportLogoSvg() {
-  return `<svg class="report-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Julius Trainer logo">
+  return `<svg class="report-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Just.Train logo">
     <defs>
       <linearGradient id="reportBg" x1="124" y1="90" x2="900" y2="934" gradientUnits="userSpaceOnUse">
         <stop offset="0" stop-color="#171923"/>
@@ -3772,6 +3836,7 @@ function reportLogoSvg() {
   </svg>`;
 }
 function weekDoseLogs(dates) {
+  if (!userCanUsePeptides()) return [];
   const set = new Set(dates);
   return (state.peptideLogs || []).filter((log) => set.has(log.date));
 }
@@ -3782,12 +3847,13 @@ function weekWeightEntries(dates) {
   return dates.flatMap((date) => weightEntriesForDate(date).map((entry) => ({ ...entry, date }))).filter((entry) => weightValue(entry) > 0);
 }
 function reportActivityForDate(date) {
+  const includePeptides = userCanUsePeptides();
   const adherence = dayAdherence(date);
   const meals = mealsForDate(date);
   const workouts = workoutsForDate(date);
-  const doses = (state.peptideLogs || []).filter((log) => log.date === date);
+  const doses = includePeptides ? (state.peptideLogs || []).filter((log) => log.date === date) : [];
   const progress = progressCheckinsForDate(date);
-  const score = (adherence.meals ? 1 : 0) + (adherence.workout ? 1 : 0) + (adherence.peptide ? 1 : 0) + (progress.length ? 1 : 0);
+  const score = (adherence.meals ? 1 : 0) + (adherence.workout ? 1 : 0) + (includePeptides && adherence.peptide ? 1 : 0) + (progress.length ? 1 : 0);
   return { date, adherence, meals, workouts, doses, progress, score };
 }
 function reportStatRow(label, value, detail, marker) {
@@ -3801,10 +3867,11 @@ function listOrEmpty(items, emptyText) {
   return items.length ? items.map((item) => `<li>${item}</li>`).join("") : `<li class="muted">${escapeHtml(emptyText)}</li>`;
 }
 function reportWeeklyScore(activities, weights) {
+  const includePeptides = userCanUsePeptides();
   const days = Math.max(1, activities.length);
   const mealHits = activities.filter((day) => day.adherence.meals).length;
   const workoutHits = activities.filter((day) => Boolean(day.adherence.workout)).length;
-  const peptideHits = activities.filter((day) => day.adherence.peptide).length;
+  const peptideHits = includePeptides ? activities.filter((day) => day.adherence.peptide).length : 0;
   const trackingDays = new Set([
     ...activities.filter((day) => day.progress.length).map((day) => day.date),
     ...weights.map((entry) => entry.date),
@@ -3812,21 +3879,22 @@ function reportWeeklyScore(activities, weights) {
   const parts = [
     { label: "Meals", score: clamp((mealHits / days) * 100), detail: `${mealHits}/${days} days hit` },
     { label: "Workout plan", score: clamp((workoutHits / days) * 100), detail: `${workoutHits}/${days} days hit or rest` },
-    { label: "Peptides", score: clamp((peptideHits / days) * 100), detail: `${peptideHits}/${days} days complete` },
+    ...(includePeptides ? [{ label: "Peptides", score: clamp((peptideHits / days) * 100), detail: `${peptideHits}/${days} days complete` }] : []),
     { label: "Body tracking", score: clamp((trackingDays / 2) * 100), detail: `${trackingDays} tracking day${trackingDays === 1 ? "" : "s"}` },
   ];
-  const weightsMap = { Meals: 30, "Workout plan": 35, Peptides: 20, "Body tracking": 15 };
+  const weightsMap = includePeptides ? { Meals: 30, "Workout plan": 35, Peptides: 20, "Body tracking": 15 } : { Meals: 35, "Workout plan": 45, "Body tracking": 20 };
   const score = Math.round(parts.reduce((sum, part) => sum + (part.score * weightsMap[part.label]), 0) / parts.reduce((sum, part) => sum + weightsMap[part.label], 0));
   const label = score >= 85 ? "Excellent week" : score >= 70 ? "Strong week" : score >= 50 ? "Building week" : "Needs attention";
-  return { score, label, parts, summary: `${mealHits}/${days} meal days / ${workoutHits}/${days} plan days / ${peptideHits}/${days} peptide days` };
+  return { score, label, parts, summary: `${mealHits}/${days} meal days / ${workoutHits}/${days} plan days${includePeptides ? ` / ${peptideHits}/${days} peptide days` : ""}` };
 }
 function weeklyReportData() {
+  const includePeptides = userCanUsePeptides();
   const dates = reportDates(7);
   const range = `${dateLabel(dates[0])} to ${dateLabel(dates[dates.length - 1])}`;
   const activities = dates.map(reportActivityForDate);
   const workoutDays = activities.filter((day) => day.workouts.length).length;
   const mealDays = activities.filter((day) => day.meals.length).length;
-  const peptideHitDays = activities.filter((day) => day.adherence.peptide).length;
+  const peptideHitDays = includePeptides ? activities.filter((day) => day.adherence.peptide).length : 0;
   const allMeals = dates.flatMap((date) => mealsForDate(date));
   const mealTotals = totals(allMeals);
   const workouts = dates.flatMap((date) => workoutsForDate(date).map((workout) => ({ ...workout, date })));
@@ -3859,8 +3927,10 @@ function weeklyReportData() {
     { label: "Calories per day", value: `${fmt(macroAverages.calories)} kcal`, detail: "Monday-Sunday average eaten", marker: "AV" },
     { label: "Macros total", value: `${fmtDose(mealTotals.protein, 1)}P/${fmtDose(mealTotals.carbs, 1)}C/${fmtDose(mealTotals.fat, 1)}F`, detail: "Week total grams", marker: "PR" },
     { label: "Macros per day", value: `${fmtDose(macroAverages.protein, 1)}P/${fmtDose(macroAverages.carbs, 1)}C/${fmtDose(macroAverages.fat, 1)}F`, detail: "Monday-Sunday average grams", marker: "MA" },
-    { label: "Peptide adherence", value: `${peptideHitDays} / 7`, detail: `${doses.length} dose logs`, marker: "PE" },
-    { label: "Peptide total used", value: `${fmtDose(totalMg, 2)}mg`, detail: "From logged doses", marker: "MG" },
+    ...(includePeptides ? [
+      { label: "Peptide adherence", value: `${peptideHitDays} / 7`, detail: `${doses.length} dose logs`, marker: "PE" },
+      { label: "Peptide total used", value: `${fmtDose(totalMg, 2)}mg`, detail: "From logged doses", marker: "MG" },
+    ] : []),
     { label: "Weight change", value: weights.length ? `${weightChange >= 0 ? "+" : ""}${fmtWeight(weightChange)}kg` : "No entries", detail: weights.length ? `Light ${fmtWeight(lightest)}kg / heavy ${fmtWeight(heaviest)}kg` : "Add weight in History", marker: "BW" },
     { label: "Average weight", value: weights.length ? `${fmtWeight(weightAverage)}kg` : "No entries", detail: weights.length ? `${weights.length} weigh-in${weights.length === 1 ? "" : "s"} this week` : "Add weight in History", marker: "AW" },
     { label: "Body check-ins", value: `${progressCount}`, detail: "Photos, waist, mood and notes", marker: "CI" },
@@ -3886,11 +3956,12 @@ function weeklyReportData() {
     peptideItems,
     checkinItems,
     scoreItems,
+    includePeptides,
   };
 }
 function weeklyReportHtml() {
   const report = weeklyReportData();
-  const { range, activities, weeklyScore, bestDay, leastDay, workoutItems, peptideItems, checkinItems, scoreItems } = report;
+  const { range, activities, weeklyScore, bestDay, leastDay, workoutItems, peptideItems, checkinItems, scoreItems, includePeptides } = report;
   const statRows = report.statRows.map((row) => reportStatRow(row.label, row.value, row.detail, row.marker)).join("");
   const dayRows = activities.map((day) => {
     const mealTotal = totals(day.meals);
@@ -3902,7 +3973,7 @@ function weeklyReportHtml() {
       <td><strong>${escapeHtml(shortDateLabel(day.date))}</strong></td>
       <td>${day.meals.length ? `${day.meals.length} meals / ${fmt(mealTotal.calories)} kcal / ${fmtDose(mealTotal.protein, 1)}g P${mealNames ? `<span>${escapeHtml(mealNames)}</span>` : ""}` : "No meals"}</td>
       <td>${escapeHtml(workoutText)}</td>
-      <td>${escapeHtml(doseText)}</td>
+      ${includePeptides ? `<td>${escapeHtml(doseText)}</td>` : ""}
       <td>${weight ? `${fmtWeight(weight.weightKg || weight.weight)}kg` : "-"}</td>
       <td>${day.progress.length}</td>
     </tr>`;
@@ -3969,21 +4040,21 @@ function weeklyReportHtml() {
       <header class="top">
         <div class="brand">
           ${reportLogoSvg()}
-          <div><small>Julius Trainer</small><strong>Weekly Stats</strong><span>${escapeHtml(range)}</span></div>
+          <div><small>Just.Train</small><strong>Weekly Stats</strong><span>${escapeHtml(range)}</span></div>
         </div>
         <div class="title"><small>Generated</small><strong>${escapeHtml(shortDateLabel(todayKey()))}</strong><span>${escapeHtml(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}</span></div>
       </header>
       <section class="hero">
         <div class="callout score-callout"><small>Weekly Score</small><strong>${weeklyScore.score}<span>/100</span></strong><em>${escapeHtml(weeklyScore.label)} / ${escapeHtml(weeklyScore.summary)}</em></div>
-        <div class="callout"><small>Most complete day</small><strong>${escapeHtml(shortDateLabel(bestDay?.date))}</strong><span>${bestDay?.score || 0} of 4 markers hit</span></div>
-        <div class="callout"><small>Least complete day</small><strong>${escapeHtml(shortDateLabel(leastDay?.date))}</strong><span>${leastDay?.score || 0} of 4 markers hit</span></div>
+        <div class="callout"><small>Most complete day</small><strong>${escapeHtml(shortDateLabel(bestDay?.date))}</strong><span>${bestDay?.score || 0} of ${includePeptides ? 4 : 3} markers hit</span></div>
+        <div class="callout"><small>Least complete day</small><strong>${escapeHtml(shortDateLabel(leastDay?.date))}</strong><span>${leastDay?.score || 0} of ${includePeptides ? 4 : 3} markers hit</span></div>
       </section>
       <section class="main">
         <div class="stats">${statRows}</div>
         <aside class="side">
           <div class="side-card"><h3>Score Breakdown</h3><ul>${listOrEmpty(scoreItems, "No score data yet.")}</ul></div>
           <div class="side-card"><h3>Workouts</h3><ul>${listOrEmpty(workoutItems, "No workouts logged this week.")}</ul></div>
-          <div class="side-card"><h3>Peptides</h3><ul>${listOrEmpty(peptideItems, "No peptide doses logged this week.")}</ul></div>
+          ${includePeptides ? `<div class="side-card"><h3>Peptides</h3><ul>${listOrEmpty(peptideItems, "No peptide doses logged this week.")}</ul></div>` : ""}
           <div class="side-card"><h3>Body Check-Ins</h3><ul>${listOrEmpty(checkinItems, "No body check-ins logged this week.")}</ul></div>
         </aside>
       </section>
@@ -3991,7 +4062,7 @@ function weeklyReportHtml() {
         <h3>Daily Breakdown</h3>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Day</th><th>Meals</th><th>Workout</th><th>Peptides</th><th>Weight</th><th>Check-ins</th></tr></thead>
+            <thead><tr><th>Day</th><th>Meals</th><th>Workout</th>${includePeptides ? "<th>Peptides</th>" : ""}<th>Weight</th><th>Check-ins</th></tr></thead>
             <tbody>${dayRows}</tbody>
           </table>
         </div>
@@ -4158,7 +4229,7 @@ function weeklyReportPdfBlob() {
     rect(0, 0, width, height, "05172C");
     rect(0, height - 76, width, 76, "071F36");
     drawLogo(margin, height - 58, 40);
-    text("Julius Trainer", margin + 52, height - 33, 8, true, "5FE1FF");
+    text("Just.Train", margin + 52, height - 33, 8, true, "5FE1FF");
     text(title || "Weekly Report", margin + 52, height - 54, 18, true);
     text(report.range, width - margin - 146, height - 39, 9, false, "C7E8FA");
     y = height - 104;
@@ -4173,8 +4244,8 @@ function weeklyReportPdfBlob() {
   const contentW = width - (margin * 2);
   const heroW = (contentW - (gap * 2)) / 3;
   metricCard(margin, y, heroW, 74, "Weekly Score", `${report.weeklyScore.score}/100`, `${report.weeklyScore.label} / ${report.weeklyScore.summary}`, "", "0B5D91");
-  metricCard(margin + heroW + gap, y, heroW, 74, "Most Complete", shortDateLabel(report.bestDay?.date), `${report.bestDay?.score || 0} of 4 markers hit`);
-  metricCard(margin + ((heroW + gap) * 2), y, heroW, 74, "Least Complete", shortDateLabel(report.leastDay?.date), `${report.leastDay?.score || 0} of 4 markers hit`);
+  metricCard(margin + heroW + gap, y, heroW, 74, "Most Complete", shortDateLabel(report.bestDay?.date), `${report.bestDay?.score || 0} of ${report.includePeptides ? 4 : 3} markers hit`);
+  metricCard(margin + ((heroW + gap) * 2), y, heroW, 74, "Least Complete", shortDateLabel(report.leastDay?.date), `${report.leastDay?.score || 0} of ${report.includePeptides ? 4 : 3} markers hit`);
   y -= 92;
   text("Weekly Averages", margin, y, 14, true, "5FE1FF");
   y -= 12;
@@ -4197,13 +4268,20 @@ function weeklyReportPdfBlob() {
   addPage("Daily Breakdown");
   text("Daily Breakdown", margin, y, 15, true, "5FE1FF");
   y -= 22;
-  const cols = [
-    { label: "Day", x: margin, w: 70 },
-    { label: "Meals", x: margin + 78, w: 150 },
-    { label: "Workout", x: margin + 236, w: 106 },
-    { label: "Peptides", x: margin + 350, w: 92 },
-    { label: "Weight", x: margin + 450, w: 62 },
-  ];
+  const cols = report.includePeptides
+    ? [
+      { label: "Day", x: margin, w: 70 },
+      { label: "Meals", x: margin + 78, w: 150 },
+      { label: "Workout", x: margin + 236, w: 106 },
+      { label: "Peptides", x: margin + 350, w: 92 },
+      { label: "Weight", x: margin + 450, w: 62 },
+    ]
+    : [
+      { label: "Day", x: margin, w: 70 },
+      { label: "Meals", x: margin + 82, w: 184 },
+      { label: "Workout", x: margin + 276, w: 156 },
+      { label: "Weight", x: margin + 444, w: 62 },
+    ];
   rect(margin, y - 20, width - (margin * 2), 24, "0D2C49");
   cols.forEach((col) => text(col.label, col.x, y - 12, 8, true, "5FE1FF"));
   y -= 32;
@@ -4213,14 +4291,17 @@ function weeklyReportPdfBlob() {
     const mealTotal = totals(day.meals);
     const weight = weightEntriesForDate(day.date)[0];
     const workoutText = day.workouts.length ? day.workouts.map((workout) => workout.name || workout.planTitle || "Workout").join(", ") : day.adherence.workout === "rest" ? "Rest day" : "None";
-    const doseText = day.doses.length ? day.doses.map((dose) => `${dose.peptideName || compoundName(dose.peptideId)} ${fmtDose(dose.doseMg)}mg`).join(", ") : "None";
     const mealText = day.meals.length ? `${day.meals.length} meals / ${fmt(mealTotal.calories)} kcal / ${fmtDose(mealTotal.protein, 1)}g P` : "No meals";
     rect(margin, rowY, width - (margin * 2), 54, "071F36");
     text(shortDateLabel(day.date), cols[0].x, rowY + 34, 10, true);
     wrappedText(mealText, cols[1].x, rowY + 36, 25, 8, false, "D9F1FF", 3, 10);
-    wrappedText(workoutText, cols[2].x, rowY + 36, 18, 8, false, "D9F1FF", 3, 10);
-    wrappedText(doseText, cols[3].x, rowY + 36, 16, 8, false, "D9F1FF", 3, 10);
-    text(weight ? `${fmtWeight(weight.weightKg || weight.weight)}kg` : "-", cols[4].x, rowY + 34, 9, true, weight ? "F7FBFF" : "91B7D1");
+    wrappedText(workoutText, cols[2].x, rowY + 36, report.includePeptides ? 18 : 24, 8, false, "D9F1FF", 3, 10);
+    if (report.includePeptides) {
+      const doseText = day.doses.length ? day.doses.map((dose) => `${dose.peptideName || compoundName(dose.peptideId)} ${fmtDose(dose.doseMg)}mg`).join(", ") : "None";
+      wrappedText(doseText, cols[3].x, rowY + 36, 16, 8, false, "D9F1FF", 3, 10);
+    }
+    const weightCol = report.includePeptides ? cols[4] : cols[3];
+    text(weight ? `${fmtWeight(weight.weightKg || weight.weight)}kg` : "-", weightCol.x, rowY + 34, 9, true, weight ? "F7FBFF" : "91B7D1");
     line(margin, rowY, width - margin, rowY, "164263");
     y -= 62;
   }
@@ -4269,6 +4350,7 @@ function bind() {
   document.addEventListener("click", async (event) => {
     const button = event.target.closest("button");
     if (!button) return;
+    if (isPeptideActionButton(button) && !userCanUsePeptides()) return;
     if (button.dataset.seeMorePanels !== undefined) {
       const view = button.closest(".view");
       view?.classList.toggle("show-extra-panels");
@@ -4292,8 +4374,21 @@ function bind() {
       }
       return;
     }
+    if (button.dataset.masterTogglePeptides) {
+      const allowed = button.dataset.allowed === "true";
+      if (!confirm(`${allowed ? "Lock" : "Unlock"} peptide features for this user?`)) return;
+      setMasterBusy(true);
+      try {
+        await masterSetPeptideAccess(button.dataset.masterTogglePeptides, !allowed);
+      } catch (err) {
+        setMasterActionStatus(friendlyCloudError(err), true);
+      } finally {
+        setMasterBusy(false);
+      }
+      return;
+    }
     if (button.dataset.masterDeleteUser) {
-      if (!confirm("Delete this user from the Master dashboard, remove their Julius Trainer app data and block app access? This does not delete the Supabase Auth login.")) return;
+      if (!confirm("Delete this user from the Master dashboard, remove their Just.Train app data and block app access? This does not delete the Supabase Auth login.")) return;
       setMasterBusy(true);
       try {
         await masterDeleteUser(button.dataset.masterDeleteUser);
@@ -4454,7 +4549,7 @@ function bind() {
       save(); render();
     }
     if (button.id === "apply-plan") {
-      if (confirm("Apply the full Julius Trainer training plan? This replaces planner splits but keeps logged history.")) { applyPlan(); save(); render(); }
+      if (confirm("Apply the full Just.Train training plan? This replaces planner splits but keeps logged history.")) { applyPlan(); save(); render(); }
     }
     if (button.id === "add-split") {
       const title = $("#new-split-name").value.trim() || `Custom ${templateKeys().length + 1}`;
@@ -4526,9 +4621,10 @@ function bind() {
       }
     }
     if (el.dataset?.splitTitle || el.dataset?.exerciseName || el.dataset?.exerciseNotes) save();
-    if (el.closest?.("#reconstitution-form")) renderReconstitution();
-    if (el.closest?.("#peptide-cycle-form") && el.name === "vialMg") syncFixedDiluent($("#peptide-cycle-form"));
+    if (el.closest?.("#reconstitution-form") && userCanUsePeptides()) renderReconstitution();
+    if (el.closest?.("#peptide-cycle-form") && el.name === "vialMg" && userCanUsePeptides()) syncFixedDiluent($("#peptide-cycle-form"));
     if (el.id === "cycle-start" || el.id === "cycle-weeks") {
+      if (!userCanUsePeptides()) return;
       const f = $("#peptide-cycle-form");
       if (f.elements.weeks.value !== "custom") f.elements.endDate.value = cycleEndDate(f.elements.startDate.value, f.elements.weeks.value);
     }
@@ -4565,6 +4661,13 @@ function bind() {
       });
       return;
     }
+    const masterCard = event.target.closest?.(".master-user-card");
+    if (masterCard?.open) {
+      document.querySelectorAll(".master-user-card[open]").forEach((other) => {
+        if (other !== masterCard) closeTabSmooth(other);
+      });
+      return;
+    }
     const scoreCard = event.target.closest?.(".score-detail-card");
     if (scoreCard?.open) {
       document.querySelectorAll(".score-detail-card[open]").forEach((other) => {
@@ -4575,15 +4678,17 @@ function bind() {
   document.addEventListener("change", (event) => {
     const el = event.target;
     if (el.dataset?.splitTitle || el.dataset?.exerciseName || el.dataset?.exerciseNotes) render();
-    if (el.id === "cycle-peptide") applyCompoundDefaults($("#peptide-cycle-form"), el.value, true);
-    if (el.id === "calc-peptide") { applyCompoundDefaults($("#reconstitution-form"), el.value, true); renderReconstitution(); }
+    if (el.id === "cycle-peptide" && userCanUsePeptides()) applyCompoundDefaults($("#peptide-cycle-form"), el.value, true);
+    if (el.id === "calc-peptide" && userCanUsePeptides()) { applyCompoundDefaults($("#reconstitution-form"), el.value, true); renderReconstitution(); }
     if (el.id === "log-peptide") {
+      if (!userCanUsePeptides()) return;
       const compound = compoundById(el.value);
       const f = $("#peptide-log-form");
       if (!f.elements.doseMg.value) f.elements.doseMg.value = "";
       f.elements.notes.placeholder = compound.type === "oil" ? "Optional" : "Optional";
     }
     if (el.id === "cycle-start" || el.id === "cycle-weeks") {
+      if (!userCanUsePeptides()) return;
       const f = $("#peptide-cycle-form");
       if (f.elements.weeks.value !== "custom") f.elements.endDate.value = cycleEndDate(f.elements.startDate.value, f.elements.weeks.value);
     }
@@ -4638,6 +4743,7 @@ function bind() {
   });
   $("#peptide-cycle-form").addEventListener("submit", (event) => {
     event.preventDefault();
+    if (!userCanUsePeptides()) return;
     const f = event.currentTarget;
     const days = $$('input[name="cycleDays"]:checked').map((input) => Number(input.value));
     const timings = $$('input[name="cycleTimes"]:checked').map((input) => input.value);
@@ -4666,6 +4772,7 @@ function bind() {
   });
   $("#peptide-log-form").addEventListener("submit", (event) => {
     event.preventDefault();
+    if (!userCanUsePeptides()) return;
     const f = event.currentTarget;
     const compound = compoundById(f.elements.peptideId.value);
     const calc = calculateDraw(compound.id, compound.vialMg, compound.diluentMl, f.elements.doseMg.value);
@@ -4809,7 +4916,7 @@ function bind() {
   });
   $("#cloud-upload-button")?.addEventListener("click", async () => {
     if (!cloudUser?.id) { alert("Log in first."); return; }
-    if (!confirm("Upload this device's current Julius Trainer data to your cloud account? This becomes the copy used on your other devices.")) return;
+    if (!confirm("Upload this device's current Just.Train data to your cloud account? This becomes the copy used on your other devices.")) return;
     try {
       setCloudStatus("Uploading this device...");
       await uploadCloudState();
@@ -4874,6 +4981,7 @@ function bind() {
 }
 function normalizeView(view) {
   if (view === "master") return "settings";
+  if (view === "peptides" && !userCanUsePeptides()) return "today";
   return VIEW_IDS.includes(view) ? view : "today";
 }
 function activeViewName() {

@@ -928,6 +928,9 @@ button.delete-pulse {
   border-radius: 24px;
   background: rgba(7, 31, 54, 0.72);
 }
+.master-add-user-panel {
+  padding: 0;
+}
 .master-user-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -946,6 +949,34 @@ button.delete-pulse {
   font-size: 12px;
   font-weight: 800;
   line-height: 1.35;
+}
+.master-user-card {
+  padding: 0;
+}
+.master-user-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 14px;
+  cursor: pointer;
+  list-style: none;
+}
+.master-user-summary::-webkit-details-marker { display: none; }
+.master-user-summary strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.master-user-summary small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.master-user-detail {
+  display: grid;
+  gap: 10px;
+  padding: 0 14px 14px;
 }
 .help-grid {
   display: grid;
@@ -2016,6 +2047,9 @@ button.delete-pulse {
   grid-template-columns: repeat(3, 8px);
   gap: 4px;
 }
+body.peptides-locked .consistency-dots {
+  grid-template-columns: repeat(2, 8px);
+}
 .consistency-dots i {
   width: 8px;
   height: 8px;
@@ -2034,7 +2068,7 @@ button.delete-pulse {
 }
 .tabs {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
   gap: 4px;
   padding: 5px;
   margin-bottom: 12px;
