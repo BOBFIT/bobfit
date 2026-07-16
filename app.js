@@ -15,10 +15,10 @@ const CLOUD_SESSION_KEY = "just.train.cloud.session.v1";
 const LEGACY_CLOUD_SESSION_KEY = ["julius", "trainer", "cloud", "session", "v1"].join(".");
 const WELCOME_SEEN_PREFIX = "just.train.welcome.seen.";
 
-const TRAINING_PLAN_VERSION = "aky-training-plan-targets-v8-motra-log-rename";
+const TRAINING_PLAN_VERSION = "just-train-weekly-split-v10-master-cloud";
 const TOP_DROPDOWN_LIMIT = 4;
 const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const DEFAULT_WEEKLY_ASSIGNMENTS = { 0: "day1", 1: "day3", 2: "rest", 3: "day5", 4: "day7", 5: "day8", 6: "rest" };
+const DEFAULT_WEEKLY_ASSIGNMENTS = { 0: "day1", 1: "day2", 2: "day3", 3: "day4", 4: "day5", 5: "day6", 6: "rest" };
 const TRAINING_TERMS = [
   ["Feeder sets", "Warm up by building through lighter sets before working sets."],
   ["Rest-pause", "Fail at the target reps, rest briefly, then continue to failure again with the same weight."],
@@ -164,17 +164,17 @@ const MOTRA_FINAL_EXERCISE_ALIASES = [
   ["Cable Single-Arm Lateral Raise", "Single arm cuffed lateral", "Cable Single-Arm Lateral Raise"],
   ["Cable Rope Straight Arm Pull Down", "Rope pullover", "Cable Rope Straight Arm Pull Down"],
   ["Cable Lat Pull Down Single-Arm", "Single arm prone cable pulldown", "Cable Lat Pull Down Single-Arm"],
-  ["Cable Single-Arm Row", "Single arm seated row", "Cable Single-Arm Row"],
-  ["Cable Lat Pull Down Wide-Grip", "Upper back bias cable pulldown", "Cable Lat Pull Down Wide-Grip"],
+  ["Cable Single-Arm Row", "Single arm seated row", "Single-arm seated row", "Single arm seated row lat bias", "Single-arm seated row - lat bias", "Cable Single-Arm Row"],
+  ["Cable Lat Pull Down Wide-Grip", "Upper back bias cable pulldown", "Upper-back-biased cable pulldown", "Cable Lat Pull Down Wide-Grip"],
   ["Machine T-Bar Row", "Upper back bias T-bar row", "Machine T-Bar Row"],
   ["Barbell Deadlift", "Deadlift", "Barbell Deadlift"],
-  ["Cable Upright Rear Delt Fly", "Rear delt pulldown with D handles", "Cable Upright Rear Delt Fly"],
+  ["Cable Upright Rear Delt Fly", "Rear delt pulldown with D handles", "Rear-delt pulldown using D-handles", "Cable Upright Rear Delt Fly"],
   ["Barbell Romanian Deadlift", "BB RDL", "Barbell RDL", "Barbell Romanian Deadlift"],
   ["Machine Row", "Prime pin stack row", "Machine Row"],
   ["Machine Wide-Grip Row", "Nautilus leverage row", "Machine Wide-Grip Row"],
   ["Machine High Row (MTS Row)", "Single arm Nautilus row", "Machine High Row (MTS Row)"],
   ["Smith Machine Shrug", "Smith machine shrugs", "Smith Machine Shrug"],
-  ["Leg Press Calf Raise", "Toe press superset with standing calf raise", "Toe press", "Toe press on leg press", "Leg Press Calf Raise"],
+  ["Leg Press Calf Raise", "Toe press superset with standing calf raise", "Toe press", "Toe press on leg press", "Toe press on leg-press machine", "Leg Press Calf Raise"],
   ["Bodyweight Calf Raise", "Standing bodyweight calf raise", "Bodyweight Calf Raise"],
   ["Machine Seated Calf Raise", "Seated calf machine", "Machine Seated Calf Raise"],
   ["Dumbbell Romanian Deadlift", "DB RDL", "Dumbbell RDL", "Dumbbell Romanian Deadlift"],
@@ -183,10 +183,10 @@ const MOTRA_FINAL_EXERCISE_ALIASES = [
   ["Smith Machine Shoulder Press", "Dead stop smith machine shoulder press", "Smith Machine Shoulder Press"],
   ["EZ-Bar Skull Crusher", "EZ bar incline skull crusher", "EZ-Bar Skull Crusher"],
   ["Dumbbell Drag Curl", "Seated single arm dumbbell drag bicep curl", "Dumbbell Drag Curl"],
-  ["Cable Single-Arm Bicep Curl", "Single arm cable curl facing the stack", "Cable Single-Arm Bicep Curl"],
-  ["Bayesian Cable Curl", "Single arm cable curl face away from stack", "Bayesian Cable Curl"],
-  ["Cable Rope Tricep Pushdown / Extension", "Dual rope tricep push down", "Cable Rope Tricep Pushdown / Extension"],
-  ["Machine Alternate Arm Curl", "Single arm Nautilus machine", "Machine Alternate Arm Curl"],
+  ["Cable Single-Arm Bicep Curl", "Single arm cable curl", "Single-arm cable curl", "Single arm cable curl facing the stack", "Cable Single-Arm Bicep Curl"],
+  ["Bayesian Cable Curl", "Single arm cable curl face away from stack", "Single-arm cable curl facing away from the stack", "Bayesian Cable Curl"],
+  ["Cable Rope Tricep Pushdown / Extension", "Dual rope tricep push down", "Dual-rope triceps pushdown", "Dual rope triceps pushdown", "Cable Rope Tricep Pushdown / Extension"],
+  ["Machine Alternate Arm Curl", "Single arm Nautilus machine", "Single-arm Nautilus curl", "Single arm Nautilus curl", "Machine Alternate Arm Curl"],
   ["Cable Single-Arm Overhead Tricep Extension Low", "Single arm cable overhead extension", "Cable Single-Arm Overhead Tricep Extension Low"],
 ];
 const MOTRA_EXERCISE_ALIAS_MAP = Object.fromEntries([
@@ -214,6 +214,7 @@ const EXERCISE_MATCH_GROUPS = [
   ["Hip Thrust Machine", "Machine Hip Thrust (Glute Bridge)"],
   ["Skull Crusher", "EZ-Bar Skull Crusher"],
   ["Dumbbell Bicep Curl", "Dumbbell Drag Curl"],
+  ["Cable Single-Arm Bicep Curl", "Bayesian Cable Curl"],
 ];
 const EXERCISE_MATCH_EQUIVALENTS = (() => {
   const map = new Map();
@@ -225,76 +226,52 @@ const EXERCISE_MATCH_EQUIVALENTS = (() => {
 })();
 
 const DEFAULT_TEMPLATES = {
-  day1: { title: "Legs A", exercises: [
-    ex("Leg / Hamstring Curl Seated", "8-10 with 2 sec contraction pause; 12-15 with 3 sec stretch pause; 6x4 cluster with 10-15 sec rest."),
-    ex("Hack Squat (Facing Out)", "6-9; then 10-15 with 2 sec pause at the bottom."),
-    ex("Machine Leg Press (Moving Chair)", "10-12; then 12-15 rest-pause: 20 sec rest to failure, then 40 sec rest to failure."),
-    ex("Machine Leg Extension superset with Machine Pendulum Squat", "Leg extension 10-12 x 3 with 2 sec contraction pause; pendulum add 20kg, no lockout, 3/4 reps to failure."),
-    ex("Dumbbell Walking Lunge", "Use a challenging weight that keeps balance. Full-length track lunges with 2 sec pause on each lunge."),
+  day1: { title: "Legs, Hamstrings & Calves", exercises: [
+    ex("Leg / Hamstring Curl Seated", "8-10; 12-15; 6x4 cluster."),
+    ex("Hack Squat (Facing Out)", "6-9; 10-15."),
+    ex("Dumbbell Romanian Deadlift", "10-12; 12-15."),
+    ex("Machine Leg Press (Moving Chair)", "10-12; 12-15 rest-pause."),
+    ex("Machine Leg Extension", "10-12 x 2."),
+    ex("Dumbbell Walking Lunge", "1 full track length."),
+    ex("Leg Press Calf Raise", "15-20 x 3. Superset with standing bodyweight calf raises to failure."),
+    ex("Bodyweight Calf Raise", "To failure as the second part of the toe press superset."),
+    ex("Machine Seated Calf Raise", "20 x 2. Drop set after the final set."),
   ] },
-  day2: { title: "Legs B", exercises: [
-    ex("Machine Leg / Hamstring Curl Prone", "8-10 with 2 sec contraction pause; 12-15 with 3 sec stretch pause; 6x4 cluster with 10-15 sec rest."),
-    ex("Machine Pendulum Squat", "8-10; then 4x5 cluster using a weight you could do for around 15 reps."),
-    ex("Machine Leg Press", "8-10 x 2. Second set: 8-10, 45 sec rest max reps, 30 sec max reps, 15 sec max reps, 30 sec max reps, 45 sec max reps."),
-    ex("Machine Leg Extension", "2 rounds: 8-10; drop 20-30% max reps with 6 sec negative; drop 20-30% max reps with 6 sec positive; drop 20-30% iso hold mid range. Rest 90-120 sec."),
-    ex("Dumbbell Walking Lunge", "Use a challenging weight that keeps balance. Full-length track lunges with 2 sec pause on each lunge."),
+  day2: { title: "Push & Triceps", exercises: [
+    ex("Machine Incline Bench Press", "8-10 middle pin; 8-10 bottom pin; 8-10 top pin."),
+    ex("Machine Fly (Pec Dec)", "12-15 x 2."),
+    ex("Machine Assisted Dip", "10-12; 12-15."),
+    ex("Cable Single-Arm Lateral Raise", "10-12; 12-15 rest-pause."),
+    ex("Cable Rope Tricep Pushdown / Extension", "8-10; 12-15."),
+    ex("Cable Single-Arm Overhead Tricep Extension Low", "12-15; 15-20."),
   ] },
-  day3: { title: "Push A", exercises: [
-    ex("Machine Rear Delt (Reverse) Fly", "12-15 x 2; then 6x4 cluster with 10-15 sec rest."),
-    ex("Machine Incline Bench Press", "8-10 x 3. Set 1 middle pin, set 2 bottom pin, set 3 top pin. Try to keep load the same."),
-    ex("Smith Machine Incline Bench Press", "8-10; then 12-15 rest-pause set."),
-    ex("Machine Tricep Press", "8-10; then 5x4 cluster. Tricep bias: elbows stop in line with torso, pause each rep in the hole."),
-    ex("Machine Fly (Pec Dec)", "12-15 reps x 2. 1st rep 6 second hold; 2nd rep 5 second hold; 3rd rep 4 second hold; 4th rep 3 second hold; 5th rep 2 second hold; then rep out to failure, ideally between 12-15."),
-    ex("Machine Lateral Raise", "3 x 12-15 with 2 sec pause on contraction each rep."),
+  day3: { title: "Rest/Cardio", exercises: [
+    ex("Low-Intensity Cardio", "Complete rest, or 25-35 minutes low-intensity cardio.", [target("25-35 min cardio", "Complete rest, or 25-35 minutes low-intensity cardio.")]),
   ] },
-  day4: { title: "Push B", exercises: [
-    ex("Machine Rear Delt (Reverse) Fly", "12-15 x 2; then 6x4 cluster with 10-15 sec rest."),
-    ex("Dumbbell Lateral Raise", "2 sec hold at top. 10-12; 12-15; 15-20 with no pause."),
-    ex("Smith Machine Incline Bench Press", "8-10; then 10-12. Use 4 sec eccentrics, deep reps, correct elbow path and posture."),
-    ex("Machine Seated Chest Press", "3121 tempo with micro pause in stretch and peak contraction. 8-10; then 10-12."),
-    ex("Machine Assisted Dip", "10-12 with 2 sec peak contraction and 1 sec stretch; then 12-15; then 15-20."),
-    ex("Cable Single-Arm Lateral Raise", "Micro pause top and bottom. 10-12; then 12-15 rest-pause."),
+  day4: { title: "Pull & Biceps", exercises: [
+    ex("Cable Rope Straight Arm Pull Down", "15-20; 6x4 cluster."),
+    ex("Cable Lat Pull Down Single-Arm", "10-12; 12-15."),
+    ex("Cable Single-Arm Row", "Lat bias. 8-10; 12-15."),
+    ex("Cable Lat Pull Down Wide-Grip", "8-10; 6x6 descending set."),
+    ex("Cable Upright Rear Delt Fly", "10-12; 12-15 rest-pause."),
+    ex("Cable Single-Arm Bicep Curl", "8-10 facing the stack; 10-12 facing away from the stack."),
+    ex("Machine Alternate Arm Curl", "10-12; 15-20."),
   ] },
-  day5: { title: "Pull A", exercises: [
-    ex("Cable Rope Straight Arm Pull Down", "15-20; then 6x4 cluster set."),
-    ex("Cable Lat Pull Down Single-Arm", "Lat bias. Do not let shoulder extend; stretch through full arm extension. 10-12 with 2 sec hold; then 12-15 no hold."),
-    ex("Cable Single-Arm Row", "Lat bias. Turn torso slightly away from working arm. Micro pause top and bottom. 8-10; then 12-15."),
-    ex("Cable Lat Pull Down Wide-Grip", "8-10; then start at same load, 6 reps, drop 1 pin, repeat until 6 drops and 36 reps total."),
-    ex("Machine T-Bar Row", "Both sets hold 2 sec stretch and push chest away in stretch. 8-10; then 5x4 cluster."),
-    ex("Barbell Deadlift", "10-15."),
-    ex("Cable Upright Rear Delt Fly", "Cybex machine. Shoulders in front of ears, no retraction, drive elbows out and round. 10-12; then 12-15 rest-pause, both 3121 tempo."),
+  day5: { title: "Chest & Back", exercises: [
+    ex("Smith Machine Incline Bench Press", "8-10; 10-12."),
+    ex("Machine Seated Chest Press", "8-10; 10-12."),
+    ex("Machine Row", "8-10; 5x4 cluster."),
+    ex("Machine Wide-Grip Row", "8-10; 12-15."),
   ] },
-  day6: { title: "Pull B", exercises: [
-    ex("Cable Lat Pull Down Single-Arm", "Lat bias. 12-15 with 2 sec contraction hold; then 12-15 no hold."),
-    ex("Barbell Romanian Deadlift", "4 sec eccentrics, 2 sec pause in stretch. Keep 1 rep in reserve; do not take to failure. 8-10."),
-    ex("Machine Row", "8-10 with 2 sec contraction hold; then 5x4 cluster with no hold."),
-    ex("Machine Wide-Grip Row", "8-10 with 2 sec contraction pause; then 12-15 with 2 sec stretch."),
-    ex("Machine High Row (MTS Row)", "Lat bias. 10-12 with 2 sec stretch; then 12-15 with 2 sec contraction."),
-    ex("Smith Machine Shrug", "8-10 with 2 sec squeeze; then 10-12 double drop set with no hold."),
-  ] },
-  day7: { title: "Hamstring / Calves", exercises: [
-    ex("Leg Press Calf Raise", "15-20 x 3 with 2 sec squeeze; superset with Bodyweight Calf Raise to failure."),
-    ex("Bodyweight Calf Raise", "To failure as the second part of the calf superset."),
-    ex("Machine Seated Calf Raise", "20 x 3. First 10 slow with pauses on stretch and squeeze, then 10 quick. Increase weight each set; last set drop set."),
-    ex("Machine Leg / Hamstring Curl Prone", "8-10; 12-15; then 5x4 cluster set."),
-    ex("Leg / Hamstring Curl Seated", "8-10; then 10-12. Use 2 sec stretch each rep for both sets."),
-    ex("Dumbbell Romanian Deadlift", "10-12; then 12-15. Use 2 sec stretch each rep for both sets."),
-    ex("Machine Hip Adduction", "10-15 x 2 with 2 sec stretch each rep for both sets."),
-    ex("Machine Hip Thrust (Glute Bridge)", "8-10; then 15-20. Micro pause on stretch and squeeze each rep."),
-  ] },
-  day8: { title: "Delts / Arms", exercises: [
-    ex("Machine Lateral Raise", "8-10; 12-15; then start at first-set load, 6 reps, drop 1 pin and repeat until 6 drops and 36 reps total."),
-    ex("Smith Machine Shoulder Press", "Set stopper so bar reaches around lip/nose height. 10-12; then 5x4 cluster."),
-    ex("EZ-Bar Skull Crusher", "3 sec pause in stretch. Grip just outside shoulder width. 8-10; then 10-12."),
-    ex("Dumbbell Drag Curl", "Bench at 65 degrees, torso locked in. Once you fail, hammer curl to failure again. 12-15 x 2."),
-    ex("Machine Assisted Dip", "Stay upright with 3 sec in stretch, no leaning forward, all tension on triceps. 10-12; then 12-15."),
-    ex("Cable Single-Arm Bicep Curl", "Facing the stack. Both sets 2 second pause in peak contraction. 8-10; then 10-12."),
-    ex("Bayesian Cable Curl", "Face away from the stack. 2 second stretch. 10-12."),
-    ex("Cable Rope Tricep Pushdown / Extension", "3 sets: 8-10; 10-12; 12-15. All sets hold contraction at top 2 seconds."),
-    ex("Machine Alternate Arm Curl", "Perfect reps, no momentum. 3 sets: 8-10; 10-12; 15-20. 2 second hold in peak contraction."),
-    ex("Cable Single-Arm Overhead Tricep Extension Low", "2 second pause in stretch every rep. 3 sets: 8-10; 12-15; 15-20."),
+  day6: { title: "Delts & Arms", exercises: [
+    ex("Machine Lateral Raise", "8-10; 12-15; 6x6 descending set."),
+    ex("Smith Machine Shoulder Press", "Dead-stop reps. 10-12; 5x4 cluster."),
+    ex("Machine Rear Delt (Reverse) Fly", "12-15 x 2."),
+    ex("EZ-Bar Skull Crusher", "8-10; 10-12."),
+    ex("Dumbbell Drag Curl", "12-15 x 2. Hammer curls to failure after each set."),
   ] },
 };
+const DEFAULT_TEMPLATE_RESET_KEYS = new Set(["day1", "day2", "day3", "day4", "day5", "day6", "day7", "day8"]);
 
 let saveTimer = 0;
 let saveFeedbackReady = false;
@@ -320,6 +297,7 @@ let masterActionIsError = false;
 let masterBusy = false;
 let authReady = false;
 let authBusy = false;
+let trainingPlanAutoUpgradePending = false;
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 const uid = () => `${Date.now()}${Math.random().toString(36).slice(2, 8)}`;
@@ -361,7 +339,6 @@ function defaults() {
 function merge(raw) {
   const base = defaults();
   const source = normalizeImportedData(raw || {});
-  const sourcePlanVersion = source?.settings?.trainingPlanVersion || "";
   const next = { ...base, ...source };
   next.meals = source?.meals || base.meals;
   next.savedMeals = Array.isArray(source?.savedMeals) ? source.savedMeals.map(normalizeMeal).filter(Boolean) : base.savedMeals;
@@ -376,7 +353,10 @@ function merge(raw) {
   next.workoutTemplates = upgradePlanNotes(normalizeTemplates({ ...base.workoutTemplates, ...(source?.workoutTemplates || {}) }));
   next.workoutDrafts = source?.workoutDrafts || {};
   next.settings = { ...base.settings, ...(source?.settings || {}), trainingPlanVersion: TRAINING_PLAN_VERSION };
-  if (source?.workoutTemplates && sourcePlanVersion !== TRAINING_PLAN_VERSION) refreshDefaultTrainingPlan(next);
+  if (trainingPlanNeedsUpgrade(source, next.workoutTemplates)) {
+    refreshDefaultTrainingPlan(next);
+    trainingPlanAutoUpgradePending = true;
+  }
   next.workouts = migrateLoggedWorkoutExerciseNames(next.workouts, next.workoutTemplates, next.weeklyPlan);
   delete next.dailyCheckin;
   return next;
@@ -532,12 +512,23 @@ function upgradePlanNotes(templates) {
 function hasFullTrainingPlan(templates) {
   return Object.entries(DEFAULT_TEMPLATES).every(([key, defaultTemplate]) => {
     const template = templates?.[key];
-    return template?.title === defaultTemplate.title && Array.isArray(template.exercises) && template.exercises.length >= defaultTemplate.exercises.length;
+    if (template?.title !== defaultTemplate.title || !Array.isArray(template.exercises) || template.exercises.length !== defaultTemplate.exercises.length) return false;
+    return defaultTemplate.exercises.every((exercise, index) => exerciseMatchKey(template.exercises[index]?.name) === exerciseMatchKey(exercise.name));
   });
+}
+function trainingPlanNeedsUpgrade(source = {}, templates = null) {
+  const sourceVersion = source?.settings?.trainingPlanVersion || "";
+  if (sourceVersion !== TRAINING_PLAN_VERSION) return Boolean(source?.workoutTemplates || source?.weeklyPlan || source?.settings);
+  return templates ? !hasFullTrainingPlan(templates) : false;
+}
+function stateNeedsTrainingPlanUpgrade(raw) {
+  const source = normalizeImportedData(raw || {});
+  const templates = upgradePlanNotes(normalizeTemplates({ ...DEFAULT_TEMPLATES, ...(source?.workoutTemplates || {}) }));
+  return trainingPlanNeedsUpgrade(source, templates);
 }
 function installDefaultTrainingPlan(target) {
   const existing = normalizeTemplates(target.workoutTemplates || {});
-  const custom = Object.fromEntries(Object.entries(existing).filter(([key]) => !DEFAULT_TEMPLATES[key]));
+  const custom = Object.fromEntries(Object.entries(existing).filter(([key]) => !DEFAULT_TEMPLATE_RESET_KEYS.has(key)));
   target.workoutTemplates = { ...clone(DEFAULT_TEMPLATES), ...custom };
   target.weeklyPlan = {
     ...(target.weeklyPlan || {}),
@@ -552,9 +543,13 @@ function installDefaultTrainingPlan(target) {
 }
 function refreshDefaultTrainingPlan(target) {
   const existing = normalizeTemplates(target.workoutTemplates || {});
-  const custom = Object.fromEntries(Object.entries(existing).filter(([key]) => !DEFAULT_TEMPLATES[key]));
+  const custom = Object.fromEntries(Object.entries(existing).filter(([key]) => !DEFAULT_TEMPLATE_RESET_KEYS.has(key)));
   target.workoutTemplates = { ...clone(DEFAULT_TEMPLATES), ...custom };
-  target.weeklyPlan = normalizeWeeklyPlan(target.weeklyPlan || {});
+  target.weeklyPlan = {
+    ...(target.weeklyPlan || {}),
+    assignments: { ...DEFAULT_WEEKLY_ASSIGNMENTS },
+    doseDays: Array.isArray(target.weeklyPlan?.doseDays) ? target.weeklyPlan.doseDays : [],
+  };
   target.settings = { ...(target.settings || {}), trainingPlanVersion: TRAINING_PLAN_VERSION };
   if (!target.settings.selectedSplit || !target.workoutTemplates[target.settings.selectedSplit]) {
     target.settings.selectedSplit = DEFAULT_WEEKLY_ASSIGNMENTS[weekdayIndex()] === "rest" ? "day1" : DEFAULT_WEEKLY_ASSIGNMENTS[weekdayIndex()];
@@ -2752,15 +2747,15 @@ function isoDisplay(value) {
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? "Not yet" : d.toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
-function latestStateActivityIso() {
+function latestStateActivityIso(data = state) {
   const times = [];
   const add = (value) => { const n = rawNum(value); if (n) times.push(n); };
-  Object.values(state.meals || {}).flat().forEach((meal) => add(meal.createdAt));
-  Object.values(state.workouts || {}).flat().forEach((workout) => add(workout.createdAt));
-  (state.peptideLogs || []).forEach((log) => add(log.createdAt));
-  (state.bodyMetrics || []).forEach((metric) => add(metric.createdAt));
-  (state.progressCheckins || []).forEach((entry) => add(entry.createdAt));
-  (state.savedMeals || []).forEach((meal) => add(meal.createdAt));
+  Object.values(data.meals || {}).flat().forEach((meal) => add(meal.createdAt));
+  Object.values(data.workouts || {}).flat().forEach((workout) => add(workout.createdAt));
+  (data.peptideLogs || []).forEach((log) => add(log.createdAt));
+  (data.bodyMetrics || []).forEach((metric) => add(metric.createdAt));
+  (data.progressCheckins || []).forEach((entry) => add(entry.createdAt));
+  (data.savedMeals || []).forEach((meal) => add(meal.createdAt));
   return times.length ? new Date(Math.max(...times)).toISOString() : null;
 }
 function cloudDataCounts(data = state) {
@@ -3234,22 +3229,41 @@ async function fetchCloudState() {
   const rows = await cloudRequest(`/rest/v1/${CLOUD_TABLE}?select=data,updated_at&user_id=eq.${encodeURIComponent(cloudUser.id)}`);
   return Array.isArray(rows) ? rows[0] || null : null;
 }
-async function uploadCloudState() {
+async function uploadCloudData(data = state, statusMessage = "Cloud saved. Future changes will sync automatically.") {
   if (!cloudUser?.id) throw new Error("Log in before uploading cloud data.");
+  const syncedAt = new Date().toISOString();
   await cloudRequest(`/rest/v1/${CLOUD_TABLE}?on_conflict=user_id`, {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
     body: {
       user_id: cloudUser.id,
-      data: clone(state),
-      updated_at: new Date().toISOString(),
+      data: clone(data),
+      updated_at: syncedAt,
     },
   });
-  try { await upsertCloudProfile({ last_synced_at: new Date().toISOString() }); } catch (error) { setCloudStatus(friendlyCloudError(error), true); }
+  try {
+    await upsertCloudProfile({
+      last_synced_at: syncedAt,
+      data_counts: { ...(cloudProfile?.data_counts || {}), ...cloudDataCounts(data) },
+      last_data_at: latestStateActivityIso(data),
+    });
+  } catch (error) { setCloudStatus(friendlyCloudError(error), true); }
   enableCloudAutoSync();
   cloudLastSyncedAt = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  setCloudStatus("Cloud saved. Future changes will sync automatically.");
+  setCloudStatus(statusMessage);
   if (isMasterAccount()) refreshMasterProfiles();
+}
+async function uploadCloudState() {
+  await uploadCloudData(state);
+  trainingPlanAutoUpgradePending = false;
+}
+async function upgradeCloudTrainingPlanIfNeeded(data) {
+  if (!stateNeedsTrainingPlanUpgrade(data)) return null;
+  const pendingBefore = trainingPlanAutoUpgradePending;
+  const upgraded = merge(data);
+  trainingPlanAutoUpgradePending = pendingBefore;
+  await uploadCloudData(upgraded, "Workout plan updated in cloud. Pull cloud data to load it on this device.");
+  return upgraded;
 }
 async function pullCloudState(confirmFirst = true) {
   const row = await fetchCloudState();
@@ -3268,7 +3282,12 @@ async function pullCloudState(confirmFirst = true) {
   cloudLastSyncedAt = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   save({ silent: true, skipCloud: true });
   render();
-  setCloudStatus(`Cloud data loaded: ${cloudCountSummary()}.`);
+  if (trainingPlanAutoUpgradePending) {
+    await uploadCloudState();
+    setCloudStatus(`Cloud data loaded and workout plan updated: ${cloudCountSummary()}.`);
+  } else {
+    setCloudStatus(`Cloud data loaded: ${cloudCountSummary()}.`);
+  }
   return true;
 }
 async function cloudAfterLogin() {
@@ -3277,10 +3296,12 @@ async function cloudAfterLogin() {
     await refreshCloudProfile();
     if (!cloudUser?.id || (profileDisabled(cloudProfile) && !isMasterAccount())) return;
     if (isMasterAccount()) refreshMasterProfiles();
-    const row = await fetchCloudState();
+    let row = await fetchCloudState();
+    const upgradedCloudData = row?.data ? await upgradeCloudTrainingPlanIfNeeded(row.data) : null;
+    if (upgradedCloudData) row = { ...row, data: upgradedCloudData };
     if (row?.data) {
       if (hasCloudUserData(state)) {
-        setCloudStatus("Logged in. Cloud data exists. Choose Pull cloud data or Upload this device to start automatic sync.");
+        setCloudStatus(upgradedCloudData ? "Logged in. Cloud workout plan was updated. Tap Pull cloud data to load it on this device." : "Logged in. Cloud data exists. Choose Pull cloud data or Upload this device to start automatic sync.");
       } else {
         await pullCloudState(false);
       }
@@ -3328,8 +3349,12 @@ async function initCloud() {
     await refreshCloudProfile();
     if (!cloudUser?.id || (profileDisabled(cloudProfile) && !isMasterAccount())) return;
     if (isMasterAccount()) refreshMasterProfiles();
-    if (cloudAutoSyncReady() && !hasCloudUserData(state)) await pullCloudState(false);
-    else setCloudStatus(cloudAutoSyncReady() ? "Logged in. Future saves sync automatically." : "Logged in. Choose upload or pull to start automatic sync.");
+    let row = null;
+    try { row = await fetchCloudState(); } catch {}
+    const upgradedCloudData = row?.data ? await upgradeCloudTrainingPlanIfNeeded(row.data) : null;
+    if (upgradedCloudData) row = { ...row, data: upgradedCloudData };
+    if (cloudAutoSyncReady() && !hasCloudUserData(state) && row?.data) await pullCloudState(false);
+    else setCloudStatus(upgradedCloudData ? "Logged in. Cloud workout plan was updated. Tap Pull cloud data to load it on this device." : cloudAutoSyncReady() ? "Logged in. Future saves sync automatically." : "Logged in. Choose upload or pull to start automatic sync.");
     showWelcomeIfFirstLogin();
   } catch (error) {
     clearCloudSession();
