@@ -15,14 +15,15 @@ const CLOUD_SESSION_KEY = "just.train.cloud.session.v1";
 const LEGACY_CLOUD_SESSION_KEY = ["julius", "trainer", "cloud", "session", "v1"].join(".");
 const WELCOME_SEEN_PREFIX = "just.train.welcome.seen.";
 
-const TRAINING_PLAN_VERSION = "just-train-weekly-split-v10-master-cloud";
+const TRAINING_PLAN_VERSION = "just-train-original-split-v11";
 const TOP_DROPDOWN_LIMIT = 4;
 const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const DEFAULT_WEEKLY_ASSIGNMENTS = { 0: "day1", 1: "day2", 2: "day3", 3: "day4", 4: "day5", 5: "day6", 6: "rest" };
+const DEFAULT_WEEKLY_ASSIGNMENTS = { 0: "day1", 1: "day3", 2: "rest", 3: "day5", 4: "day7", 5: "day8", 6: "rest" };
 const TRAINING_TERMS = [
   ["Feeder sets", "Warm up by building through lighter sets before working sets."],
   ["Rest-pause", "Fail at the target reps, rest briefly, then continue to failure again with the same weight."],
   ["Cluster set", "Break the work into mini-sets, such as 6x4, with 10-15 sec rests while keeping the same weight."],
+  ["Giant digressive set", "Drop the weight in stages and keep working through the listed negative, positive, and isometric phases."],
   ["Pause on contraction", "Hold and squeeze the shortened position for the listed time."],
   ["Pause on stretch", "Hold the stretched position under control before the next rep."],
   ["Tempo 3120 / 3121", "3 sec eccentric, 1 sec pause, 2 sec concentric, then 0-1 sec at the top."],
@@ -226,49 +227,73 @@ const EXERCISE_MATCH_EQUIVALENTS = (() => {
 })();
 
 const DEFAULT_TEMPLATES = {
-  day1: { title: "Legs, Hamstrings & Calves", exercises: [
-    ex("Leg / Hamstring Curl Seated", "8-10; 12-15; 6x4 cluster."),
-    ex("Hack Squat (Facing Out)", "6-9; 10-15."),
-    ex("Dumbbell Romanian Deadlift", "10-12; 12-15."),
-    ex("Machine Leg Press (Moving Chair)", "10-12; 12-15 rest-pause."),
-    ex("Machine Leg Extension", "10-12 x 2."),
-    ex("Dumbbell Walking Lunge", "1 full track length."),
-    ex("Leg Press Calf Raise", "15-20 x 3. Superset with standing bodyweight calf raises to failure."),
+  day1: { title: "Legs A", exercises: [
+    ex("Leg / Hamstring Curl Seated", "8-10 with 2 sec pause on contraction; 12-15 with 3 sec pause on stretch; 6x4 cluster set with 10-15 sec rest."),
+    ex("Hack Squat (Facing Out)", "6-9; 10-15 with 2 sec pause at bottom."),
+    ex("Machine Leg Press (Moving Chair)", "10-12; 12-15 rest-pause set. Rest 20 sec to failure, then rest 40 sec to failure."),
+    ex("Machine Leg Extension superset with Machine Pendulum Squat", "10-12 x 3 with 2 sec pause on contraction each rep. Superset with pendulum: add 20kg and do not lock out at the top for 3/4 reps to failure."),
+    ex("Dumbbell Walking Lunge", "Full track length. Pick a challenging weight that does not compromise balance. 2 sec pause on each lunge."),
+  ] },
+  day2: { title: "Legs B", exercises: [
+    ex("Machine Leg / Hamstring Curl Prone", "8-10 with 2 sec pause on contraction; 12-15 with 3 sec pause on stretch; 6x4 cluster set with 10-15 sec rest."),
+    ex("Machine Pendulum Squat", "8-10; 4x5 cluster set. Pick a weight that allows up to 15 reps."),
+    ex("Machine Leg Press", "8-10 x 2. Second set: 8-10 reps, 45 sec rest max reps, 30 sec rest max reps, 15 sec rest max reps, 30 sec rest max reps, 45 sec rest max reps."),
+    ex("Machine Leg Extension", "2 giant digressive sets. 8-10 reps, drop 20-30 percent and max reps with 6 sec negative, drop 20-30 percent and max reps with 6 sec positive, drop 20-30 percent and hold isometric contraction as long as possible at mid range. Rest 90-120 sec between sets."),
+    ex("Dumbbell Walking Lunge", "Full track length. Pick a challenging weight that does not compromise balance. 2 sec pause on each lunge."),
+  ] },
+  day3: { title: "Push A", exercises: [
+    ex("Machine Rear Delt (Reverse) Fly", "12-15 x 2; 6x4 cluster set with 10-15 sec rest."),
+    ex("Machine Incline Bench Press", "8-10 x 3. Set 1 middle pin, set 2 bottom pin, set 3 top pin. Try to keep the load the same for all 3 sets."),
+    ex("Smith Machine Incline Bench Press", "8-10; 12-15 rest-pause set."),
+    ex("Machine Tricep Press", "8-10; 5x4 cluster set. Tricep biased movement: elbows stop in line with torso and pause each rep in the hole."),
+    ex("Machine Fly (Pec Dec)", "12-15 x 2. 1st rep 6 sec hold, 2nd rep 5 sec hold, 3rd rep 4 sec hold, 4th rep 3 sec hold, 5th rep 2 sec hold, then rep out to failure ideally between 12-15."),
+    ex("Machine Lateral Raise", "12-15 x 3. Pause on contraction for 2 sec each rep."),
+  ] },
+  day4: { title: "Push B", exercises: [
+    ex("Machine Rear Delt (Reverse) Fly", "12-15 x 2; 6x4 cluster set with 10-15 sec rest."),
+    ex("Dumbbell Lateral Raise", "10-12 with 2 sec hold at top; 12-15 with 2 sec hold at top; 15-20 with no pause."),
+    ex("Smith Machine Incline Bench Press", "8-10; 10-12. Use 4 sec eccentrics, deep reps, free scapula, correct elbow path and posture."),
+    ex("Machine Seated Chest Press", "8-10; 10-12. Use 3121 tempo with micro pause in stretch and peak contraction."),
+    ex("Machine Assisted Dip", "10-12 with 2 sec peak contraction and 1 sec stretch; 12-15; 15-20."),
+    ex("Cable Single-Arm Lateral Raise", "10-12 with micro pause top and bottom; 12-15 rest-pause."),
+  ] },
+  day5: { title: "Pull A", exercises: [
+    ex("Cable Rope Straight Arm Pull Down", "15-20; 6x4 cluster set."),
+    ex("Cable Lat Pull Down Single-Arm", "10-12 with 2 sec hold on contraction; 12-15 no hold. Lat bias, do not let shoulder extend, stretch through full arm extension."),
+    ex("Cable Single-Arm Row", "8-10; 12-15. Lat bias, turn torso slightly away from the working arm, micro pause top and bottom."),
+    ex("Cable Lat Pull Down Wide-Grip", "8-10; 6x6 descending set. Start with previous 8-10 load, do 6 reps, drop 1 pin and repeat until 6 drops / 36 reps total."),
+    ex("Machine T-Bar Row", "8-10; 5x4 cluster. Upper back bias, hold 2 sec stretch and push chest away into stretch."),
+    ex("Barbell Deadlift", "10-15."),
+    ex("Cable Upright Rear Delt Fly", "10-12; 12-15 rest-pause. D-handles, shoulders in front of ears, no retraction, drive elbows out and round, 3121 tempo."),
+  ] },
+  day6: { title: "Pull B", exercises: [
+    ex("Cable Lat Pull Down Single-Arm", "12-15 with 2 sec hold on contraction; 12-15 no hold. Lat bias, do not let shoulder extend, stretch through full arm extension."),
+    ex("Barbell Romanian Deadlift", "8-10. 4 sec eccentrics, 2 sec pause in stretch, keep 1 rep in reserve."),
+    ex("Machine Row", "8-10 with 2 sec hold on contraction; 5x4 cluster no hold."),
+    ex("Machine Wide-Grip Row", "8-10 with 2 sec pause on contraction; 12-15 with 2 sec stretch."),
+    ex("Machine High Row (MTS Row)", "10-12 with 2 sec stretch; 12-15 with 2 sec contraction."),
+    ex("Smith Machine Shrug", "8-10 with 2 sec squeeze on contraction; 10-12 double drop set no hold."),
+  ] },
+  day7: { title: "Hamstring / Calves", exercises: [
+    ex("Leg Press Calf Raise", "15-20 x 3 with 2 sec squeeze. Superset with standing bodyweight calf raise to failure."),
     ex("Bodyweight Calf Raise", "To failure as the second part of the toe press superset."),
-    ex("Machine Seated Calf Raise", "20 x 2. Drop set after the final set."),
+    ex("Machine Seated Calf Raise", "20 x 3. First 10 reps slow with pauses on stretch and squeeze, then 10 reps quick. Increase weight each set and drop set on last set."),
+    ex("Machine Leg / Hamstring Curl Prone", "8-10; 12-15; 5x4 cluster set."),
+    ex("Leg / Hamstring Curl Seated", "8-10; 10-12. 2 sec stretch on each rep for both sets."),
+    ex("Dumbbell Romanian Deadlift", "10-12; 12-15. 2 sec stretch on each rep for both sets."),
+    ex("Machine Hip Adduction", "10-15 x 2. 2 sec stretch on each rep for both sets."),
+    ex("Machine Hip Thrust (Glute Bridge)", "8-10; 15-20. Micro pause on stretch and squeeze each rep."),
   ] },
-  day2: { title: "Push & Triceps", exercises: [
-    ex("Machine Incline Bench Press", "8-10 middle pin; 8-10 bottom pin; 8-10 top pin."),
-    ex("Machine Fly (Pec Dec)", "12-15 x 2."),
-    ex("Machine Assisted Dip", "10-12; 12-15."),
-    ex("Cable Single-Arm Lateral Raise", "10-12; 12-15 rest-pause."),
-    ex("Cable Rope Tricep Pushdown / Extension", "8-10; 12-15."),
-    ex("Cable Single-Arm Overhead Tricep Extension Low", "12-15; 15-20."),
-  ] },
-  day3: { title: "Rest/Cardio", exercises: [
-    ex("Low-Intensity Cardio", "Complete rest, or 25-35 minutes low-intensity cardio.", [target("25-35 min cardio", "Complete rest, or 25-35 minutes low-intensity cardio.")]),
-  ] },
-  day4: { title: "Pull & Biceps", exercises: [
-    ex("Cable Rope Straight Arm Pull Down", "15-20; 6x4 cluster."),
-    ex("Cable Lat Pull Down Single-Arm", "10-12; 12-15."),
-    ex("Cable Single-Arm Row", "Lat bias. 8-10; 12-15."),
-    ex("Cable Lat Pull Down Wide-Grip", "8-10; 6x6 descending set."),
-    ex("Cable Upright Rear Delt Fly", "10-12; 12-15 rest-pause."),
-    ex("Cable Single-Arm Bicep Curl", "8-10 facing the stack; 10-12 facing away from the stack."),
-    ex("Machine Alternate Arm Curl", "10-12; 15-20."),
-  ] },
-  day5: { title: "Chest & Back", exercises: [
-    ex("Smith Machine Incline Bench Press", "8-10; 10-12."),
-    ex("Machine Seated Chest Press", "8-10; 10-12."),
-    ex("Machine Row", "8-10; 5x4 cluster."),
-    ex("Machine Wide-Grip Row", "8-10; 12-15."),
-  ] },
-  day6: { title: "Delts & Arms", exercises: [
-    ex("Machine Lateral Raise", "8-10; 12-15; 6x6 descending set."),
-    ex("Smith Machine Shoulder Press", "Dead-stop reps. 10-12; 5x4 cluster."),
-    ex("Machine Rear Delt (Reverse) Fly", "12-15 x 2."),
-    ex("EZ-Bar Skull Crusher", "8-10; 10-12."),
-    ex("Dumbbell Drag Curl", "12-15 x 2. Hammer curls to failure after each set."),
+  day8: { title: "Delts / Arms", exercises: [
+    ex("Machine Lateral Raise", "8-10; 12-15; 6x6 descending set. Start with the first set load, do 6 reps, drop 1 pin and repeat until 6 drops / 36 reps total."),
+    ex("Smith Machine Shoulder Press", "10-12; 5x4 cluster. Dead stop reps with stopper set around lip/nose height."),
+    ex("EZ-Bar Skull Crusher", "8-10; 10-12. 3 sec pause in stretch each set, grip just outside shoulder width."),
+    ex("Dumbbell Drag Curl", "12-15 x 2. Bench at 65 degrees, torso locked in. Once you fail, hammer curl to failure again."),
+    ex("Machine Assisted Dip", "10-12; 12-15. Stay upright with 3 sec in stretch and no leaning forward, all tension on triceps."),
+    ex("Cable Single-Arm Bicep Curl", "8-10 facing the stack with 2 sec peak contraction; 10-12 facing the stack with 2 sec peak contraction; 10-12 facing away from the stack with 2 sec stretch."),
+    ex("Cable Rope Tricep Pushdown / Extension", "8-10; 10-12; 12-15. Hold contraction at top 2 sec on all sets."),
+    ex("Machine Alternate Arm Curl", "8-10; 10-12; 15-20. Perfect reps, no momentum, 2 sec hold in peak contraction."),
+    ex("Cable Single-Arm Overhead Tricep Extension Low", "8-10; 12-15; 15-20. 2 sec pause in stretch every rep."),
   ] },
 };
 const DEFAULT_TEMPLATE_RESET_KEYS = new Set(["day1", "day2", "day3", "day4", "day5", "day6", "day7", "day8"]);
