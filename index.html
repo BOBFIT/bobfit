@@ -11,7 +11,7 @@
     <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="assets/icon.png" />
     <link rel="manifest" href="manifest.webmanifest" />
-    <link rel="stylesheet" href="styles.css?v=105" />
+    <link rel="stylesheet" href="styles.css?v=107" />
   </head>
   <body class="auth-locked">
     <section id="auth-gate" class="auth-gate" aria-live="polite">
@@ -60,7 +60,7 @@
         </section>
         <div class="today-shortcuts" aria-label="Today shortcuts">
           <button class="secondary today-shortcut" data-open-motra-import type="button">Import Motra</button>
-          <button class="primary today-shortcut" data-view="log" type="button">Log Workout</button>
+          <button class="primary today-shortcut" data-start-workout type="button">Start Workout</button>
         </div>
         <details class="panel drop-panel">
           <summary class="drop-summary">
@@ -501,7 +501,7 @@
       <button data-view="settings" type="button">Settings</button>
     </nav>
 
-    <script src="app.js?v=105"></script>
+    <script src="app.js?v=107"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js").catch(() => {}));

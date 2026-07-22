@@ -15,7 +15,7 @@ const CLOUD_SESSION_KEY = "just.train.cloud.session.v1";
 const LEGACY_CLOUD_SESSION_KEY = ["julius", "trainer", "cloud", "session", "v1"].join(".");
 const WELCOME_SEEN_PREFIX = "just.train.welcome.seen.";
 
-const TRAINING_PLAN_VERSION = "just-train-original-split-v11";
+const TRAINING_PLAN_VERSION = "just-train-original-visible-split-v12";
 const TOP_DROPDOWN_LIMIT = 4;
 const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DEFAULT_WEEKLY_ASSIGNMENTS = { 0: "day1", 1: "day3", 2: "rest", 3: "day5", 4: "day7", 5: "day8", 6: "rest" };
@@ -147,7 +147,7 @@ const MOTRA_FINAL_EXERCISE_ALIASES = [
   ["Leg / Hamstring Curl Seated", "Seated leg curl", "Seated hamstring curl", "Leg / Hamstring Curl Seated"],
   ["Hack Squat (Facing Out)", "Hack squat", "Hack Squat (Facing Out)"],
   ["Machine Leg Press (Moving Chair)", "Cybex squat leg press", "Machine Leg Press (Moving Chair)"],
-  ["Machine Leg Extension superset with Machine Pendulum Squat", "Leg extension superset with pendulum", "Machine Leg Extension superset with Machine Pendulum Squat"],
+  ["Machine Leg Extension superset with Machine Pendulum Squat", "Leg extension superset with pendulum", "Leg extension superset w/ pendulum", "Machine Leg Extension superset with Machine Pendulum Squat"],
   ["Dumbbell Walking Lunge", "DB walking lunges", "Dumbbell walking lunges", "Lunges", "Dumbbell Walking Lunge"],
   ["Machine Leg / Hamstring Curl Prone", "Lying leg curl", "Lying hamstring curl", "Machine Leg / Hamstring Curl Prone"],
   ["Machine Pendulum Squat", "Pendulum squat", "Machine Pendulum Squat"],
@@ -159,31 +159,31 @@ const MOTRA_FINAL_EXERCISE_ALIASES = [
   ["Machine Tricep Press", "Flex leverage press", "Machine Tricep Press"],
   ["Machine Fly (Pec Dec)", "Pec deck", "Pec dec", "Machine Fly (Pec Dec)"],
   ["Machine Lateral Raise", "Lateral raise machine", "Machine Lateral Raise"],
-  ["Dumbbell Lateral Raise", "Dumbbell side lateral", "Dumbbell Lateral Raise"],
+  ["Dumbbell Lateral Raise", "Dumbbell side lateral", "Dumbell side lateral", "Dumbbell Lateral Raise"],
   ["Machine Seated Chest Press", "Prime flat machine chest press", "Machine Seated Chest Press"],
   ["Machine Assisted Dip", "Dip machine / assisted dips", "Assisted dip machine", "Machine Assisted Dip"],
   ["Cable Single-Arm Lateral Raise", "Single arm cuffed lateral", "Cable Single-Arm Lateral Raise"],
   ["Cable Rope Straight Arm Pull Down", "Rope pullover", "Cable Rope Straight Arm Pull Down"],
-  ["Cable Lat Pull Down Single-Arm", "Single arm prone cable pulldown", "Cable Lat Pull Down Single-Arm"],
+  ["Cable Lat Pull Down Single-Arm", "Single arm prone cable pulldown", "Single arm prone cable pull down", "Cable Lat Pull Down Single-Arm"],
   ["Cable Single-Arm Row", "Single arm seated row", "Single-arm seated row", "Single arm seated row lat bias", "Single-arm seated row - lat bias", "Cable Single-Arm Row"],
-  ["Cable Lat Pull Down Wide-Grip", "Upper back bias cable pulldown", "Upper-back-biased cable pulldown", "Cable Lat Pull Down Wide-Grip"],
-  ["Machine T-Bar Row", "Upper back bias T-bar row", "Machine T-Bar Row"],
+  ["Cable Lat Pull Down Wide-Grip", "Upper back bias cable pulldown", "Upper back bias pulldown on cable pulldown", "Upper-back-biased cable pulldown", "Cable Lat Pull Down Wide-Grip"],
+  ["Machine T-Bar Row", "Upper back bias T-bar row", "Upper back bias tbar row", "Machine T-Bar Row"],
   ["Barbell Deadlift", "Deadlift", "Barbell Deadlift"],
-  ["Cable Upright Rear Delt Fly", "Rear delt pulldown with D handles", "Rear-delt pulldown using D-handles", "Cable Upright Rear Delt Fly"],
+  ["Cable Upright Rear Delt Fly", "Rear delt pulldown with D handles", "Rear-delt pulldown using D-handles", "Rear delt pull down using d handles on cybex machine", "Cable Upright Rear Delt Fly"],
   ["Barbell Romanian Deadlift", "BB RDL", "Barbell RDL", "Barbell Romanian Deadlift"],
   ["Machine Row", "Prime pin stack row", "Machine Row"],
   ["Machine Wide-Grip Row", "Nautilus leverage row", "Machine Wide-Grip Row"],
-  ["Machine High Row (MTS Row)", "Single arm Nautilus row", "Machine High Row (MTS Row)"],
+  ["Machine High Row (MTS Row)", "Single arm Nautilus row", "Single arm row nautilus lat bias", "Machine High Row (MTS Row)"],
   ["Smith Machine Shrug", "Smith machine shrugs", "Smith Machine Shrug"],
-  ["Leg Press Calf Raise", "Toe press superset with standing calf raise", "Toe press", "Toe press on leg press", "Toe press on leg-press machine", "Leg Press Calf Raise"],
-  ["Bodyweight Calf Raise", "Standing bodyweight calf raise", "Bodyweight Calf Raise"],
-  ["Machine Seated Calf Raise", "Seated calf machine", "Machine Seated Calf Raise"],
+  ["Leg Press Calf Raise", "Toe press superset with standing calf raise", "Toe press", "Toe press on leg press", "Toe press on leg-press machine", "Toe press on leg press machine", "Leg Press Calf Raise"],
+  ["Bodyweight Calf Raise", "Standing bodyweight calf raise", "Standing bodyweight calve raise", "Bodyweight Calf Raise"],
+  ["Machine Seated Calf Raise", "Seated calf machine", "Seated calve machine", "Machine Seated Calf Raise"],
   ["Dumbbell Romanian Deadlift", "DB RDL", "Dumbbell RDL", "Dumbbell Romanian Deadlift"],
   ["Machine Hip Adduction", "Adductors", "Adductor", "Machine Hip Adduction"],
   ["Machine Hip Thrust (Glute Bridge)", "Glute drive / hip thrust machine", "Glute drive", "Machine Hip Thrust (Glute Bridge)"],
   ["Smith Machine Shoulder Press", "Dead stop smith machine shoulder press", "Smith Machine Shoulder Press"],
   ["EZ-Bar Skull Crusher", "EZ bar incline skull crusher", "EZ-Bar Skull Crusher"],
-  ["Dumbbell Drag Curl", "Seated single arm dumbbell drag bicep curl", "Dumbbell Drag Curl"],
+  ["Dumbbell Drag Curl", "Seated single arm dumbbell drag bicep curl", "Seated single arm dumbell drag bicep curl", "Dumbbell Drag Curl"],
   ["Cable Single-Arm Bicep Curl", "Single arm cable curl", "Single-arm cable curl", "Single arm cable curl facing the stack", "Cable Single-Arm Bicep Curl"],
   ["Bayesian Cable Curl", "Single arm cable curl face away from stack", "Single-arm cable curl facing away from the stack", "Bayesian Cable Curl"],
   ["Cable Rope Tricep Pushdown / Extension", "Dual rope tricep push down", "Dual-rope triceps pushdown", "Dual rope triceps pushdown", "Cable Rope Tricep Pushdown / Extension"],
@@ -228,72 +228,72 @@ const EXERCISE_MATCH_EQUIVALENTS = (() => {
 
 const DEFAULT_TEMPLATES = {
   day1: { title: "Legs A", exercises: [
-    ex("Leg / Hamstring Curl Seated", "8-10 with 2 sec pause on contraction; 12-15 with 3 sec pause on stretch; 6x4 cluster set with 10-15 sec rest."),
-    ex("Hack Squat (Facing Out)", "6-9; 10-15 with 2 sec pause at bottom."),
-    ex("Machine Leg Press (Moving Chair)", "10-12; 12-15 rest-pause set. Rest 20 sec to failure, then rest 40 sec to failure."),
-    ex("Machine Leg Extension superset with Machine Pendulum Squat", "10-12 x 3 with 2 sec pause on contraction each rep. Superset with pendulum: add 20kg and do not lock out at the top for 3/4 reps to failure."),
-    ex("Dumbbell Walking Lunge", "Full track length. Pick a challenging weight that does not compromise balance. 2 sec pause on each lunge."),
+    originalEx("Seated leg curl", "8-10 with 2 sec pause on contraction; 12-15 with 3 sec pause on stretch; 6x4 cluster set with 10-15 sec rest."),
+    originalEx("Hack squat", "6-9; 10-15 with 2 sec pause at bottom."),
+    originalEx("Cybex squat leg press", "10-12; 12-15 rest-pause set. Rest 20 sec to failure, then rest 40 sec to failure."),
+    originalEx("Leg extension superset w/ pendulum", "10-12 x 3 with 2 sec pause on contraction each rep. Superset with pendulum: add 20kg and do not lock out at the top for 3/4 reps to failure."),
+    originalEx("DB walking lunges", "Full track length. Pick a challenging weight that does not compromise balance. 2 sec pause on each lunge."),
   ] },
   day2: { title: "Legs B", exercises: [
-    ex("Machine Leg / Hamstring Curl Prone", "8-10 with 2 sec pause on contraction; 12-15 with 3 sec pause on stretch; 6x4 cluster set with 10-15 sec rest."),
-    ex("Machine Pendulum Squat", "8-10; 4x5 cluster set. Pick a weight that allows up to 15 reps."),
-    ex("Machine Leg Press", "8-10 x 2. Second set: 8-10 reps, 45 sec rest max reps, 30 sec rest max reps, 15 sec rest max reps, 30 sec rest max reps, 45 sec rest max reps."),
-    ex("Machine Leg Extension", "2 giant digressive sets. 8-10 reps, drop 20-30 percent and max reps with 6 sec negative, drop 20-30 percent and max reps with 6 sec positive, drop 20-30 percent and hold isometric contraction as long as possible at mid range. Rest 90-120 sec between sets."),
-    ex("Dumbbell Walking Lunge", "Full track length. Pick a challenging weight that does not compromise balance. 2 sec pause on each lunge."),
+    originalEx("Lying leg curl", "8-10 with 2 sec pause on contraction; 12-15 with 3 sec pause on stretch; 6x4 cluster set with 10-15 sec rest."),
+    originalEx("Pendulum squat", "8-10; 4x5 cluster set. Pick a weight that allows up to 15 reps."),
+    originalEx("Leg hip press", "8-10 x 2. Second set: 8-10 reps, 45 sec rest max reps, 30 sec rest max reps, 15 sec rest max reps, 30 sec rest max reps, 45 sec rest max reps."),
+    originalEx("Leg extension", "2 giant digressive sets. 8-10 reps, drop 20-30 percent and max reps with 6 sec negative, drop 20-30 percent and max reps with 6 sec positive, drop 20-30 percent and hold isometric contraction as long as possible at mid range. Rest 90-120 sec between sets."),
+    originalEx("Lunges", "Full track length. Pick a challenging weight that does not compromise balance. 2 sec pause on each lunge."),
   ] },
   day3: { title: "Push A", exercises: [
-    ex("Machine Rear Delt (Reverse) Fly", "12-15 x 2; 6x4 cluster set with 10-15 sec rest."),
-    ex("Machine Incline Bench Press", "8-10 x 3. Set 1 middle pin, set 2 bottom pin, set 3 top pin. Try to keep the load the same for all 3 sets."),
-    ex("Smith Machine Incline Bench Press", "8-10; 12-15 rest-pause set."),
-    ex("Machine Tricep Press", "8-10; 5x4 cluster set. Tricep biased movement: elbows stop in line with torso and pause each rep in the hole."),
-    ex("Machine Fly (Pec Dec)", "12-15 x 2. 1st rep 6 sec hold, 2nd rep 5 sec hold, 3rd rep 4 sec hold, 4th rep 3 sec hold, 5th rep 2 sec hold, then rep out to failure ideally between 12-15."),
-    ex("Machine Lateral Raise", "12-15 x 3. Pause on contraction for 2 sec each rep."),
+    originalEx("Reverse pec deck", "12-15 x 2; 6x4 cluster set with 10-15 sec rest."),
+    originalEx("Prime incline press", "8-10 x 3. Set 1 middle pin, set 2 bottom pin, set 3 top pin. Try to keep the load the same for all 3 sets."),
+    originalEx("High incline smith press", "8-10; 12-15 rest-pause set."),
+    originalEx("Flex leverage press", "8-10; 5x4 cluster set. Tricep biased movement: elbows stop in line with torso and pause each rep in the hole."),
+    originalEx("Pec deck", "12-15 x 2. 1st rep 6 sec hold, 2nd rep 5 sec hold, 3rd rep 4 sec hold, 4th rep 3 sec hold, 5th rep 2 sec hold, then rep out to failure ideally between 12-15."),
+    originalEx("Lateral raise machine", "12-15 x 3. Pause on contraction for 2 sec each rep."),
   ] },
   day4: { title: "Push B", exercises: [
-    ex("Machine Rear Delt (Reverse) Fly", "12-15 x 2; 6x4 cluster set with 10-15 sec rest."),
-    ex("Dumbbell Lateral Raise", "10-12 with 2 sec hold at top; 12-15 with 2 sec hold at top; 15-20 with no pause."),
-    ex("Smith Machine Incline Bench Press", "8-10; 10-12. Use 4 sec eccentrics, deep reps, free scapula, correct elbow path and posture."),
-    ex("Machine Seated Chest Press", "8-10; 10-12. Use 3121 tempo with micro pause in stretch and peak contraction."),
-    ex("Machine Assisted Dip", "10-12 with 2 sec peak contraction and 1 sec stretch; 12-15; 15-20."),
-    ex("Cable Single-Arm Lateral Raise", "10-12 with micro pause top and bottom; 12-15 rest-pause."),
+    originalEx("Reverse pec deck", "12-15 x 2; 6x4 cluster set with 10-15 sec rest."),
+    originalEx("Dumbell side lateral", "10-12 with 2 sec hold at top; 12-15 with 2 sec hold at top; 15-20 with no pause."),
+    originalEx("High incline smith machine press", "8-10; 10-12. Use 4 sec eccentrics, deep reps, free scapula, correct elbow path and posture."),
+    originalEx("Prime flat machine chest press", "8-10; 10-12. Use 3121 tempo with micro pause in stretch and peak contraction."),
+    originalEx("Dip machine / assisted dips", "10-12 with 2 sec peak contraction and 1 sec stretch; 12-15; 15-20."),
+    originalEx("Single arm cuffed lateral", "10-12 with micro pause top and bottom; 12-15 rest-pause."),
   ] },
   day5: { title: "Pull A", exercises: [
-    ex("Cable Rope Straight Arm Pull Down", "15-20; 6x4 cluster set."),
-    ex("Cable Lat Pull Down Single-Arm", "10-12 with 2 sec hold on contraction; 12-15 no hold. Lat bias, do not let shoulder extend, stretch through full arm extension."),
-    ex("Cable Single-Arm Row", "8-10; 12-15. Lat bias, turn torso slightly away from the working arm, micro pause top and bottom."),
-    ex("Cable Lat Pull Down Wide-Grip", "8-10; 6x6 descending set. Start with previous 8-10 load, do 6 reps, drop 1 pin and repeat until 6 drops / 36 reps total."),
-    ex("Machine T-Bar Row", "8-10; 5x4 cluster. Upper back bias, hold 2 sec stretch and push chest away into stretch."),
-    ex("Barbell Deadlift", "10-15."),
-    ex("Cable Upright Rear Delt Fly", "10-12; 12-15 rest-pause. D-handles, shoulders in front of ears, no retraction, drive elbows out and round, 3121 tempo."),
+    originalEx("Rope pullover", "15-20; 6x4 cluster set."),
+    originalEx("Single arm prone cable pull down", "10-12 with 2 sec hold on contraction; 12-15 no hold. Lat bias, do not let shoulder extend, stretch through full arm extension."),
+    originalEx("Single arm seated row lat bias", "8-10; 12-15. Turn torso slightly away from the working arm, micro pause top and bottom."),
+    originalEx("Upper back bias pulldown on cable pulldown", "8-10; 6x6 descending set. Start with previous 8-10 load, do 6 reps, drop 1 pin and repeat until 6 drops / 36 reps total."),
+    originalEx("Upper back bias tbar row", "8-10; 5x4 cluster. Hold 2 sec stretch and push chest away into stretch."),
+    originalEx("Deadlift", "10-15."),
+    originalEx("Rear delt pull down using d handles on cybex machine", "10-12; 12-15 rest-pause. Shoulders in front of ears, no retraction, drive elbows out and round, 3121 tempo."),
   ] },
   day6: { title: "Pull B", exercises: [
-    ex("Cable Lat Pull Down Single-Arm", "12-15 with 2 sec hold on contraction; 12-15 no hold. Lat bias, do not let shoulder extend, stretch through full arm extension."),
-    ex("Barbell Romanian Deadlift", "8-10. 4 sec eccentrics, 2 sec pause in stretch, keep 1 rep in reserve."),
-    ex("Machine Row", "8-10 with 2 sec hold on contraction; 5x4 cluster no hold."),
-    ex("Machine Wide-Grip Row", "8-10 with 2 sec pause on contraction; 12-15 with 2 sec stretch."),
-    ex("Machine High Row (MTS Row)", "10-12 with 2 sec stretch; 12-15 with 2 sec contraction."),
-    ex("Smith Machine Shrug", "8-10 with 2 sec squeeze on contraction; 10-12 double drop set no hold."),
+    originalEx("Single arm prone cable pull down", "12-15 with 2 sec hold on contraction; 12-15 no hold. Lat bias, do not let shoulder extend, stretch through full arm extension."),
+    originalEx("BB RDL", "8-10. 4 sec eccentrics, 2 sec pause in stretch, keep 1 rep in reserve."),
+    originalEx("Prime pin stack row", "8-10 with 2 sec hold on contraction; 5x4 cluster no hold."),
+    originalEx("Nautilus leverage row", "8-10 with 2 sec pause on contraction; 12-15 with 2 sec stretch."),
+    originalEx("Single arm row nautilus lat bias", "10-12 with 2 sec stretch; 12-15 with 2 sec contraction."),
+    originalEx("Smith machine shrugs", "8-10 with 2 sec squeeze on contraction; 10-12 double drop set no hold."),
   ] },
   day7: { title: "Hamstring / Calves", exercises: [
-    ex("Leg Press Calf Raise", "15-20 x 3 with 2 sec squeeze. Superset with standing bodyweight calf raise to failure."),
-    ex("Bodyweight Calf Raise", "To failure as the second part of the toe press superset."),
-    ex("Machine Seated Calf Raise", "20 x 3. First 10 reps slow with pauses on stretch and squeeze, then 10 reps quick. Increase weight each set and drop set on last set."),
-    ex("Machine Leg / Hamstring Curl Prone", "8-10; 12-15; 5x4 cluster set."),
-    ex("Leg / Hamstring Curl Seated", "8-10; 10-12. 2 sec stretch on each rep for both sets."),
-    ex("Dumbbell Romanian Deadlift", "10-12; 12-15. 2 sec stretch on each rep for both sets."),
-    ex("Machine Hip Adduction", "10-15 x 2. 2 sec stretch on each rep for both sets."),
-    ex("Machine Hip Thrust (Glute Bridge)", "8-10; 15-20. Micro pause on stretch and squeeze each rep."),
+    originalEx("Toe press on leg press machine", "15-20 x 3 with 2 sec squeeze. Superset with standing bodyweight calve raise to failure."),
+    originalEx("Standing bodyweight calve raise", "To failure as the second part of the toe press superset."),
+    originalEx("Seated calve machine", "20 x 3. First 10 reps slow with pauses on stretch and squeeze, then 10 reps quick. Increase weight each set and drop set on last set."),
+    originalEx("Lying hamstring curl", "8-10; 12-15; 5x4 cluster set."),
+    originalEx("Seated hamstring curl", "8-10; 10-12. 2 sec stretch on each rep for both sets."),
+    originalEx("DB RDL", "10-12; 12-15. 2 sec stretch on each rep for both sets."),
+    originalEx("Adductors", "10-15 x 2. 2 sec stretch on each rep for both sets."),
+    originalEx("Glute drive/hip thrust machine", "8-10; 15-20. Micro pause on stretch and squeeze each rep."),
   ] },
   day8: { title: "Delts / Arms", exercises: [
-    ex("Machine Lateral Raise", "8-10; 12-15; 6x6 descending set. Start with the first set load, do 6 reps, drop 1 pin and repeat until 6 drops / 36 reps total."),
-    ex("Smith Machine Shoulder Press", "10-12; 5x4 cluster. Dead stop reps with stopper set around lip/nose height."),
-    ex("EZ-Bar Skull Crusher", "8-10; 10-12. 3 sec pause in stretch each set, grip just outside shoulder width."),
-    ex("Dumbbell Drag Curl", "12-15 x 2. Bench at 65 degrees, torso locked in. Once you fail, hammer curl to failure again."),
-    ex("Machine Assisted Dip", "10-12; 12-15. Stay upright with 3 sec in stretch and no leaning forward, all tension on triceps."),
-    ex("Cable Single-Arm Bicep Curl", "8-10 facing the stack with 2 sec peak contraction; 10-12 facing the stack with 2 sec peak contraction; 10-12 facing away from the stack with 2 sec stretch."),
-    ex("Cable Rope Tricep Pushdown / Extension", "8-10; 10-12; 12-15. Hold contraction at top 2 sec on all sets."),
-    ex("Machine Alternate Arm Curl", "8-10; 10-12; 15-20. Perfect reps, no momentum, 2 sec hold in peak contraction."),
-    ex("Cable Single-Arm Overhead Tricep Extension Low", "8-10; 12-15; 15-20. 2 sec pause in stretch every rep."),
+    originalEx("Lateral raise machine", "8-10; 12-15; 6x6 descending set. Start with the first set load, do 6 reps, drop 1 pin and repeat until 6 drops / 36 reps total."),
+    originalEx("Dead stop smith machine shoulder press", "10-12; 5x4 cluster. Set stopper at height so bar reaches around lip/nose height."),
+    originalEx("EZ bar incline skull crusher", "8-10; 10-12. 3 sec pause in stretch each set, grip just outside shoulder width."),
+    originalEx("Seated single arm dumbell drag bicep curl", "12-15 x 2. Bench at 65 degrees, torso locked in. Once you fail, hammer curl to failure again."),
+    originalEx("Assisted Dip machine", "10-12; 12-15. Stay upright with 3 sec in stretch and no leaning forward, all tension on triceps."),
+    originalEx("Single arm cable curl", "8-10 facing the stack with 2 sec peak contraction; 10-12 facing the stack with 2 sec peak contraction; 10-12 facing away from the stack with 2 sec stretch."),
+    originalEx("Dual rope tricep push down", "8-10; 10-12; 12-15. Hold contraction at top 2 sec on all sets."),
+    originalEx("Single arm nautilus machine", "8-10; 10-12; 15-20. Perfect reps, no momentum, 2 sec hold in peak contraction."),
+    originalEx("Single arm cable overhead extension", "8-10; 12-15; 15-20. 2 sec pause in stretch every rep."),
   ] },
 };
 const DEFAULT_TEMPLATE_RESET_KEYS = new Set(["day1", "day2", "day3", "day4", "day5", "day6", "day7", "day8"]);
@@ -303,6 +303,7 @@ let saveFeedbackReady = false;
 let saveFeedbackTimer = 0;
 let lastSaveTrigger = null;
 let lastSaveTriggerAt = 0;
+let appToastTimer = 0;
 let calendarScrollTimer = 0;
 const tabCloseTimers = new WeakMap();
 const openExerciseCards = new Set();
@@ -342,6 +343,10 @@ let startupDetailsCollapsed = false;
 function ex(name, notes, targets = []) {
   const displayName = motraExerciseName(name);
   return { id: `ex-${slug(name)}`, name: displayName, notes, targets: targets.length ? expandStoredTargets(targets) : deriveTargets(displayName, notes) };
+}
+function originalEx(name, notes, targets = []) {
+  const displayName = String(name || "").trim();
+  return { id: `ex-${slug(displayName)}`, name: displayName, notes, preserveName: true, targets: targets.length ? expandStoredTargets(targets) : deriveTargets(displayName, notes) };
 }
 function defaults() {
   return {
@@ -640,6 +645,18 @@ function migrateLoggedWorkoutExerciseNames(workouts = {}, templates = DEFAULT_TE
     return [date, sessions];
   }).filter(([, list]) => list.length));
 }
+function alignWorkoutSessionToPlan(workout, date = todayKey(), templates = state.workoutTemplates, weeklyPlan = state.weeklyPlan) {
+  const split = splitKeyFromWorkout(workout, date, templates, weeklyPlan);
+  const template = split && templates?.[split];
+  if (!template) return workout;
+  const usedIndexes = new Set();
+  return {
+    ...workout,
+    split: workout.split || split,
+    planTitle: workout.planTitle || splitTitleForTemplates(split, templates),
+    exerciseLogs: (workout.exerciseLogs || []).map((log) => ({ ...log, name: exactPlanNameForLog(log, template, usedIndexes) })),
+  };
+}
 function splitTitleForTemplates(key, templates = DEFAULT_TEMPLATES) {
   if (key === "rest") return "Rest";
   if (key === "cardio") return "Cardio";
@@ -650,10 +667,12 @@ function normalizeExercise(exercise, index) {
     const name = motraExerciseName(exercise);
     return { id: `ex-${index}-${exerciseMatchKey(name)}`, name, notes: "", targets: deriveTargets(name, "") };
   }
-  const name = motraExerciseName(exercise?.name || exercise?.title || `Exercise ${index + 1}`);
+  const rawName = String(exercise?.name || exercise?.title || `Exercise ${index + 1}`).trim();
+  const preserveName = Boolean(exercise?.preserveName);
+  const name = preserveName ? rawName : motraExerciseName(rawName);
   const notes = String(exercise?.notes || "");
   const targets = Array.isArray(exercise?.targets) && exercise.targets.length ? expandStoredTargets(exercise.targets) : deriveTargets(name, notes);
-  return { ...exercise, id: String(exercise?.id || `ex-${index}-${exerciseMatchKey(name)}`), name, notes, targets };
+  return { ...exercise, id: String(exercise?.id || `ex-${index}-${exerciseMatchKey(name)}`), name, notes, preserveName, targets };
 }
 function normalizeTitle(title) {
   if (title === "Pull A - Lat Focus") return "Pull A";
@@ -839,6 +858,26 @@ function splitTitle(key) {
   if (key === "rest") return "Rest";
   if (key === "cardio") return "Cardio";
   return state.workoutTemplates[key]?.title || key;
+}
+function cssEscape(value = "") {
+  if (window.CSS?.escape) return CSS.escape(String(value));
+  return String(value).replace(/["\\]/g, "\\$&");
+}
+function originalExerciseDisplayName(name, split = "") {
+  const raw = String(name || "").trim();
+  if (!raw) return "";
+  const templates = [];
+  if (split && DEFAULT_TEMPLATES[split]) templates.push(DEFAULT_TEMPLATES[split]);
+  templates.push(...Object.values(DEFAULT_TEMPLATES));
+  for (const template of templates) {
+    const exact = (template.exercises || []).find((exercise) => slug(exercise.name) === slug(raw));
+    if (exact) return exact.name;
+  }
+  for (const template of templates) {
+    const matched = (template.exercises || []).find((exercise) => exerciseNamesMatch(raw, exercise.name));
+    if (matched) return matched.name;
+  }
+  return raw;
 }
 function plannedSplitForToday() {
   const planned = state.weeklyPlan.assignments[weekdayIndex()] || "day1";
@@ -1268,6 +1307,7 @@ function runMealLibraryAddFeedback(button, action) {
     return;
   }
   flashMealAdded(button);
+  showAppToast("Meal added to today", "saved");
   setTimeout(action, 420);
 }
 function isDeleteButton(button) {
@@ -1275,12 +1315,35 @@ function isDeleteButton(button) {
   if (button.classList?.contains("danger-button")) return true;
   return Object.keys(button.dataset || {}).some((key) => key.toLowerCase().startsWith("delete"));
 }
+function showAppToast(message = "Saved", type = "saved") {
+  if (!saveFeedbackReady || !message) return;
+  let toast = $("#app-toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "app-toast";
+    toast.className = "app-toast";
+    toast.setAttribute("role", "status");
+    toast.setAttribute("aria-live", "polite");
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.className = `app-toast ${type} show`;
+  clearTimeout(appToastTimer);
+  appToastTimer = setTimeout(() => {
+    toast.classList.remove("show");
+  }, 1500);
+}
 function showSaveFeedback() {
   if (!saveFeedbackReady) return;
   const trigger = lastSaveTrigger?.isConnected && Date.now() - lastSaveTriggerAt < 3000 ? lastSaveTrigger : null;
   if (trigger) {
-    if (isDeleteButton(trigger)) flashDeleted(trigger);
-    else flashSaved(trigger);
+    if (isDeleteButton(trigger)) {
+      flashDeleted(trigger);
+      showAppToast("Deleted", "deleted");
+    } else {
+      flashSaved(trigger);
+      showAppToast("Saved", "saved");
+    }
   }
   clearTimeout(saveFeedbackTimer);
   saveFeedbackTimer = setTimeout(() => {
@@ -1891,12 +1954,64 @@ function ensureDraft(split = selectedSplit()) {
   state.workoutDrafts[key] = draft;
   return draft;
 }
+function workoutProgressData(logs = []) {
+  const total = logs.length;
+  const complete = logs.filter((log) => exerciseLogStatus(log).status === "complete").length;
+  const partial = logs.filter((log) => exerciseLogStatus(log).status === "partial").length;
+  const next = logs.find((log) => exerciseLogStatus(log).status !== "complete") || logs[0] || null;
+  const openId = [...openExerciseCards][0] || "";
+  const current = logs.find((log) => String(log.exerciseId) === String(openId)) || next;
+  const pct = total ? Math.round((complete / total) * 100) : 0;
+  return { total, complete, partial, next, current, pct };
+}
+function nextExerciseAfter(logs = [], currentId = "") {
+  const currentIndex = logs.findIndex((log) => String(log.exerciseId) === String(currentId));
+  const ordered = currentIndex >= 0 ? [...logs.slice(currentIndex + 1), ...logs.slice(0, currentIndex + 1)] : logs;
+  return ordered.find((log) => exerciseLogStatus(log).status !== "complete") || null;
+}
+function guidedWorkoutHtml(draft, logs = []) {
+  const progress = workoutProgressData(logs);
+  const current = progress.current;
+  const previous = current ? latestExerciseSets(current.name, draft.startedAt) : null;
+  const currentStatus = current ? exerciseLogStatus(current) : null;
+  const currentMeta = current ? `${currentStatus.label} / ${targetRepText(current.targets || [])}` : "No workout planned";
+  const nextLabel = current ? current.name : "Rest day";
+  return `<div class="guided-workout-card wide">
+    <div class="guided-workout-head">
+      <div>
+        <span>Guided workout</span>
+        <strong>${escapeHtml(nextLabel)}</strong>
+        <small>${escapeHtml(currentMeta)}</small>
+      </div>
+      <div class="guided-score"><strong>${fmt(progress.complete)}/${fmt(progress.total)}</strong><span>done</span></div>
+    </div>
+    <div class="guided-progress"><span style="width:${progress.pct}%"></span></div>
+    <div class="guided-meta-grid">
+      <span><small>Previous</small><strong>${previous ? escapeHtml(setSummary(previous.sets)) : "No previous sets"}</strong></span>
+      <span><small>Open</small><strong>${current ? escapeHtml(current.name) : "None"}</strong></span>
+    </div>
+    <div class="guided-actions">
+      <button class="primary" data-open-workout-exercise="${escapeHtml((current || progress.next)?.exerciseId || "")}" type="button">${openExerciseCards.size ? "Open current" : "Start workout"}</button>
+      <button class="secondary" data-open-next-exercise type="button">Next unfinished</button>
+    </div>
+  </div>`;
+}
+function openWorkoutExercise(exerciseId = "") {
+  if (!exerciseId) return;
+  setOpenExerciseCard(exerciseId);
+  renderWorkoutEditor();
+  requestAnimationFrame(() => {
+    const card = document.querySelector(`.exercise-log[data-exercise-id="${cssEscape(exerciseId)}"]`);
+    card?.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+}
 function renderWorkoutEditor() {
   const split = selectedSplit();
   const draft = ensureDraft(split);
   const logs = draft.exerciseLogs || [];
   $("#workout-editor").innerHTML = logs.length ? `
     ${trainingTermsHtml()}
+    ${guidedWorkoutHtml(draft, logs)}
     ${logs.map((log) => {
       const previous = latestExerciseSets(log.name, draft.startedAt);
       const progress = exerciseLogStatus(log);
@@ -2014,7 +2129,7 @@ function personalRecords(limit = 10) {
     for (const log of workout.exerciseLogs || []) {
       const key = exerciseMatchKey(log.name);
       if (!key || !log.sets?.length) continue;
-      const current = grouped.get(key) || { name: motraExerciseName(log.name), bestSet: null, bestReps: 0, bestVolume: 0, bestEst1rm: 0, dates: [] };
+      const current = grouped.get(key) || { name: originalExerciseDisplayName(log.name, workout.split), bestSet: null, bestReps: 0, bestVolume: 0, bestEst1rm: 0, dates: [] };
       const summary = summarizeExerciseLog({ log });
       current.dates.push(workout.date);
       if (summary.bestSet && (!current.bestSet || rawNum(summary.bestSet.weightKg) > rawNum(current.bestSet.weightKg) || (rawNum(summary.bestSet.weightKg) === rawNum(current.bestSet.weightKg) && num(summary.bestSet.reps) > num(current.bestSet.reps)))) current.bestSet = { ...summary.bestSet, date: workout.date };
@@ -2047,7 +2162,7 @@ function setResultText(set) {
 }
 function performanceComparisonNote(name, current, previous, source = "saved") {
   if (!current || !previous) return "";
-  const exercise = motraExerciseName(name);
+  const exercise = originalExerciseDisplayName(name);
   const currentWeight = rawNum(current.weightKg);
   const previousWeight = rawNum(previous.weightKg);
   const currentReps = num(current.reps);
@@ -3817,8 +3932,9 @@ function importMotraPreview() {
   for (const workout of motraImportPreview) {
     const key = motraWorkoutKey(workout);
     if (existing.has(key)) { skipped += 1; continue; }
-    const session = motraSessionFromWorkout(workout, batchId, sourceName);
+    let session = motraSessionFromWorkout(workout, batchId, sourceName);
     const date = metricDateKey(session);
+    session = alignWorkoutSessionToPlan(session, date);
     state.workouts[date] = [session, ...(state.workouts[date] || [])];
     existing.add(key);
     added += 1;
@@ -4534,6 +4650,17 @@ function bind() {
       return;
     }
     if (button.dataset.view) setView(button.dataset.view);
+    if (button.dataset.startWorkout !== undefined) {
+      state.settings.selectedSplit = selectedSplit(true);
+      state.settings.selectedSplitDate = todayKey();
+      setView("log");
+      const draft = ensureDraft(state.settings.selectedSplit);
+      const first = workoutProgressData(draft.exerciseLogs || []).next;
+      if (first) setOpenExerciseCard(first.exerciseId);
+      render();
+      requestAnimationFrame(() => document.querySelector(".exercise-log[open]")?.scrollIntoView({ behavior: "smooth", block: "center" }));
+      return;
+    }
     if (button.dataset.logToday !== undefined) { state.settings.selectedSplit = selectedSplit(true); state.settings.selectedSplitDate = todayKey(); setView("log"); render(); }
     if (button.dataset.addSavedMeal) {
       const meal = (state.savedMeals || []).find((item) => item.id === button.dataset.addSavedMeal);
@@ -4617,8 +4744,10 @@ function bind() {
       if (!reps && !weightKg) return;
       const selectedTarget = getTarget(log.targets || [], card.querySelector('select[name="targetId"]')?.value || "");
       log.sets = [...(log.sets || []), { id: uid(), reps, weightKg, targetId: selectedTarget?.id || "", targetLabel: selectedTarget?.label || "Working set", targetDetails: selectedTarget?.details || "", createdAt: Date.now() }];
-      setOpenExerciseCard(log.exerciseId);
+      const nextLog = exerciseLogStatus(log).status === "complete" ? nextExerciseAfter(draft.exerciseLogs, log.exerciseId) : null;
+      setOpenExerciseCard(nextLog?.exerciseId || log.exerciseId);
       save(); renderWorkoutEditor();
+      if (nextLog) showAppToast(`Next: ${nextLog.name}`, "saved");
     }
     if (button.dataset.deleteSet) {
       const draft = ensureDraft(selectedSplit());
@@ -4626,6 +4755,18 @@ function bind() {
       if (log) log.sets = (log.sets || []).filter((set) => set.id !== button.dataset.deleteSet);
       if (log) setOpenExerciseCard(log.exerciseId);
       save(); renderWorkoutEditor();
+    }
+    if (button.dataset.openWorkoutExercise !== undefined) {
+      openWorkoutExercise(button.dataset.openWorkoutExercise);
+      return;
+    }
+    if (button.dataset.openNextExercise !== undefined) {
+      const draft = ensureDraft(selectedSplit());
+      const openId = [...openExerciseCards][0] || "";
+      const nextLog = nextExerciseAfter(draft.exerciseLogs || [], openId) || (draft.exerciseLogs || []).find((log) => exerciseLogStatus(log).status !== "complete");
+      if (nextLog) openWorkoutExercise(nextLog.exerciseId);
+      else showAppToast("Workout complete", "saved");
+      return;
     }
     if (button.dataset.cycleDay !== undefined) {
       const day = button.dataset.cycleDay;
@@ -4652,9 +4793,9 @@ function bind() {
     if (button.dataset.addExercise) {
       const key = button.dataset.addExercise;
       const input = button.closest(".split-card")?.querySelector("[data-new-exercise]");
-      const name = motraExerciseName(input?.value);
+      const name = String(input?.value || "").trim();
       if (!name) return;
-      state.workoutTemplates[key].exercises.push({ id: `ex-${Date.now()}-${exerciseMatchKey(name)}`, name, notes: "", targets: [] });
+      state.workoutTemplates[key].exercises.push({ id: `ex-${Date.now()}-${exerciseMatchKey(name)}`, name, notes: "", preserveName: true, targets: [] });
       input.value = "";
       save(); render();
     }
@@ -4700,7 +4841,8 @@ function bind() {
     if (el.dataset?.exerciseName) {
       const exercise = state.workoutTemplates[el.dataset.exerciseName]?.exercises.find((item) => item.id === el.dataset.exerciseId);
       if (exercise) {
-        exercise.name = motraExerciseName(el.value);
+        exercise.name = String(el.value || "").trim();
+        exercise.preserveName = true;
         exercise.targets = deriveTargets(exercise.name, exercise.notes || "");
       }
     }
