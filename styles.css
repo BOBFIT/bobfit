@@ -1728,6 +1728,13 @@ button.delete-pulse {
   text-transform: none;
 }
 .picker-row input { width: auto; min-height: auto; }
+.picker-row.is-disabled {
+  opacity: 0.48;
+  filter: grayscale(0.2);
+}
+.picker-row.is-disabled label {
+  cursor: not-allowed;
+}
 .dose-card, .compound-card, .calc-result {
   display: grid;
   gap: 9px;

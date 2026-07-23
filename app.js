@@ -1080,9 +1080,27 @@ function timingLabel(value) {
 function timingOptionsHtml(selected = "") {
   return PEPTIDE_TIMINGS.map(([key, label]) => `<option value="${escapeHtml(key)}"${key === selected ? " selected" : ""}>${escapeHtml(label)}</option>`).join("");
 }
+function frequencyOptionsHtml(selected = "custom") {
+  const selectedValue = String(selected || "custom");
+  const options = [`<option value="custom"${selectedValue === "custom" ? " selected" : ""}>Custom weekdays</option>`];
+  for (let days = 1; days <= 14; days += 1) {
+    options.push(`<option value="${days}"${selectedValue === String(days) ? " selected" : ""}>${days === 1 ? "Every day" : `Every ${days} days`}</option>`);
+  }
+  return options.join("");
+}
+function cycleFrequencyDays(cycle = {}) {
+  const value = Number(cycle.frequencyDays);
+  return Number.isFinite(value) && value >= 1 ? Math.min(365, Math.round(value)) : 0;
+}
+function cycleFrequencyLabel(cycle = {}) {
+  const days = cycleFrequencyDays(cycle);
+  if (!days) return cycleDaysText(cycle.days || []);
+  return days === 1 ? "Every day" : `Every ${days} days`;
+}
 function normalizeCycle(cycle) {
   if (!cycle?.peptideId || !cycle?.startDate || !cycle?.endDate) return null;
   const compound = compoundById(cycle.peptideId);
+  const frequencyDays = cycleFrequencyDays(cycle);
   return {
     id: String(cycle.id || uid()),
     peptideId: compound.id,
@@ -1093,6 +1111,7 @@ function normalizeCycle(cycle) {
     doseMg: rawNum(cycle.doseMg),
     vialMg: rawNum(cycle.vialMg || compound.vialMg),
     diluentMl: rawNum(cycle.diluentMl || compound.diluentMl),
+    frequencyDays,
     days: Array.isArray(cycle.days) ? cycle.days.map(Number).filter((day) => day >= 0 && day <= 6) : [],
     timings: Array.isArray(cycle.timings) ? cycle.timings.filter((time) => PEPTIDE_TIMINGS.some(([key]) => key === time)) : [],
     endedAt: isDateKey(cycle.endedAt) ? String(cycle.endedAt) : "",
@@ -1140,7 +1159,13 @@ function cycleIsActive(cycle, date = todayKey()) {
   return String(cycle.startDate) <= date && String(cycle.endDate) >= date;
 }
 function cycleDueOn(cycle, date = todayKey()) {
-  return cycleIsActive(cycle, date) && (cycle.days || []).includes(weekdayIndex(parseDay(date) || new Date()));
+  if (!cycleIsActive(cycle, date)) return false;
+  const frequency = cycleFrequencyDays(cycle);
+  if (frequency) {
+    const offset = daysBetween(cycle.startDate, date);
+    return offset >= 0 && offset % frequency === 0;
+  }
+  return (cycle.days || []).includes(weekdayIndex(parseDay(date) || new Date()));
 }
 function doseAmountToMg(amount, unit = "mg") {
   const value = rawNum(amount);
@@ -2309,15 +2334,18 @@ function hydratePeptideControls() {
   cycleSelect.value = selectedCycle;
   calcSelect.value = peptideCompounds.some((item) => item.id === selectedCalc) ? selectedCalc : peptideCompounds[0]?.id || "";
   logSelect.value = selectedLog;
+  const cycleForm = $("#peptide-cycle-form");
+  const selectedFrequency = cycleForm.elements.frequencyDays?.value || "custom";
+  if (cycleForm.elements.frequencyDays) cycleForm.elements.frequencyDays.innerHTML = frequencyOptionsHtml(selectedFrequency);
   const dayPicker = $("#cycle-day-picker");
   const selectedDays = new Set($$("#cycle-day-picker input:checked").map((input) => input.value));
   dayPicker.innerHTML = WEEK_DAYS.map((day, index) => `<label><input name="cycleDays" type="checkbox" value="${index}"${selectedDays.has(String(index)) ? " checked" : ""} />${day}</label>`).join("");
   const timePicker = $("#cycle-time-picker");
   const selectedTimes = new Set($$("#cycle-time-picker input:checked").map((input) => input.value));
   timePicker.innerHTML = PEPTIDE_TIMINGS.map(([key, label]) => `<label><input name="cycleTimes" type="checkbox" value="${escapeHtml(key)}"${selectedTimes.has(key) ? " checked" : ""} />${escapeHtml(label)}</label>`).join("");
-  const cycleForm = $("#peptide-cycle-form");
   if (!cycleForm.elements.startDate.value) cycleForm.elements.startDate.value = todayKey();
   if (!cycleForm.elements.endDate.value) cycleForm.elements.endDate.value = cycleEndDate(cycleForm.elements.startDate.value, cycleForm.elements.weeks.value);
+  updateCycleFrequencyUi(cycleForm);
   applyCompoundDefaults(cycleForm, cycleSelect.value, false);
   const calcForm = $("#reconstitution-form");
   applyCompoundDefaults(calcForm, calcSelect.value, false);
@@ -2343,6 +2371,15 @@ function syncFixedDiluent(form, compound = compoundById(form?.elements?.peptideI
   const water = fixedBacWaterMl(form.elements.vialMg?.value || compound.vialMg, compound.id);
   diluent.readOnly = true;
   diluent.value = water ? String(Number(water.toFixed(3))) : "";
+}
+function updateCycleFrequencyUi(form = $("#peptide-cycle-form")) {
+  if (!form?.elements?.frequencyDays) return;
+  const custom = form.elements.frequencyDays.value === "custom";
+  const picker = $("#cycle-day-picker");
+  picker?.classList.toggle("is-disabled", !custom);
+  picker?.querySelectorAll("input").forEach((input) => { input.disabled = !custom; });
+  const title = picker?.closest(".wide")?.querySelector(".field-title");
+  if (title) title.textContent = custom ? "Dosage days" : "Dosage days (auto from frequency)";
 }
 function cycleLogs(cycle) {
   return (state.peptideLogs || []).filter((log) => {
@@ -2399,7 +2436,7 @@ function renderPeptideDashboard() {
       <div class="dose-card-head">
         <div>
           <strong>${escapeHtml(compoundName(cycle.peptideId))}</strong>
-          <small>${escapeHtml(status)} / ${escapeHtml(dateLabel(cycle.startDate))} to ${escapeHtml(dateLabel(cycle.endDate))}</small>
+          <small>${escapeHtml(status)} / ${escapeHtml(cycleFrequencyLabel(cycle))} / ${escapeHtml(dateLabel(cycle.startDate))} to ${escapeHtml(dateLabel(cycle.endDate))}</small>
         </div>
         <span class="pill">${data.progress}%</span>
       </div>
@@ -2490,7 +2527,7 @@ function renderPeptideCycles() {
         </div>
       </div>
       <div class="dose-meta">
-        <span class="pill">${escapeHtml(cycleDaysText(cycle.days))}</span>
+        <span class="pill">${escapeHtml(cycleFrequencyLabel(cycle))}</span>
         ${(cycle.timings || []).map((time) => `<span class="pill">${escapeHtml(timingLabel(time))}</span>`).join("")}
         ${calc.ok && calc.drawMl ? `<span class="pill">${fmtDose(calc.drawMl)}ml${calc.type === "peptide" ? ` / ${fmt(calc.drawUnits)} units` : ""}</span>` : ""}
       </div>
@@ -4861,6 +4898,7 @@ function bind() {
       const f = $("#peptide-cycle-form");
       if (f.elements.weeks.value !== "custom") f.elements.endDate.value = cycleEndDate(f.elements.startDate.value, f.elements.weeks.value);
     }
+    if (el.id === "cycle-frequency" && userCanUsePeptides()) updateCycleFrequencyUi($("#peptide-cycle-form"));
   });
   document.addEventListener("toggle", (event) => {
     if (event.target?.matches?.("details") && event.target.open) {
@@ -4925,6 +4963,7 @@ function bind() {
       const f = $("#peptide-cycle-form");
       if (f.elements.weeks.value !== "custom") f.elements.endDate.value = cycleEndDate(f.elements.startDate.value, f.elements.weeks.value);
     }
+    if (el.id === "cycle-frequency" && userCanUsePeptides()) updateCycleFrequencyUi($("#peptide-cycle-form"));
   });
   $("#meal-form").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -4967,9 +5006,10 @@ function bind() {
     event.preventDefault();
     if (!userCanUsePeptides()) return;
     const f = event.currentTarget;
-    const days = $$('input[name="cycleDays"]:checked').map((input) => Number(input.value));
+    const frequencyDays = f.elements.frequencyDays?.value || "custom";
+    const days = frequencyDays === "custom" ? $$('input[name="cycleDays"]:checked').map((input) => Number(input.value)) : [];
     const timings = $$('input[name="cycleTimes"]:checked').map((input) => input.value);
-    if (!days.length) { alert("Select at least one dosage day."); return; }
+    if (frequencyDays === "custom" && !days.length) { alert("Select at least one dosage day, or choose Every day / Every 2 days etc."); return; }
     if (!timings.length) { alert("Select at least one reminder time."); return; }
     const startDate = f.elements.startDate.value || todayKey();
     const weeks = f.elements.weeks.value;
@@ -4983,6 +5023,7 @@ function bind() {
       doseMg: f.elements.doseMg.value,
       vialMg: f.elements.vialMg.value,
       diluentMl: f.elements.diluentMl.value,
+      frequencyDays: frequencyDays === "custom" ? 0 : frequencyDays,
       days,
       timings,
       createdAt: Date.now(),

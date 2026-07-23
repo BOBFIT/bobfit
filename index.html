@@ -11,7 +11,7 @@
     <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="assets/icon.png" />
     <link rel="manifest" href="manifest.webmanifest" />
-    <link rel="stylesheet" href="styles.css?v=107" />
+    <link rel="stylesheet" href="styles.css?v=108" />
   </head>
   <body class="auth-locked">
     <section id="auth-gate" class="auth-gate" aria-live="polite">
@@ -250,6 +250,7 @@
               <label>Start date<input id="cycle-start" name="startDate" type="date" required /></label>
               <label>Run length<select id="cycle-weeks" name="weeks"><option value="4">4 weeks</option><option value="8">8 weeks</option><option value="12">12 weeks</option><option value="custom">Custom</option></select></label>
               <label>End date<input id="cycle-end" name="endDate" type="date" required /></label>
+              <label class="wide">Dose frequency<select id="cycle-frequency" name="frequencyDays"></select><span class="field-hint">Choose every day, every 2 days, every 3 days etc. Custom weekdays uses the day buttons below.</span></label>
               <label>Dose to take per injection, mg<input name="doseMg" type="number" min="0" step="0.001" inputmode="decimal" required /><span class="field-hint">This is the amount you plan to inject each time, from your protocol.</span></label>
               <label>Powder in vial, mg<input name="vialMg" type="number" min="0" step="0.001" inputmode="decimal" /><span class="field-hint">The total dry powder amount printed on the vial before mixing.</span></label>
               <label>Bac water required, ml<input name="diluentMl" type="number" min="0" step="0.1" inputmode="decimal" readonly /><span class="field-hint">Auto set from the calculator rule. NAD+ and Glow Stack use their own fixed overrides.</span></label>
@@ -501,7 +502,7 @@
       <button data-view="settings" type="button">Settings</button>
     </nav>
 
-    <script src="app.js?v=107"></script>
+    <script src="app.js?v=108"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js").catch(() => {}));
