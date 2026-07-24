@@ -233,95 +233,154 @@ const EXERCISE_MATCH_EQUIVALENTS = (() => {
   return map;
 })();
 const JD_KIRKSTALL_SUBSTITUTIONS = {
-  chestPress: [
-    { name: "Vertical Chest Press", equipment: "Vertical Chest Press" },
-    { name: "Vertical Decline Chest Press", equipment: "Vertical Decline Chest Press" },
-    { name: "Chest Press", equipment: "Chest Press x4" },
-    { name: "Smith Machine Incline Bench Press", equipment: "Smith Machine x2 / adjustable bench" },
+  upperChestPress: [
+    { name: "Machine Incline Chest Press", equipment: "Incline chest press pattern" },
     { name: "Olympic Incline Bench Press", equipment: "Olympic Incline Bench Press x2" },
     { name: "Dumbbell Incline Bench Press", equipment: "Dumbbell Set x11 / Adjustable Bench x35" },
+    { name: "Low-Incline Smith Machine Press", equipment: "Smith Machine x2 / Adjustable Bench x35" },
+  ],
+  flatChestPress: [
+    { name: "Vertical Chest Press", equipment: "Vertical Chest Press" },
+    { name: "Chest Press", equipment: "Chest Press x4" },
+    { name: "Olympic Flat Bench Press", equipment: "Olympic Flat Bench Press x4" },
+    { name: "Flat Dumbbell Bench Press", equipment: "Dumbbell Set x11 / Adjustable Bench x35" },
+  ],
+  declineChestPress: [
+    { name: "Vertical Decline Chest Press", equipment: "Vertical Decline Chest Press" },
+    { name: "Olympic Decline Bench Press", equipment: "Olympic Decline Bench Press x2" },
+    { name: "Decline Dumbbell Press", equipment: "Dumbbell Set x11 / Decline Bench x2" },
   ],
   chestFly: [
+    { name: "Pec Fly", equipment: "Pec Fly/Rear Delt x2" },
     { name: "High-to-Low Cable Fly", equipment: "Dual Adjustable Pulley x8" },
     { name: "Cable Crossover Fly", equipment: "Cable Tower / 8-Stack Multi Station" },
-    { name: "Pec Fly", equipment: "Pec Fly/Rear Delt x2" },
     { name: "Dumbbell Fly", equipment: "Dumbbell Set x11 / Adjustable Bench x35" },
   ],
-  backVertical: [
-    { name: "Lat Pulldown", equipment: "Lat Pulldown x4" },
+  verticalPullNeutral: [
+    { name: "Close-Grip Lat Pulldown", equipment: "Lat Pulldown x4" },
     { name: "Assisted Neutral-Grip Chin-Up", equipment: "Assisted Chin and Dip x2" },
-    { name: "Chin-Up", equipment: "Chin/Dip Station" },
-    { name: "Straight-Arm Cable Pulldown", equipment: "Cable Tower / Dual Adjustable Pulley x8" },
+    { name: "Neutral-Grip Chin-Up", equipment: "Chin/Dip Station" },
   ],
-  backRow: [
+  verticalPullWide: [
+    { name: "Lat Pulldown", equipment: "Lat Pulldown x4" },
+    { name: "Wide-Grip Lat Pulldown", equipment: "Lat Pulldown x4" },
+    { name: "Assisted Pull-Up", equipment: "Assisted Chin and Dip x2" },
+  ],
+  straightArmPulldown: [
+    { name: "Rope Pullover", equipment: "Cable Tower / Dual Adjustable Pulley x8" },
+    { name: "Straight-Arm Cable Pulldown", equipment: "Cable Tower / Dual Adjustable Pulley x8" },
+    { name: "Dumbbell Pullover", equipment: "Dumbbell Set x11 / Adjustable Bench x35" },
+  ],
+  horizontalRow: [
+    { name: "Chest-Supported Machine Row", equipment: "Seated Row x3" },
     { name: "Seated Row", equipment: "Seated Row x3" },
-    { name: "Chest-Supported Machine Row", equipment: "Seated Row / machine row station" },
     { name: "T-Bar Row", equipment: "T-Bar/Low Row" },
     { name: "Cable Row", equipment: "Cable Tower / Dual Adjustable Pulley x8" },
-    { name: "Barbell Row", equipment: "Barbell Set x4 / racks" },
   ],
-  shoulders: [
+  upperBackRow: [
+    { name: "Machine High Row", equipment: "Seated Row / high row pattern" },
+    { name: "Wide-Grip Seated Row", equipment: "Seated Row x3" },
+    { name: "T-Bar Row", equipment: "T-Bar/Low Row" },
+  ],
+  lateralRaise: [
     { name: "Lateral Raise Machine", equipment: "Lateral Raise x2" },
     { name: "Cable Lateral Raise", equipment: "Dual Adjustable Pulley x8" },
-    { name: "Cable Front Raise", equipment: "Dual Adjustable Pulley x8" },
-    { name: "Shoulder Press Machine", equipment: "Shoulder Press x2" },
     { name: "Dumbbell Lateral Raise", equipment: "Dumbbell Set x11" },
-    { name: "Rear Delt Fly", equipment: "Pec Fly/Rear Delt x2" },
   ],
-  biceps: [
-    { name: "Bicep Curl Machine", equipment: "Bicep Curl" },
-    { name: "Preacher Curl", equipment: "Preacher Curl / Standing Preacher Curl" },
-    { name: "Cable Curl", equipment: "Cable Tower / Dual Adjustable Pulley x8" },
-    { name: "Cross-Body Cable Hammer Curl", equipment: "Dual Adjustable Pulley x8" },
+  frontRaise: [
+    { name: "Dumbbell Front Raise", equipment: "Dumbbell Set x11" },
+    { name: "Plate Front Raise", equipment: "Free weights area" },
+    { name: "Single-Arm Cable Front Raise", equipment: "Dual Adjustable Pulley x8" },
+  ],
+  rearDeltFly: [
+    { name: "Reverse Pec Deck", equipment: "Pec Fly/Rear Delt x2" },
+    { name: "Cable Rear Delt Fly", equipment: "Dual Adjustable Pulley x8" },
+    { name: "Dumbbell Rear Delt Fly", equipment: "Dumbbell Set x11 / Adjustable Bench x35" },
+  ],
+  shoulderPress: [
+    { name: "Shoulder Press Machine", equipment: "Shoulder Press x2" },
+    { name: "Smith Machine Shoulder Press", equipment: "Smith Machine x2" },
+    { name: "Dumbbell Shoulder Press", equipment: "Dumbbell Set x11 / Adjustable Bench x35" },
+  ],
+  hammerCurl: [
     { name: "Dumbbell Hammer Curl", equipment: "Dumbbell Set x11" },
+    { name: "Rope Hammer Curl", equipment: "Cable Tower / Dual Adjustable Pulley x8" },
+    { name: "Single-Arm Cable Hammer Curl", equipment: "Dual Adjustable Pulley x8" },
   ],
-  triceps: [
-    { name: "Tricep Extension Machine", equipment: "Tricep Extension" },
+  bicepCurl: [
+    { name: "Bicep Curl Machine", equipment: "Bicep Curl" },
+    { name: "Cable Curl", equipment: "Cable Tower / Dual Adjustable Pulley x8" },
+    { name: "Preacher Curl", equipment: "Preacher Curl / Standing Preacher Curl" },
+    { name: "Dumbbell Curl", equipment: "Dumbbell Set x11" },
+  ],
+  cableTricepsExtension: [
+    { name: "Single-Arm Cable Pushdown", equipment: "Dual Adjustable Pulley x8" },
     { name: "Cable Rope Pushdown", equipment: "Cable Tower / Dual Adjustable Pulley x8" },
-    { name: "Single-Arm Cross-Body Cable Triceps Extension", equipment: "Dual Adjustable Pulley x8" },
+    { name: "Tricep Extension Machine", equipment: "Tricep Extension" },
+  ],
+  overheadTricepsExtension: [
     { name: "Overhead Cable Triceps Extension", equipment: "Cable Tower / Dual Adjustable Pulley x8" },
+    { name: "EZ-Bar Skull Crusher", equipment: "Barbell Set x4 / Adjustable Bench x35" },
+    { name: "Dumbbell Overhead Triceps Extension", equipment: "Dumbbell Set x11" },
+  ],
+  dipTriceps: [
     { name: "Assisted Dip Machine", equipment: "Assisted Chin and Dip x2" },
+    { name: "Tricep Extension Machine", equipment: "Tricep Extension" },
+    { name: "Close-Grip Smith Machine Press", equipment: "Smith Machine x2" },
   ],
-  quads: [
-    { name: "Hack Squat", equipment: "Hack Squat" },
-    { name: "Linear Leg Press", equipment: "Linear Leg Press" },
-    { name: "Seated Leg Press", equipment: "Seated Leg Press x2" },
-    { name: "Leg Extension", equipment: "Leg Extension x2" },
-    { name: "Smith Machine Squat", equipment: "Smith Machine x2" },
-    { name: "Squat Rack", equipment: "Squat Rack x3 / Olympic Half Rack x12" },
-  ],
-  hamstrings: [
+  legCurl: [
     { name: "Lying Leg Curl", equipment: "Lying Leg Curl" },
     { name: "Seated Leg Curl", equipment: "Seated Leg Curl" },
     { name: "Standing Leg Curl", equipment: "Standing Leg Curl" },
+  ],
+  hipHinge: [
     { name: "Barbell Romanian Deadlift", equipment: "Barbell Set x4 / racks" },
     { name: "Dumbbell Romanian Deadlift", equipment: "Dumbbell Set x11" },
     { name: "Back Extension", equipment: "Back Extension / Back Hyperextension" },
   ],
-  calves: [
-    { name: "Standing Calf Raise", equipment: "Standing Calf Raise" },
-    { name: "Seated Calf Raise", equipment: "Seated Calf" },
-    { name: "Calf Press", equipment: "Calf Press" },
-    { name: "Leg Press Calf Raise", equipment: "Linear Leg Press / Seated Leg Press x2" },
-    { name: "Single-Leg Dumbbell Calf Raise", equipment: "Dumbbell Set x11 / steps" },
+  squatPattern: [
+    { name: "Hack Squat", equipment: "Hack Squat" },
+    { name: "Leverage Squat", equipment: "Leverage Squat" },
+    { name: "Smith Machine Squat", equipment: "Smith Machine x2" },
+    { name: "Squat Rack", equipment: "Squat Rack x3 / Olympic Half Rack x12" },
   ],
-  abs: [
+  legPress: [
+    { name: "Linear Leg Press", equipment: "Linear Leg Press" },
+    { name: "Seated Leg Press", equipment: "Seated Leg Press x2" },
+    { name: "Hack Squat", equipment: "Hack Squat" },
+  ],
+  legExtension: [
+    { name: "Leg Extension", equipment: "Leg Extension x2" },
+    { name: "Sissy Squat", equipment: "Functional zone / Sissy Squat x2" },
+  ],
+  standingCalf: [
+    { name: "Standing Calf Raise", equipment: "Standing Calf Raise" },
+    { name: "Leg Press Calf Raise", equipment: "Linear Leg Press / Seated Leg Press x2" },
+    { name: "Smith Machine Calf Raise", equipment: "Smith Machine x2" },
+  ],
+  seatedCalf: [
+    { name: "Seated Calf Raise", equipment: "Seated Calf" },
+    { name: "Seated Calf Press", equipment: "Calf Press" },
+    { name: "Machine Seated Calf Raise", equipment: "Seated Calf" },
+  ],
+  crunchAbs: [
     { name: "Abdominal Crunch Machine", equipment: "Abdominal Crunch" },
     { name: "Cable Crunch", equipment: "Cable Tower / Dual Adjustable Pulley x8" },
-    { name: "Hanging Leg Raise", equipment: "Chin/Dip Station / Rig" },
-    { name: "Reverse Crunch", equipment: "Adjustable Abdominal Bench" },
     { name: "Decline Crunch", equipment: "Adjustable Abdominal Bench" },
   ],
-  glutes: [
+  lowerAbs: [
+    { name: "Hanging Leg Raise", equipment: "Chin/Dip Station / Rig" },
+    { name: "Reverse Crunch", equipment: "Adjustable Abdominal Bench" },
+    { name: "Lying Leg Raise", equipment: "Adjustable Abdominal Bench" },
+  ],
+  hipThrust: [
     { name: "Glute Drive", equipment: "Glute Drive" },
     { name: "Hip Thrust Machine", equipment: "Glute Drive/Hip Thrust" },
     { name: "Smith Machine Hip Thrust", equipment: "Smith Machine x2" },
-    { name: "Cable Pull Through", equipment: "Cable Tower / Dual Adjustable Pulley x8" },
   ],
   general: [
-    { name: "Dumbbell Alternative", equipment: "Dumbbell Set x11 / Adjustable Bench x35" },
     { name: "Cable Alternative", equipment: "Cable Tower / Dual Adjustable Pulley x8" },
-    { name: "Machine Alternative", equipment: "8-Stack Multi Station x2" },
+    { name: "Dumbbell Alternative", equipment: "Dumbbell Set x11 / Adjustable Bench x35" },
   ],
 };
 
@@ -849,25 +908,44 @@ function exerciseNamesMatch(a, b) {
 }
 function substitutionGroupForExercise(name = "") {
   const key = slug(name);
-  if (/(calf|toe-press)/.test(key)) return "calves";
-  if (/(abdominal|ab-crunch|crunch|hanging-leg-raise|leg-raise|reverse-crunch|plank|v-up|dead-bug)/.test(key)) return "abs";
-  if (/(leg-curl|hamstring|rdl|romanian|stiff-leg|good-morning)/.test(key)) return "hamstrings";
-  if (/(hack-squat|leg-press|leg-extension|pendulum|lunge|squat|adductor|abductor|sissy)/.test(key)) return "quads";
-  if (/(glute|hip-thrust|hip-thrust-machine|pull-through)/.test(key)) return "glutes";
-  if (/(bicep|curl|hammer|preacher|bayesian)/.test(key) && !/(leg-curl)/.test(key)) return "biceps";
-  if (/(tricep|skull|pushdown|extension|jm-press|dip)/.test(key) && !/(leg-extension)/.test(key)) return "triceps";
-  if (/(shoulder|lateral|front-raise|rear-delt|y-raise|upright-row)/.test(key)) return "shoulders";
-  if (/(pulldown|pull-down|pull-up|chin|pullover|straight-arm)/.test(key)) return "backVertical";
-  if (/(row|t-bar|tbar|shrug)/.test(key)) return "backRow";
+  if (/(incline.*press|high-incline|prime-incline|smith-machine-incline-bench|machine-incline|olympic-incline)/.test(key)) return "upperChestPress";
+  if (/(decline.*press|vertical-decline|olympic-decline)/.test(key)) return "declineChestPress";
+  if (/(rear-delt|reverse-pec)/.test(key)) return "rearDeltFly";
   if (/(pec|fly|deck)/.test(key)) return "chestFly";
-  if (/(chest|bench|incline|decline|press)/.test(key)) return "chestPress";
+  if (/(flat.*press|chest-press|vertical-chest|bench-press)/.test(key)) return "flatChestPress";
+  if (/(rope-pullover|straight-arm|pullover)/.test(key)) return "straightArmPulldown";
+  if (/(neutral.*pulldown|neutral.*chin|close-grip.*pulldown)/.test(key)) return "verticalPullNeutral";
+  if (/(pulldown|pull-down|pull-up|chin)/.test(key)) return "verticalPullWide";
+  if (/(high-row|upper-back|wide-grip-row)/.test(key)) return "upperBackRow";
+  if (/(row|t-bar|tbar)/.test(key)) return "horizontalRow";
+  if (/(front-raise|y-raise)/.test(key)) return "frontRaise";
+  if (/(lateral)/.test(key)) return "lateralRaise";
+  if (/(shoulder-press|overhead-press)/.test(key)) return "shoulderPress";
+  if (/(hammer|cross-body.*curl)/.test(key)) return "hammerCurl";
+  if (/(bicep|curl|preacher|bayesian)/.test(key) && !/(leg-curl)/.test(key)) return "bicepCurl";
+  if (/(overhead.*tricep|skull|lying-tricep)/.test(key)) return "overheadTricepsExtension";
+  if (/(dip)/.test(key)) return "dipTriceps";
+  if (/(tricep|pushdown|cross-body.*extension)/.test(key) && !/(leg-extension)/.test(key)) return "cableTricepsExtension";
+  if (/(leg-curl|hamstring-curl)/.test(key)) return "legCurl";
+  if (/(rdl|romanian|stiff-leg|good-morning|back-extension)/.test(key)) return "hipHinge";
+  if (/(leg-extension)/.test(key)) return "legExtension";
+  if (/(leg-press|toe-press)/.test(key)) return "legPress";
+  if (/(hack-squat|pendulum|squat|lunge|sissy)/.test(key)) return "squatPattern";
+  if (/(glute|hip-thrust|hip-thrust-machine)/.test(key)) return "hipThrust";
+  if (/(seated-calf|seated-calve)/.test(key)) return "seatedCalf";
+  if (/(standing-calf|calf-raise|calve-raise)/.test(key)) return "standingCalf";
+  if (/(abdominal|ab-crunch|cable-crunch|decline-crunch)/.test(key)) return "crunchAbs";
+  if (/(hanging-leg-raise|leg-raise|reverse-crunch|lower-ab)/.test(key)) return "lowerAbs";
   return "general";
 }
-function substitutionOptionsForExercise(name = "") {
+function substitutionOptionsForExercise(name = "", blockedNames = []) {
   const group = substitutionGroupForExercise(name);
   const options = JD_KIRKSTALL_SUBSTITUTIONS[group] || JD_KIRKSTALL_SUBSTITUTIONS.general;
   const current = slug(name);
-  return options.filter((option) => slug(option.name) !== current).slice(0, 6);
+  return options
+    .filter((option) => slug(option.name) !== current)
+    .filter((option) => !blockedNames.some((blocked) => blocked && exerciseNamesMatch(option.name, blocked)))
+    .slice(0, 5);
 }
 function escapeHtml(v) {
   return String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -2364,9 +2442,13 @@ function openWorkoutExercise(exerciseId = "") {
     card?.scrollIntoView({ behavior: "smooth", block: "center" });
   });
 }
-function exerciseSwapHtml(log) {
+function exerciseSwapHtml(log, logs = []) {
   const plannedName = log.substitutedFrom || log.plannedName || log.name;
-  const options = substitutionOptionsForExercise(plannedName);
+  const blockedNames = logs
+    .filter((entry) => String(entry.exerciseId) !== String(log.exerciseId))
+    .flatMap((entry) => [entry.name, entry.plannedName, entry.substitutedFrom])
+    .filter(Boolean);
+  const options = substitutionOptionsForExercise(plannedName, blockedNames);
   if (!options.length) return "";
   const current = log.substitutedFrom
     ? `<div class="swap-current">
@@ -2378,7 +2460,7 @@ function exerciseSwapHtml(log) {
     <summary>Swap exercise</summary>
     <div class="log-dropdown-body">
       ${current}
-      <p class="swap-help">JD Kirkstall options for the same movement pattern. Your set targets stay the same.</p>
+      <p class="swap-help">Same muscle area and similar movement. Already-planned exercises are hidden. Your set targets stay the same.</p>
       <div class="swap-option-grid">
         ${options.map((option) => `<button class="swap-option" data-swap-exercise="${escapeHtml(log.exerciseId)}" data-swap-name="${escapeHtml(option.name)}" data-swap-equipment="${escapeHtml(option.equipment)}" type="button">
           <strong>${escapeHtml(option.name)}</strong>
@@ -2413,7 +2495,7 @@ function renderWorkoutEditor() {
           ${logNotesDropdownHtml(log.notes)}
           ${logTargetDetailsHtml(log.targets)}
           ${progressiveOverloadHtml(log, draft.startedAt)}
-          ${exerciseSwapHtml(log)}
+          ${exerciseSwapHtml(log, logs)}
           <div class="set-entry">
             <div class="previous-set-banner wide"><strong>Set ${fmt(defaults.setNumber)}</strong><span>${defaults.previousSet ? `Last time: ${fmtWeight(defaults.previousSet.weightKg)}kg x ${fmt(defaults.previousSet.reps)}` : "No matching previous set yet"}</span></div>
             <label class="target-select">Set target<select name="targetId">${targetOptionsHtml(log.targets, nextTargetId(log.targets, log.sets))}</select></label>
