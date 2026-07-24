@@ -951,15 +951,10 @@ function escapeHtml(v) {
   return String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 }
 function guidanceHtml(notes) {
-  if (!notes) return "";
-  return `<div class="exercise-guidance"><span>Target reps / notes</span><p>${escapeHtml(notes)}</p></div>`;
+  return "";
 }
 function logNotesDropdownHtml(notes) {
-  if (!notes) return "";
-  return `<details class="log-dropdown">
-    <summary>Target reps / notes</summary>
-    <div class="log-dropdown-body"><p>${escapeHtml(notes)}</p></div>
-  </details>`;
+  return "";
 }
 function normalizeTarget(item, index = 0) {
   if (typeof item === "string") return { id: `target-${index}-${slug(item)}`, label: item, details: item };
