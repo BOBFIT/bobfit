@@ -232,6 +232,98 @@ const EXERCISE_MATCH_EQUIVALENTS = (() => {
   }
   return map;
 })();
+const JD_KIRKSTALL_SUBSTITUTIONS = {
+  chestPress: [
+    { name: "Vertical Chest Press", equipment: "Vertical Chest Press" },
+    { name: "Vertical Decline Chest Press", equipment: "Vertical Decline Chest Press" },
+    { name: "Chest Press", equipment: "Chest Press x4" },
+    { name: "Smith Machine Incline Bench Press", equipment: "Smith Machine x2 / adjustable bench" },
+    { name: "Olympic Incline Bench Press", equipment: "Olympic Incline Bench Press x2" },
+    { name: "Dumbbell Incline Bench Press", equipment: "Dumbbell Set x11 / Adjustable Bench x35" },
+  ],
+  chestFly: [
+    { name: "High-to-Low Cable Fly", equipment: "Dual Adjustable Pulley x8" },
+    { name: "Cable Crossover Fly", equipment: "Cable Tower / 8-Stack Multi Station" },
+    { name: "Pec Fly", equipment: "Pec Fly/Rear Delt x2" },
+    { name: "Dumbbell Fly", equipment: "Dumbbell Set x11 / Adjustable Bench x35" },
+  ],
+  backVertical: [
+    { name: "Lat Pulldown", equipment: "Lat Pulldown x4" },
+    { name: "Assisted Neutral-Grip Chin-Up", equipment: "Assisted Chin and Dip x2" },
+    { name: "Chin-Up", equipment: "Chin/Dip Station" },
+    { name: "Straight-Arm Cable Pulldown", equipment: "Cable Tower / Dual Adjustable Pulley x8" },
+  ],
+  backRow: [
+    { name: "Seated Row", equipment: "Seated Row x3" },
+    { name: "Chest-Supported Machine Row", equipment: "Seated Row / machine row station" },
+    { name: "T-Bar Row", equipment: "T-Bar/Low Row" },
+    { name: "Cable Row", equipment: "Cable Tower / Dual Adjustable Pulley x8" },
+    { name: "Barbell Row", equipment: "Barbell Set x4 / racks" },
+  ],
+  shoulders: [
+    { name: "Lateral Raise Machine", equipment: "Lateral Raise x2" },
+    { name: "Cable Lateral Raise", equipment: "Dual Adjustable Pulley x8" },
+    { name: "Cable Front Raise", equipment: "Dual Adjustable Pulley x8" },
+    { name: "Shoulder Press Machine", equipment: "Shoulder Press x2" },
+    { name: "Dumbbell Lateral Raise", equipment: "Dumbbell Set x11" },
+    { name: "Rear Delt Fly", equipment: "Pec Fly/Rear Delt x2" },
+  ],
+  biceps: [
+    { name: "Bicep Curl Machine", equipment: "Bicep Curl" },
+    { name: "Preacher Curl", equipment: "Preacher Curl / Standing Preacher Curl" },
+    { name: "Cable Curl", equipment: "Cable Tower / Dual Adjustable Pulley x8" },
+    { name: "Cross-Body Cable Hammer Curl", equipment: "Dual Adjustable Pulley x8" },
+    { name: "Dumbbell Hammer Curl", equipment: "Dumbbell Set x11" },
+  ],
+  triceps: [
+    { name: "Tricep Extension Machine", equipment: "Tricep Extension" },
+    { name: "Cable Rope Pushdown", equipment: "Cable Tower / Dual Adjustable Pulley x8" },
+    { name: "Single-Arm Cross-Body Cable Triceps Extension", equipment: "Dual Adjustable Pulley x8" },
+    { name: "Overhead Cable Triceps Extension", equipment: "Cable Tower / Dual Adjustable Pulley x8" },
+    { name: "Assisted Dip Machine", equipment: "Assisted Chin and Dip x2" },
+  ],
+  quads: [
+    { name: "Hack Squat", equipment: "Hack Squat" },
+    { name: "Linear Leg Press", equipment: "Linear Leg Press" },
+    { name: "Seated Leg Press", equipment: "Seated Leg Press x2" },
+    { name: "Leg Extension", equipment: "Leg Extension x2" },
+    { name: "Smith Machine Squat", equipment: "Smith Machine x2" },
+    { name: "Squat Rack", equipment: "Squat Rack x3 / Olympic Half Rack x12" },
+  ],
+  hamstrings: [
+    { name: "Lying Leg Curl", equipment: "Lying Leg Curl" },
+    { name: "Seated Leg Curl", equipment: "Seated Leg Curl" },
+    { name: "Standing Leg Curl", equipment: "Standing Leg Curl" },
+    { name: "Barbell Romanian Deadlift", equipment: "Barbell Set x4 / racks" },
+    { name: "Dumbbell Romanian Deadlift", equipment: "Dumbbell Set x11" },
+    { name: "Back Extension", equipment: "Back Extension / Back Hyperextension" },
+  ],
+  calves: [
+    { name: "Standing Calf Raise", equipment: "Standing Calf Raise" },
+    { name: "Seated Calf Raise", equipment: "Seated Calf" },
+    { name: "Calf Press", equipment: "Calf Press" },
+    { name: "Leg Press Calf Raise", equipment: "Linear Leg Press / Seated Leg Press x2" },
+    { name: "Single-Leg Dumbbell Calf Raise", equipment: "Dumbbell Set x11 / steps" },
+  ],
+  abs: [
+    { name: "Abdominal Crunch Machine", equipment: "Abdominal Crunch" },
+    { name: "Cable Crunch", equipment: "Cable Tower / Dual Adjustable Pulley x8" },
+    { name: "Hanging Leg Raise", equipment: "Chin/Dip Station / Rig" },
+    { name: "Reverse Crunch", equipment: "Adjustable Abdominal Bench" },
+    { name: "Decline Crunch", equipment: "Adjustable Abdominal Bench" },
+  ],
+  glutes: [
+    { name: "Glute Drive", equipment: "Glute Drive" },
+    { name: "Hip Thrust Machine", equipment: "Glute Drive/Hip Thrust" },
+    { name: "Smith Machine Hip Thrust", equipment: "Smith Machine x2" },
+    { name: "Cable Pull Through", equipment: "Cable Tower / Dual Adjustable Pulley x8" },
+  ],
+  general: [
+    { name: "Dumbbell Alternative", equipment: "Dumbbell Set x11 / Adjustable Bench x35" },
+    { name: "Cable Alternative", equipment: "Cable Tower / Dual Adjustable Pulley x8" },
+    { name: "Machine Alternative", equipment: "8-Stack Multi Station x2" },
+  ],
+};
 
 const DEFAULT_TEMPLATES = {
   day1: { title: "Legs A", exercises: [
@@ -754,6 +846,28 @@ function exerciseNamesMatch(a, b) {
   const bKeys = exerciseMatchKeys(b);
   for (const key of aKeys) if (bKeys.has(key)) return true;
   return false;
+}
+function substitutionGroupForExercise(name = "") {
+  const key = slug(name);
+  if (/(calf|toe-press)/.test(key)) return "calves";
+  if (/(abdominal|ab-crunch|crunch|hanging-leg-raise|leg-raise|reverse-crunch|plank|v-up|dead-bug)/.test(key)) return "abs";
+  if (/(leg-curl|hamstring|rdl|romanian|stiff-leg|good-morning)/.test(key)) return "hamstrings";
+  if (/(hack-squat|leg-press|leg-extension|pendulum|lunge|squat|adductor|abductor|sissy)/.test(key)) return "quads";
+  if (/(glute|hip-thrust|hip-thrust-machine|pull-through)/.test(key)) return "glutes";
+  if (/(bicep|curl|hammer|preacher|bayesian)/.test(key) && !/(leg-curl)/.test(key)) return "biceps";
+  if (/(tricep|skull|pushdown|extension|jm-press|dip)/.test(key) && !/(leg-extension)/.test(key)) return "triceps";
+  if (/(shoulder|lateral|front-raise|rear-delt|y-raise|upright-row)/.test(key)) return "shoulders";
+  if (/(pulldown|pull-down|pull-up|chin|pullover|straight-arm)/.test(key)) return "backVertical";
+  if (/(row|t-bar|tbar|shrug)/.test(key)) return "backRow";
+  if (/(pec|fly|deck)/.test(key)) return "chestFly";
+  if (/(chest|bench|incline|decline|press)/.test(key)) return "chestPress";
+  return "general";
+}
+function substitutionOptionsForExercise(name = "") {
+  const group = substitutionGroupForExercise(name);
+  const options = JD_KIRKSTALL_SUBSTITUTIONS[group] || JD_KIRKSTALL_SUBSTITUTIONS.general;
+  const current = slug(name);
+  return options.filter((option) => slug(option.name) !== current).slice(0, 6);
 }
 function escapeHtml(v) {
   return String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -2046,7 +2160,20 @@ function ensureDraft(split = selectedSplit()) {
   const old = new Map((draft.exerciseLogs || []).map((log) => [String(log.exerciseId), log]));
   draft.exerciseLogs = (template?.exercises || []).map((exercise) => {
     const prev = old.get(String(exercise.id));
-    return { exerciseId: exercise.id, name: exercise.name, notes: exercise.notes || "", targets: exercise.targets || [], sets: Array.isArray(prev?.sets) ? prev.sets : [] };
+    const plannedTargets = clone(exercise.targets || []);
+    const isSubstitution = Boolean(prev?.substitutedFrom);
+    return {
+      exerciseId: exercise.id,
+      plannedName: exercise.name,
+      plannedNotes: exercise.notes || "",
+      plannedTargets,
+      name: isSubstitution ? prev.name : exercise.name,
+      notes: isSubstitution ? prev.notes : exercise.notes || "",
+      targets: isSubstitution ? clone(prev.targets || plannedTargets) : plannedTargets,
+      sets: Array.isArray(prev?.sets) ? prev.sets : [],
+      substitutedFrom: isSubstitution ? (prev.substitutedFrom || exercise.name) : "",
+      substitutionEquipment: isSubstitution ? (prev.substitutionEquipment || "") : "",
+    };
   });
   state.workoutDrafts[key] = draft;
   return draft;
@@ -2237,6 +2364,30 @@ function openWorkoutExercise(exerciseId = "") {
     card?.scrollIntoView({ behavior: "smooth", block: "center" });
   });
 }
+function exerciseSwapHtml(log) {
+  const plannedName = log.substitutedFrom || log.plannedName || log.name;
+  const options = substitutionOptionsForExercise(plannedName);
+  if (!options.length) return "";
+  const current = log.substitutedFrom
+    ? `<div class="swap-current">
+        <div><strong>Using substitute</strong><small>${escapeHtml(log.name)} for ${escapeHtml(log.substitutedFrom)}</small></div>
+        <button class="secondary" data-reset-exercise-swap="${escapeHtml(log.exerciseId)}" type="button">Reset</button>
+      </div>`
+    : "";
+  return `<details class="log-dropdown swap-dropdown">
+    <summary>Swap exercise</summary>
+    <div class="log-dropdown-body">
+      ${current}
+      <p class="swap-help">JD Kirkstall options for the same movement pattern. Your set targets stay the same.</p>
+      <div class="swap-option-grid">
+        ${options.map((option) => `<button class="swap-option" data-swap-exercise="${escapeHtml(log.exerciseId)}" data-swap-name="${escapeHtml(option.name)}" data-swap-equipment="${escapeHtml(option.equipment)}" type="button">
+          <strong>${escapeHtml(option.name)}</strong>
+          <span>${escapeHtml(option.equipment)}</span>
+        </button>`).join("")}
+      </div>
+    </div>
+  </details>`;
+}
 function renderWorkoutEditor() {
   const split = selectedSplit();
   const draft = ensureDraft(split);
@@ -2262,6 +2413,7 @@ function renderWorkoutEditor() {
           ${logNotesDropdownHtml(log.notes)}
           ${logTargetDetailsHtml(log.targets)}
           ${progressiveOverloadHtml(log, draft.startedAt)}
+          ${exerciseSwapHtml(log)}
           <div class="set-entry">
             <div class="previous-set-banner wide"><strong>Set ${fmt(defaults.setNumber)}</strong><span>${defaults.previousSet ? `Last time: ${fmtWeight(defaults.previousSet.weightKg)}kg x ${fmt(defaults.previousSet.reps)}` : "No matching previous set yet"}</span></div>
             <label class="target-select">Set target<select name="targetId">${targetOptionsHtml(log.targets, nextTargetId(log.targets, log.sets))}</select></label>
@@ -5069,6 +5221,38 @@ function bind() {
       const log = doseLogFromCycle(cycle, timing, date);
       state.peptideLogs = [log, ...(state.peptideLogs || [])];
       save(); render();
+    }
+    if (button.dataset.swapExercise) {
+      const draft = ensureDraft(selectedSplit());
+      const log = draft.exerciseLogs.find((entry) => entry.exerciseId === button.dataset.swapExercise);
+      if (!log) return;
+      const plannedName = log.substitutedFrom || log.plannedName || log.name;
+      log.plannedName = log.plannedName || plannedName;
+      log.plannedNotes = log.plannedNotes || log.notes || "";
+      log.plannedTargets = clone(log.plannedTargets || log.targets || []);
+      log.substitutedFrom = plannedName;
+      log.name = button.dataset.swapName || log.name;
+      log.substitutionEquipment = button.dataset.swapEquipment || "";
+      log.targets = clone(log.plannedTargets || []);
+      log.notes = `Substitute for ${plannedName}. ${log.substitutionEquipment ? `${log.substitutionEquipment}. ` : ""}Keep the same programmed set targets and log the weight/reps normally.`;
+      setOpenExerciseCard(log.exerciseId);
+      save(); renderWorkoutEditor();
+      showAppToast(`Swapped to ${log.name}`, "saved");
+      return;
+    }
+    if (button.dataset.resetExerciseSwap) {
+      const draft = ensureDraft(selectedSplit());
+      const log = draft.exerciseLogs.find((entry) => entry.exerciseId === button.dataset.resetExerciseSwap);
+      if (!log) return;
+      log.name = log.plannedName || log.substitutedFrom || log.name;
+      log.notes = log.plannedNotes || log.notes || "";
+      log.targets = clone(log.plannedTargets || log.targets || []);
+      log.substitutedFrom = "";
+      log.substitutionEquipment = "";
+      setOpenExerciseCard(log.exerciseId);
+      save(); renderWorkoutEditor();
+      showAppToast("Exercise reset", "saved");
+      return;
     }
     if (button.dataset.addSet) {
       const card = button.closest(".exercise-log");

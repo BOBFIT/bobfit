@@ -1337,6 +1337,78 @@ button.delete-pulse {
   line-height: 1.35;
 }
 .log-dropdown-body strong { color: var(--ink); }
+.swap-dropdown {
+  border-color: rgba(95, 225, 255, 0.2);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(95, 225, 255, 0.1), transparent 34%),
+    rgba(9, 39, 66, 0.9);
+}
+.swap-dropdown summary {
+  min-height: 46px;
+}
+.swap-help {
+  padding: 9px 10px;
+  border: 1px solid rgba(95, 225, 255, 0.1);
+  border-radius: 16px;
+  background: rgba(3, 16, 31, 0.26);
+}
+.swap-current {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(45, 212, 191, 0.28);
+  border-radius: 18px;
+  background: rgba(20, 83, 45, 0.28);
+}
+.swap-current strong,
+.swap-current small {
+  display: block;
+}
+.swap-current small {
+  margin-top: 3px;
+  color: #b9d4e8;
+  font-size: 12px;
+  line-height: 1.3;
+}
+.swap-option-grid {
+  display: grid;
+  gap: 8px;
+}
+.swap-option {
+  min-height: 58px;
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid rgba(95, 225, 255, 0.15);
+  border-radius: 18px;
+  background: rgba(7, 31, 54, 0.84);
+  color: var(--ink);
+  text-align: left;
+  box-shadow: none;
+}
+.swap-option strong,
+.swap-option span {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.swap-option strong {
+  font-size: 14px;
+  line-height: 1.14;
+}
+.swap-option span {
+  color: var(--primary-dark);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1.25;
+}
+.swap-option:active {
+  border-color: rgba(95, 225, 255, 0.42);
+  background: rgba(19, 168, 245, 0.18);
+}
 .log-dropdown .overload-card {
   padding: 10px;
   border-radius: 16px;
@@ -2821,6 +2893,8 @@ body.peptides-locked .consistency-dots {
   .drop-summary { grid-template-columns: minmax(0, 1fr) auto; }
   .drop-pill { display: none; }
   .dose-card-head { display: grid; }
+  .swap-current { grid-template-columns: 1fr; }
+  .swap-current button { width: 100%; }
   .exercise-summary, .today-exercise-summary, .pr-summary { grid-template-columns: 1fr; }
   .summary-pill { justify-self: start; }
   .tabbar button { font-size: 9px; }
