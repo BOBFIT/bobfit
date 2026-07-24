@@ -99,8 +99,9 @@ const MOTRA_EXERCISE_ALIASES = [
   ["Machine Chest Press", "Machine Hammer-Grip Seated Chest Press", "Flex leverage press", "Prime flat machine chest press", "Seated Chest Press", "Hammer Strength Chest Press", "Plate-Loaded Chest Press", "Flat machine chest press"],
   ["Machine Decline Chest Press", "Decline machine chest press"],
   ["Pec Deck Fly", "Machine Fly (Pec Dec)", "Pec deck", "Pec dec", "Machine fly", "Machine pec fly"],
-  ["Lat Pulldown", "Cable Lat Pull Down V-Grip (Narrow Hammer)", "Close Grip Lat Pulldown", "Single arm prone cable pulldown", "Upper back bias cable pulldown", "Cable lat pulldown", "Lat pull down"],
+  ["Lat Pulldown", "Cable Lat Pull Down V-Grip (Narrow Hammer)", "Close Grip Lat Pulldown", "Neutral-Grip Lat Pulldown", "Neutral Grip Lat Pulldown", "Single arm prone cable pulldown", "Upper back bias cable pulldown", "Cable lat pulldown", "Lat pull down"],
   ["Seated Cable Row", "Cable V-Handle Seated Row", "Single arm seated row", "Prime pin stack row", "Nautilus leverage row", "Single arm Nautilus row", "Cable row", "V-handle seated row"],
+  ["Chest Supported Row", "Chest-Supported Machine Row", "Chest Supported Machine Row"],
   ["T-Bar Row", "Upper back bias T-bar row", "T bar row"],
   ["Seated Leg Curl", "Seated hamstring curl"],
   ["Lying Leg Curl", "Lying hamstring curl"],
@@ -115,7 +116,7 @@ const MOTRA_EXERCISE_ALIASES = [
   ["Cable Curl", "Cable Bar Bicep Curl", "Cable Rope Bicep Curl", "Bar cable bicep curl", "Rope bicep curl"],
   ["Straight Bar Pushdown", "Cable Bar Tricep Pushdown / Extension", "Cable bar tricep pushdown", "Tricep pushdown", "Straight bar tricep pushdown"],
   ["Rope Pushdown", "Cable Rope Tricep Pushdown / Extension", "Cable rope tricep pushdown", "Rope tricep pushdown"],
-  ["Single Arm Pushdown", "Cable V-Bar Tricep Pushdown / Extension", "V-bar tricep pushdown"],
+  ["Single Arm Pushdown", "Cable V-Bar Tricep Pushdown / Extension", "V-bar tricep pushdown", "Single-Arm Cross-Body Cable Triceps Extension", "Single Arm Cross Body Cable Triceps Extension"],
   ["Overhead Rope Extension", "Cable Rope Overhead Tricep Extension High", "Rope overhead tricep extension", "Overhead tricep extension"],
   ["Assisted Dip Machine", "Dip machine / assisted dips", "Dip machine", "Assisted dips"],
   ["Dumbbell Pullover", "Dumbell pullover"],
@@ -128,7 +129,9 @@ const MOTRA_EXERCISE_ALIASES = [
   ["Adductor Machine", "Adductors", "Adductor"],
   ["Leg Press Calf Raise", "Toe press superset with standing calf raise", "Toe press", "Toe press on leg press"],
   ["Seated Calf Raise", "Seated calf machine"],
-  ["Ab Crunch Machine", "Machine Ab Crunch"],
+  ["Ab Crunch Machine", "Machine Ab Crunch", "Abdominal Crunch Machine"],
+  ["Front Raise", "Cable Front Raise"],
+  ["Rope Hammer Curl", "Cross-Body Cable Hammer Curl", "Cross Body Cable Hammer Curl"],
   ["Cable Bar Straight Arm Pull Down", "Rope pullover", "Cable pullover", "Straight arm pulldown", "Straight arm pull down"],
   ["Cable Face Pull", "Rear delt pulldown with D handles", "Rear delt pulldown", "Face pull"],
   ["Smith Machine Shrug", "Smith machine shrugs", "Smith machine shrug", "Machine shrug", "Barbell shrug"],
@@ -205,8 +208,8 @@ const EXERCISE_MATCH_GROUPS = [
   ["Pec Deck Fly", "Machine Fly (Pec Dec)"],
   ["Lateral Raise", "Machine Lateral Raise", "Dumbbell Lateral Raise", "Cable Single-Arm Lateral Raise"],
   ["Cable Bar Straight Arm Pull Down", "Cable Rope Straight Arm Pull Down"],
-  ["Lat Pulldown", "Cable Lat Pull Down Single-Arm", "Cable Lat Pull Down Wide-Grip"],
-  ["Seated Cable Row", "Cable Single-Arm Row", "Machine Row", "Machine Wide-Grip Row", "Machine High Row (MTS Row)"],
+  ["Lat Pulldown", "Cable Lat Pull Down Single-Arm", "Cable Lat Pull Down Wide-Grip", "Neutral-Grip Lat Pulldown"],
+  ["Seated Cable Row", "Cable Single-Arm Row", "Machine Row", "Machine Wide-Grip Row", "Machine High Row (MTS Row)", "Chest Supported Row", "Chest-Supported Machine Row"],
   ["T-Bar Row", "Machine T-Bar Row"],
   ["Cable Face Pull", "Cable Upright Rear Delt Fly"],
   ["Romanian Deadlift", "Barbell Romanian Deadlift", "Dumbbell Romanian Deadlift"],
@@ -216,6 +219,10 @@ const EXERCISE_MATCH_GROUPS = [
   ["Skull Crusher", "EZ-Bar Skull Crusher"],
   ["Dumbbell Bicep Curl", "Dumbbell Drag Curl"],
   ["Cable Single-Arm Bicep Curl", "Bayesian Cable Curl"],
+  ["Ab Crunch Machine", "Abdominal Crunch Machine"],
+  ["Front Raise", "Cable Front Raise"],
+  ["Rope Hammer Curl", "Cross-Body Cable Hammer Curl"],
+  ["Single Arm Pushdown", "Single-Arm Cross-Body Cable Triceps Extension"],
 ];
 const EXERCISE_MATCH_EQUIVALENTS = (() => {
   const map = new Map();
@@ -295,8 +302,53 @@ const DEFAULT_TEMPLATES = {
     originalEx("Single arm nautilus machine", "8-10; 10-12; 15-20. Perfect reps, no momentum, 2 sec hold in peak contraction."),
     originalEx("Single arm cable overhead extension", "8-10; 12-15; 15-20. 2 sec pause in stretch every rep."),
   ] },
+  day9: { title: "Saturday", exercises: [
+    originalEx("Smith Machine Incline Bench Press", "Set 1: 6-9 reps, 1 RIR. Set 2: 10-12 reps, 0-1 RIR. Tempo: 3121. Rest: 150-180 sec. Bench angle: 20-30 degrees.", [
+      target("Set 1: 6-9 reps", "6-9 reps, 1 RIR. Tempo 3121. Rest 150-180 sec. Bench angle 20-30 degrees."),
+      target("Set 2: 10-12 reps", "10-12 reps, 0-1 RIR. Tempo 3121. Rest 150-180 sec. Bench angle 20-30 degrees."),
+    ]),
+    originalEx("Neutral-Grip Lat Pulldown", "Set 1: 8-10 reps, 1 RIR. Set 2: 10-12 reps, 0-1 RIR. Tempo: 3121. Rest: 120-150 sec.", [
+      target("Set 1: 8-10 reps", "8-10 reps, 1 RIR. Tempo 3121. Rest 120-150 sec."),
+      target("Set 2: 10-12 reps", "10-12 reps, 0-1 RIR. Tempo 3121. Rest 120-150 sec."),
+    ]),
+    originalEx("Pec Deck Fly", "Set 1: 10-12 reps, 1 RIR. Set 2: 12-15 reps, 0-1 RIR. Set 3: Rest-pause 12/5/3. Rest-pause breaks: 20 sec. Tempo: 3122. Rest: 90-120 sec.", [
+      target("Set 1: 10-12 reps", "10-12 reps, 1 RIR. Tempo 3122. Rest 90-120 sec."),
+      target("Set 2: 12-15 reps", "12-15 reps, 0-1 RIR. Tempo 3122. Rest 90-120 sec."),
+      target("Set 3: Rest-pause 12/5/3", "Rest-pause 12/5/3 with 20 sec breaks. Tempo 3122. Rest 90-120 sec."),
+    ]),
+    originalEx("Chest-Supported Machine Row", "Set 1: 8-10 reps, 1 RIR. Set 2: 12-15 reps, 0-1 RIR. Tempo: 3122. Rest: 120-150 sec.", [
+      target("Set 1: 8-10 reps", "8-10 reps, 1 RIR. Tempo 3122. Rest 120-150 sec."),
+      target("Set 2: 12-15 reps", "12-15 reps, 0-1 RIR. Tempo 3122. Rest 120-150 sec."),
+    ]),
+    originalEx("Standing Calf Raise", "Set 1: 8-10 reps, 1 RIR. Set 2: 10-12 reps, 1 RIR. Set 3: 12-15 reps, technical failure. Tempo: 3222. Rest: 90-120 sec.", [
+      target("Set 1: 8-10 reps", "8-10 reps, 1 RIR. Tempo 3222. Rest 90-120 sec."),
+      target("Set 2: 10-12 reps", "10-12 reps, 1 RIR. Tempo 3222. Rest 90-120 sec."),
+      target("Set 3: 12-15 reps", "12-15 reps to technical failure. Tempo 3222. Rest 90-120 sec."),
+    ]),
+    originalEx("Seated Calf Raise", "Set 1: 12-15 reps, 1 RIR. Set 2: Rest-pause 15/6/4. Rest-pause breaks: 20 sec. Tempo: 3222. Rest: 90-120 sec.", [
+      target("Set 1: 12-15 reps", "12-15 reps, 1 RIR. Tempo 3222. Rest 90-120 sec."),
+      target("Set 2: Rest-pause 15/6/4", "Rest-pause 15/6/4 with 20 sec breaks. Tempo 3222. Rest 90-120 sec."),
+    ]),
+    originalEx("Abdominal Crunch Machine", "Set 1: 10-12 reps, 0-1 RIR. Set 2: 12-15 reps, technical failure. Tempo: 3122. Rest: 75-90 sec.", [
+      target("Set 1: 10-12 reps", "10-12 reps, 0-1 RIR. Tempo 3122. Rest 75-90 sec."),
+      target("Set 2: 12-15 reps", "12-15 reps to technical failure. Tempo 3122. Rest 75-90 sec."),
+    ]),
+    originalEx("Hanging Leg Raise", "Set 1: 10-15 reps, 1 RIR. Set 2: 12-20 reps, 0-1 RIR. Tempo: 3121. Rest: 60-90 sec.", [
+      target("Set 1: 10-15 reps", "10-15 reps, 1 RIR. Tempo 3121. Rest 60-90 sec."),
+      target("Set 2: 12-20 reps", "12-20 reps, 0-1 RIR. Tempo 3121. Rest 60-90 sec."),
+    ]),
+    originalEx("Cable Front Raise", "Set 1: 12-15 reps, 1 RIR. Tempo: 3122. Rest: 60-90 sec.", [
+      target("Set 1: 12-15 reps", "12-15 reps, 1 RIR. Tempo 3122. Rest 60-90 sec."),
+    ]),
+    originalEx("Cross-Body Cable Hammer Curl", "Set 1: 12-15 reps per arm, 1 RIR. Tempo: 3121. Rest: 60-90 sec.", [
+      target("Set 1: 12-15 reps per arm", "12-15 reps per arm, 1 RIR. Tempo 3121. Rest 60-90 sec."),
+    ]),
+    originalEx("Single-Arm Cross-Body Cable Triceps Extension", "Set 1: 12-15 reps per arm, 1 RIR. Tempo: 3121. Rest: 60-90 sec.", [
+      target("Set 1: 12-15 reps per arm", "12-15 reps per arm, 1 RIR. Tempo 3121. Rest 60-90 sec."),
+    ]),
+  ] },
 };
-const DEFAULT_TEMPLATE_RESET_KEYS = new Set(["day1", "day2", "day3", "day4", "day5", "day6", "day7", "day8"]);
+const DEFAULT_TEMPLATE_RESET_KEYS = new Set(["day1", "day2", "day3", "day4", "day5", "day6", "day7", "day8", "day9"]);
 
 let saveTimer = 0;
 let saveFeedbackReady = false;
