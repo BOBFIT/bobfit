@@ -44,6 +44,18 @@ body.auth-locked .tabbar {
 body:not(.auth-locked) .auth-gate {
   display: none;
 }
+body.workout-focus-mode {
+  padding-bottom: calc(150px + env(safe-area-inset-bottom));
+}
+body.workout-focus-mode .topbar,
+body.workout-focus-mode .tabbar,
+body.workout-focus-mode #view-log > .drop-panel:not(:first-of-type),
+body.workout-focus-mode #view-log .planned-workout-card {
+  display: none;
+}
+body.workout-focus-mode .app {
+  padding-top: max(12px, env(safe-area-inset-top));
+}
 .auth-gate {
   width: min(540px, 100%);
   display: grid;
@@ -627,7 +639,7 @@ button { cursor: pointer; }
 }
 .guided-actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 9px;
 }
 .guided-actions button {
@@ -1499,6 +1511,9 @@ button.delete-pulse {
   .training-terms.tab-closing > div,
   .target-details.tab-closing > div,
   .exercise-log.status-complete::after,
+  .ui-haptic-saved .app,
+  .ui-haptic-deleted .app,
+  .workout-summary-card,
   .view.active,
   .tabbar button.active,
   .peptide-date-chip.active,
@@ -1662,6 +1677,29 @@ button.delete-pulse {
 .exercise-head strong, .split-head strong, .history-head strong, .today-exercise-summary strong, .pr-summary strong { display: block; }
 .exercise-head small, .exercise-summary small, .history-head small, .today-exercise-summary small, .pr-summary small { display: block; margin-top: 3px; color: var(--muted); line-height: 1.35; }
 .set-entry { display: grid; grid-template-columns: minmax(140px, 1fr) 90px 110px auto; gap: 8px; align-items: end; }
+.set-entry .wide { grid-column: 1 / -1; }
+.previous-set-banner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(95, 225, 255, 0.15);
+  border-radius: 18px;
+  background: rgba(9, 39, 66, 0.82);
+}
+.previous-set-banner strong {
+  color: var(--primary-dark);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+.previous-set-banner span {
+  min-width: 0;
+  color: #d9f1ff;
+  font-size: 13px;
+  font-weight: 850;
+  overflow-wrap: anywhere;
+}
 .set-list { display: flex; flex-wrap: wrap; gap: 7px; }
 .set-chip {
   display: inline-flex;
@@ -1848,6 +1886,36 @@ button.delete-pulse {
 }
 .peptide-date-chip.active strong {
   background: rgba(3, 16, 31, 0.28);
+}
+.peptide-reminder-split,
+.peptide-reminder-group {
+  display: grid;
+  gap: 10px;
+}
+.peptide-reminder-group {
+  padding: 12px;
+  border: 1px solid rgba(95, 225, 255, 0.12);
+  border-radius: 22px;
+  background: rgba(3, 16, 31, 0.28);
+}
+.peptide-group-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 10px;
+}
+.peptide-group-head strong {
+  font-size: 15px;
+  line-height: 1.1;
+}
+.peptide-group-head small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-align: right;
+}
+.upcoming-dose-card {
+  background: rgba(9, 39, 66, 0.82);
 }
 .history-drop-panel {
   background: rgba(7, 31, 54, 0.94);
@@ -2381,6 +2449,10 @@ body.peptides-locked .consistency-dots {
   left: 50%;
   bottom: calc(92px + env(safe-area-inset-bottom));
   z-index: 80;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   min-width: 132px;
   max-width: min(360px, calc(100% - 34px));
   padding: 11px 18px;
@@ -2400,6 +2472,7 @@ body.peptides-locked .consistency-dots {
 }
 .app-toast.show {
   opacity: 1;
+  pointer-events: auto;
   transform: translate(-50%, 0) scale(1);
 }
 .app-toast.saved {
@@ -2409,6 +2482,169 @@ body.peptides-locked .consistency-dots {
 .app-toast.deleted {
   border-color: rgba(248, 113, 113, 0.56);
   box-shadow: 0 16px 38px rgba(0, 8, 20, 0.34), 0 0 30px rgba(248, 113, 113, 0.24);
+}
+.app-toast button {
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 950;
+}
+.ui-haptic-saved .app {
+  animation: pageBlueHaptic 420ms ease-out;
+}
+.ui-haptic-deleted .app {
+  animation: pageRedHaptic 420ms ease-out;
+}
+@keyframes pageBlueHaptic {
+  0% { filter: brightness(1); }
+  32% { filter: brightness(1.08) drop-shadow(0 0 14px rgba(19, 168, 245, 0.18)); }
+  100% { filter: brightness(1); }
+}
+@keyframes pageRedHaptic {
+  0% { filter: brightness(1); }
+  32% { filter: brightness(1.08) drop-shadow(0 0 14px rgba(248, 113, 113, 0.18)); }
+  100% { filter: brightness(1); }
+}
+.workout-sticky-footer {
+  position: fixed;
+  left: 50%;
+  bottom: calc(92px + env(safe-area-inset-bottom));
+  z-index: 55;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: min(516px, calc(100% - 24px));
+  padding: 12px;
+  border: 1px solid rgba(95, 225, 255, 0.2);
+  border-radius: 26px;
+  background: rgba(3, 16, 31, 0.94);
+  box-shadow: 0 18px 46px rgba(0, 8, 20, 0.42), 0 0 24px rgba(19, 168, 245, 0.16);
+  transform: translateX(-50%);
+  backdrop-filter: blur(16px);
+}
+.workout-sticky-footer.focus {
+  bottom: calc(16px + env(safe-area-inset-bottom));
+}
+.workout-sticky-footer span,
+.workout-sticky-footer small {
+  display: block;
+  color: var(--primary-dark);
+  font-size: 11px;
+  font-weight: 950;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+.workout-sticky-footer strong {
+  display: block;
+  max-width: 100%;
+  margin: 3px 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.14;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.workout-summary-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(3, 16, 31, 0.72);
+  opacity: 0;
+  pointer-events: none;
+  backdrop-filter: blur(14px);
+}
+.workout-summary-modal.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+.workout-summary-card {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  width: min(420px, 100%);
+  padding: 22px;
+  border: 1px solid rgba(95, 225, 255, 0.24);
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at 15% 5%, rgba(95, 225, 255, 0.18), transparent 35%),
+    linear-gradient(145deg, rgba(9, 39, 66, 0.98), rgba(3, 16, 31, 0.98));
+  box-shadow: 0 30px 90px rgba(0, 8, 20, 0.55), 0 0 34px rgba(19, 168, 245, 0.18);
+  animation: summaryPop 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.workout-summary-card > span {
+  color: var(--primary-dark);
+  font-size: 12px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+.workout-summary-card h2,
+.workout-summary-card p {
+  margin: 0;
+}
+.workout-summary-card h2 {
+  font-size: 28px;
+  line-height: 1.05;
+}
+.workout-summary-card p {
+  color: #d9f1ff;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.summary-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 38px;
+  height: 38px;
+  min-height: 38px;
+  padding: 0;
+  border-radius: 50%;
+}
+.summary-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+.summary-stat-grid div {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(95, 225, 255, 0.14);
+  border-radius: 18px;
+  background: rgba(7, 31, 54, 0.76);
+}
+.summary-stat-grid div.done {
+  border-color: rgba(34, 197, 94, 0.36);
+}
+.summary-stat-grid div.warn {
+  border-color: rgba(245, 158, 11, 0.42);
+}
+.summary-stat-grid strong,
+.summary-stat-grid small {
+  display: block;
+}
+.summary-stat-grid strong {
+  font-size: 22px;
+  line-height: 1;
+}
+.summary-stat-grid small {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+@keyframes summaryPop {
+  0% { opacity: 0; transform: translateY(18px) scale(0.96); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 .tabbar {
   position: fixed;
@@ -2581,6 +2817,7 @@ body.peptides-locked .consistency-dots {
   .meal-actions { justify-content: stretch; }
   .meal-actions button { flex: 1 1 auto; }
   .score-head, .dashboard-grid, .dashboard-grid.compact, .overload-grid, .pr-metrics { grid-template-columns: 1fr; }
+  .guided-actions { grid-template-columns: 1fr; }
   .drop-summary { grid-template-columns: minmax(0, 1fr) auto; }
   .drop-pill { display: none; }
   .dose-card-head { display: grid; }

@@ -304,6 +304,10 @@ let saveFeedbackTimer = 0;
 let lastSaveTrigger = null;
 let lastSaveTriggerAt = 0;
 let appToastTimer = 0;
+let undoToastAction = null;
+let undoToastTimer = 0;
+let restTimerEndAt = 0;
+let restTimerInterval = 0;
 let calendarScrollTimer = 0;
 const tabCloseTimers = new WeakMap();
 const openExerciseCards = new Set();
@@ -362,7 +366,7 @@ function defaults() {
     weeklyPlan: { assignments: { ...DEFAULT_WEEKLY_ASSIGNMENTS }, doseDays: [] },
     workoutTemplates: clone(DEFAULT_TEMPLATES),
     workoutDrafts: {},
-    settings: { activeView: "today", selectedSplit: "", selectedSplitDate: "", historyType: "meals", historyDate: todayKey(), peptideReminderDate: todayKey(), trainingPlanVersion: TRAINING_PLAN_VERSION },
+    settings: { activeView: "today", selectedSplit: "", selectedSplitDate: "", historyType: "meals", historyDate: todayKey(), peptideReminderDate: todayKey(), workoutFocusMode: false, trainingPlanVersion: TRAINING_PLAN_VERSION },
     createdAt: Date.now(),
   };
 }
@@ -1340,7 +1344,7 @@ function isDeleteButton(button) {
   if (button.classList?.contains("danger-button")) return true;
   return Object.keys(button.dataset || {}).some((key) => key.toLowerCase().startsWith("delete"));
 }
-function showAppToast(message = "Saved", type = "saved") {
+function showAppToast(message = "Saved", type = "saved", action = null) {
   if (!saveFeedbackReady || !message) return;
   let toast = $("#app-toast");
   if (!toast) {
@@ -1351,12 +1355,23 @@ function showAppToast(message = "Saved", type = "saved") {
     toast.setAttribute("aria-live", "polite");
     document.body.appendChild(toast);
   }
-  toast.textContent = message;
+  undoToastAction = typeof action?.handler === "function" ? action.handler : null;
+  toast.innerHTML = `<span>${escapeHtml(message)}</span>${undoToastAction ? `<button data-toast-undo type="button">${escapeHtml(action.label || "Undo")}</button>` : ""}`;
   toast.className = `app-toast ${type} show`;
+  document.body.classList.remove("ui-haptic-saved", "ui-haptic-deleted");
+  void document.body.offsetWidth;
+  document.body.classList.add(type === "deleted" ? "ui-haptic-deleted" : "ui-haptic-saved");
   clearTimeout(appToastTimer);
+  clearTimeout(undoToastTimer);
   appToastTimer = setTimeout(() => {
     toast.classList.remove("show");
   }, 1500);
+  undoToastTimer = setTimeout(() => {
+    undoToastAction = null;
+  }, action ? 5200 : 1500);
+}
+function showUndoToast(message, handler) {
+  showAppToast(message, "deleted", { label: "Undo", handler });
 }
 function showSaveFeedback() {
   if (!saveFeedbackReady) return;
@@ -1994,6 +2009,107 @@ function nextExerciseAfter(logs = [], currentId = "") {
   const ordered = currentIndex >= 0 ? [...logs.slice(currentIndex + 1), ...logs.slice(0, currentIndex + 1)] : logs;
   return ordered.find((log) => exerciseLogStatus(log).status !== "complete") || null;
 }
+function targetRepDefault(target) {
+  const text = `${target?.label || ""} ${target?.details || ""}`;
+  const range = text.match(/(\d+)\s*[-/]\s*(\d+)/);
+  if (range) return Number(range[1]) || "";
+  const single = text.match(/\b(\d+)\s*(?:reps?|rep\b)/i);
+  return single ? Number(single[1]) : "";
+}
+function smartSetDefaults(log, previous) {
+  const target = getTarget(log.targets || [], nextTargetId(log.targets || [], log.sets || []));
+  const index = Math.max(0, (log.sets || []).length);
+  const previousSet = previous?.sets?.[index] || previous?.sets?.[previous.sets.length - 1] || null;
+  return {
+    reps: previousSet?.reps || targetRepDefault(target) || "",
+    weightKg: rawNum(previousSet?.weightKg) ? rawNum(previousSet.weightKg) : "",
+    previousSet,
+    setNumber: index + 1,
+  };
+}
+function restSecondsForLog(log) {
+  const text = `${log?.name || ""} ${log?.notes || ""} ${(log?.targets || []).map((target) => `${target.label} ${target.details}`).join(" ")}`.toLowerCase();
+  if (text.includes("cluster")) return 15;
+  if (text.includes("rest-pause") || text.includes("rest pause")) return 20;
+  if (/(deadlift|squat|press|rdl|row|lunge|leg press|dip)/i.test(text)) return 150;
+  return 75;
+}
+function restTimerLabel() {
+  const left = Math.max(0, Math.ceil((restTimerEndAt - Date.now()) / 1000));
+  if (!left) return "Rest ready";
+  const mins = Math.floor(left / 60);
+  const secs = String(left % 60).padStart(2, "0");
+  return `${mins}:${secs}`;
+}
+function startRestTimerForLog(log) {
+  restTimerEndAt = Date.now() + (restSecondsForLog(log) * 1000);
+  clearInterval(restTimerInterval);
+  restTimerInterval = setInterval(() => {
+    renderStickyWorkoutFooter();
+    if (Date.now() >= restTimerEndAt) {
+      clearInterval(restTimerInterval);
+      restTimerInterval = 0;
+      showAppToast("Rest done", "saved");
+    }
+  }, 1000);
+  renderStickyWorkoutFooter();
+}
+function clearRestTimer() {
+  restTimerEndAt = 0;
+  clearInterval(restTimerInterval);
+  restTimerInterval = 0;
+  renderStickyWorkoutFooter();
+}
+function bestSetBeats(current, previous) {
+  if (!current) return false;
+  if (!previous) return true;
+  const currentWeight = rawNum(current.weightKg);
+  const previousWeight = rawNum(previous.weightKg);
+  if (currentWeight > previousWeight + 0.24) return true;
+  if (Math.abs(currentWeight - previousWeight) <= 0.24 && num(current.reps) > num(previous.reps)) return true;
+  return estimatedOneRepMax(current) > estimatedOneRepMax(previous) + 0.24;
+}
+function workoutSummaryData(session, draft) {
+  const draftLogs = draft?.exerciseLogs || [];
+  const savedLogs = session?.exerciseLogs || [];
+  const totalExercises = draftLogs.length || savedLogs.length;
+  const completeExercises = draftLogs.filter((log) => exerciseLogStatus(log).status === "complete").length;
+  const missedExercises = draftLogs.filter((log) => exerciseLogStatus(log).status !== "complete").length;
+  const totalSets = savedLogs.reduce((sum, log) => sum + loggedSetCount(log), 0);
+  const prCount = savedLogs.reduce((sum, log) => {
+    const current = summarizeExerciseLog({ log }).bestSet;
+    const previousBest = exerciseStats(log.name, draft?.startedAt || session?.createdAt || Date.now()).bestSet;
+    return sum + (bestSetBeats(current, previousBest) ? 1 : 0);
+  }, 0);
+  return {
+    totalExercises,
+    completeExercises,
+    missedExercises,
+    totalSets,
+    prCount,
+    note: coachNotes()[0] || "Workout saved. The log has something useful to judge now.",
+  };
+}
+function showWorkoutSummary(session, draft) {
+  $(".workout-summary-modal")?.remove();
+  const data = workoutSummaryData(session, draft);
+  const modal = document.createElement("div");
+  modal.className = "workout-summary-modal show";
+  modal.innerHTML = `<section class="workout-summary-card" role="dialog" aria-modal="true" aria-label="Workout summary">
+    <button class="summary-close" data-close-workout-summary type="button" aria-label="Close workout summary">x</button>
+    <span>Workout saved</span>
+    <h2>${escapeHtml(session?.name || session?.planTitle || "Workout")}</h2>
+    <div class="summary-stat-grid">
+      <div><strong>${fmt(data.completeExercises)}/${fmt(data.totalExercises)}</strong><small>Exercises done</small></div>
+      <div><strong>${fmt(data.totalSets)}</strong><small>Sets logged</small></div>
+      <div><strong>${fmt(data.prCount)}</strong><small>PR hits</small></div>
+      <div class="${data.missedExercises ? "warn" : "done"}"><strong>${fmt(data.missedExercises)}</strong><small>Missed</small></div>
+    </div>
+    <p>${escapeHtml(data.note)}</p>
+    <button class="primary wide-button" data-close-workout-summary type="button">Done</button>
+  </section>`;
+  document.body.appendChild(modal);
+}
 function guidedWorkoutHtml(draft, logs = []) {
   const progress = workoutProgressData(logs);
   const current = progress.current;
@@ -2018,8 +2134,42 @@ function guidedWorkoutHtml(draft, logs = []) {
     <div class="guided-actions">
       <button class="primary" data-open-workout-exercise="${escapeHtml((current || progress.next)?.exerciseId || "")}" type="button">${openExerciseCards.size ? "Open current" : "Start workout"}</button>
       <button class="secondary" data-open-next-exercise type="button">Next unfinished</button>
+      <button class="secondary" data-toggle-focus-mode type="button">${state.settings.workoutFocusMode ? "Exit focus" : "Focus mode"}</button>
     </div>
   </div>`;
+}
+function stickyWorkoutFooterHtml(draft, logs = []) {
+  const progress = workoutProgressData(logs);
+  const current = progress.current;
+  const currentIndex = current ? logs.findIndex((log) => log.exerciseId === current.exerciseId) + 1 : 0;
+  const status = current ? exerciseLogStatus(current) : null;
+  const setsLeft = status ? Math.max(0, status.required - status.logged) : 0;
+  const restActive = restTimerEndAt > Date.now();
+  return `<div class="workout-sticky-footer${state.settings.workoutFocusMode ? " focus" : ""}">
+    <div>
+      <span>${current ? `Exercise ${currentIndex}/${logs.length}` : "Workout"}</span>
+      <strong>${escapeHtml(current?.name || splitTitle(draft?.split || selectedSplit()))}</strong>
+      <small>${setsLeft ? `${fmt(setsLeft)} sets left` : `${fmt(progress.complete)}/${fmt(progress.total)} complete`}${restActive ? ` / Rest ${restTimerLabel()}` : ""}</small>
+    </div>
+    <button class="secondary" data-open-next-exercise type="button">Next</button>
+  </div>`;
+}
+function renderStickyWorkoutFooter() {
+  let footer = $("#workout-sticky-footer");
+  const isLog = activeViewName() === "log";
+  const draft = isLog ? ensureDraft(selectedSplit()) : null;
+  const logs = draft?.exerciseLogs || [];
+  const shouldShow = state.settings.workoutFocusMode || restTimerEndAt > Date.now();
+  if (!isLog || !shouldShow || !logs.length) {
+    footer?.remove();
+    return;
+  }
+  if (!footer) {
+    footer = document.createElement("div");
+    footer.id = "workout-sticky-footer";
+    document.body.appendChild(footer);
+  }
+  footer.innerHTML = stickyWorkoutFooterHtml(draft, logs);
 }
 function openWorkoutExercise(exerciseId = "") {
   if (!exerciseId) return;
@@ -2039,6 +2189,7 @@ function renderWorkoutEditor() {
     ${guidedWorkoutHtml(draft, logs)}
     ${logs.map((log) => {
       const previous = latestExerciseSets(log.name, draft.startedAt);
+      const defaults = smartSetDefaults(log, previous);
       const progress = exerciseLogStatus(log);
       const isOpen = openExerciseCards.has(String(log.exerciseId));
       const startedClass = isOpen && progress.status !== "complete" ? " is-started" : "";
@@ -2055,15 +2206,17 @@ function renderWorkoutEditor() {
           ${logTargetDetailsHtml(log.targets)}
           ${progressiveOverloadHtml(log, draft.startedAt)}
           <div class="set-entry">
+            <div class="previous-set-banner wide"><strong>Set ${fmt(defaults.setNumber)}</strong><span>${defaults.previousSet ? `Last time: ${fmtWeight(defaults.previousSet.weightKg)}kg x ${fmt(defaults.previousSet.reps)}` : "No matching previous set yet"}</span></div>
             <label class="target-select">Set target<select name="targetId">${targetOptionsHtml(log.targets, nextTargetId(log.targets, log.sets))}</select></label>
-            <label>Reps done<input name="reps" type="number" min="0" inputmode="numeric" /></label>
-            <label>Weight kg<input name="weightKg" type="number" min="0" step="0.5" inputmode="decimal" /></label>
+            <label>Reps done<input name="reps" type="number" min="0" inputmode="numeric" value="${escapeHtml(defaults.reps)}" /></label>
+            <label>Weight kg<input name="weightKg" type="number" min="0" step="0.5" inputmode="decimal" value="${escapeHtml(defaults.weightKg)}" /></label>
             <button class="secondary" data-add-set="${escapeHtml(log.exerciseId)}" type="button">Add set</button>
           </div>
           <div class="set-list">${log.sets?.length ? log.sets.map((set) => `<span class="set-chip"><strong>${escapeHtml(set.targetLabel || "Set")}</strong>${fmtWeight(set.weightKg)}kg x ${fmt(set.reps)} <button data-delete-set="${escapeHtml(set.id)}" data-exercise-id="${escapeHtml(log.exerciseId)}" type="button">x</button></span>`).join("") : `<span class="empty">No sets added yet</span>`}</div>
         </div>
       </details>`;
     }).join("")}` : `<div class="empty">No exercises in this split yet.</div>`;
+  renderStickyWorkoutFooter();
 }
 function latestExerciseSets(name, before = Date.now()) {
   const sessions = allWorkoutSessions();
@@ -2459,13 +2612,13 @@ function renderTodayPeptideReminders() {
   }
   const selected = peptideReminderDate();
   const isToday = selected === todayKey();
-  el.innerHTML = `<button class="secondary wide-button peptide-today-button${isToday ? " active" : ""}" data-peptide-reminder-today type="button">Today</button>${peptideReminderDateStripHtml(selected)}${dueDoseCards(true, selected)}`;
+  el.innerHTML = `<button class="secondary wide-button peptide-today-button${isToday ? " active" : ""}" data-peptide-reminder-today type="button">Today</button>${peptideReminderDateStripHtml(selected)}${peptideReminderSplitHtml(selected, true)}`;
   scheduleCalendarScroll();
 }
 function renderPeptideDueList() {
   const el = $("#peptide-due-list");
   if (!el) return;
-  el.innerHTML = dueDoseCards(false, todayKey());
+  el.innerHTML = peptideReminderSplitHtml(todayKey(), false);
 }
 function peptideReminderDateStripHtml(selected = peptideReminderDate()) {
   const today = parseDay(todayKey()) || new Date();
@@ -2483,6 +2636,41 @@ function peptideReminderDateStripHtml(selected = peptideReminderDate()) {
         <small>${due.length ? `${logged}/${due.length}` : ""}</small>
       </button>`;
     }).join("")}
+  </div>`;
+}
+function upcomingDoseCards(days = 7) {
+  const today = parseDay(todayKey()) || new Date();
+  const rows = [];
+  for (let index = 1; index <= days; index += 1) {
+    const date = dayKey(addDays(today, index));
+    dueDoseSlots(date).forEach((slot) => rows.push({ date, ...slot }));
+  }
+  if (!rows.length) return `<div class="empty">No upcoming peptide doses in the next ${fmt(days)} days.</div>`;
+  return rows.map(({ date, cycle, timing }) => {
+    const logged = doseLogForSlot({ cycle, timing }, date);
+    const calc = calculateDraw(cycle.peptideId, cycle.vialMg, cycle.diluentMl, cycle.doseMg);
+    return `<div class="dose-card upcoming-dose-card">
+      <div class="dose-card-head">
+        <div>
+          <strong>${escapeHtml(compoundName(cycle.peptideId))}</strong>
+          <small>${escapeHtml(dateLabel(date))} / ${escapeHtml(timingLabel(timing))} / ${fmtDose(cycle.doseMg)}mg${calc.ok && calc.drawMl ? ` / ${fmtDose(calc.drawMl)}ml${calc.type === "peptide" ? ` / ${fmt(calc.drawUnits)} units` : ""}` : ""}</small>
+        </div>
+        <span class="pill">${logged ? "Logged" : "Due"}</span>
+      </div>
+    </div>`;
+  }).join("");
+}
+function peptideReminderSplitHtml(date = todayKey(), compact = false) {
+  const selectedLabel = date === todayKey() ? "Due Today" : `Due ${dateLabel(date)}`;
+  return `<div class="peptide-reminder-split">
+    <section class="peptide-reminder-group">
+      <div class="peptide-group-head"><strong>${escapeHtml(selectedLabel)}</strong><small>${escapeHtml(dateLabel(date))}</small></div>
+      ${dueDoseCards(compact, date)}
+    </section>
+    <section class="peptide-reminder-group">
+      <div class="peptide-group-head"><strong>Upcoming</strong><small>Next 7 days</small></div>
+      ${upcomingDoseCards(7)}
+    </section>
   </div>`;
 }
 function dueDoseCards(compact = false, date = todayKey()) {
@@ -4605,12 +4793,25 @@ function bind() {
     const panel = summary?.parentElement;
     if (!panel?.matches?.("details") || !panel.open) return;
     event.preventDefault();
+    if (state.settings.workoutFocusMode && panel.matches("#view-log > .drop-panel:first-of-type")) return;
     if (panel.classList.contains("tab-closing")) return;
     closeTabSmooth(panel);
   }, true);
   document.addEventListener("click", async (event) => {
     const button = event.target.closest("button");
     if (!button) return;
+    if (button.dataset.toastUndo !== undefined) {
+      const action = undoToastAction;
+      undoToastAction = null;
+      clearTimeout(undoToastTimer);
+      $("#app-toast")?.classList.remove("show");
+      if (action) action();
+      return;
+    }
+    if (button.dataset.closeWorkoutSummary !== undefined) {
+      $(".workout-summary-modal")?.remove();
+      return;
+    }
     if (isPeptideActionButton(button) && !userCanUsePeptides()) return;
     if (button.dataset.seeMorePanels !== undefined) {
       const view = button.closest(".view");
@@ -4662,17 +4863,37 @@ function bind() {
     }
     if (button.dataset.deleteMotraBatch) {
       if (confirm("Delete every workout from this Motra import batch?")) {
+        const deleted = motraImportedSessions().filter((workout) => workout.importBatchId === button.dataset.deleteMotraBatch).map(clone);
         deleteMotraBatch(button.dataset.deleteMotraBatch);
-        save(); render();
+        save({ silent: true }); render();
         setMotraImportStatus("Deleted Motra import batch.");
+        if (deleted.length) showUndoToast("Motra batch deleted", () => {
+          deleted.forEach((workout) => {
+            const date = workout.date || metricDateKey(workout);
+            state.workouts[date] = [workout, ...(state.workouts[date] || [])];
+          });
+          save(); render();
+          setMotraImportStatus("Restored Motra import batch.");
+        });
       }
       return;
     }
     if (button.dataset.deleteMotraWorkout) {
       if (confirm("Delete this imported Motra workout?")) {
+        const date = button.dataset.deleteMotraDate;
+        const list = state.workouts[date] || [];
+        const index = list.findIndex((workout) => workout.id === button.dataset.deleteMotraWorkout);
+        const deleted = index >= 0 ? clone(list[index]) : null;
         deleteMotraWorkout(button.dataset.deleteMotraDate, button.dataset.deleteMotraWorkout);
-        save(); render();
+        save({ silent: true }); render();
         setMotraImportStatus("Deleted Motra workout.");
+        if (deleted) showUndoToast("Motra workout deleted", () => {
+          const restore = [...(state.workouts[date] || [])];
+          restore.splice(Math.min(index, restore.length), 0, deleted);
+          state.workouts[date] = restore;
+          save(); render();
+          setMotraImportStatus("Restored Motra workout.");
+        });
       }
       return;
     }
@@ -4690,11 +4911,14 @@ function bind() {
     if (button.dataset.startWorkout !== undefined) {
       state.settings.selectedSplit = selectedSplit(true);
       state.settings.selectedSplitDate = todayKey();
+      state.settings.workoutFocusMode = true;
       setView("log");
       const draft = ensureDraft(state.settings.selectedSplit);
       const first = workoutProgressData(draft.exerciseLogs || []).next;
       if (first) setOpenExerciseCard(first.exerciseId);
       render();
+      const logPanel = $("#view-log > .drop-panel");
+      if (logPanel) logPanel.open = true;
       requestAnimationFrame(() => document.querySelector(".exercise-log[open]")?.scrollIntoView({ behavior: "smooth", block: "center" }));
       return;
     }
@@ -4724,14 +4948,32 @@ function bind() {
       save(); render();
     }
     if (button.dataset.deleteSavedMeal) {
+      const index = (state.savedMeals || []).findIndex((meal) => meal.id === button.dataset.deleteSavedMeal);
+      const deleted = index >= 0 ? clone(state.savedMeals[index]) : null;
       state.savedMeals = (state.savedMeals || []).filter((meal) => meal.id !== button.dataset.deleteSavedMeal);
-      save(); render();
+      save({ silent: true }); render();
+      if (deleted) showUndoToast("Meal deleted", () => {
+        state.savedMeals = [...(state.savedMeals || [])];
+        state.savedMeals.splice(Math.min(index, state.savedMeals.length), 0, deleted);
+        save(); render();
+      });
+      return;
     }
     if (button.dataset.deleteTodayMeal) {
       const key = todayKey();
-      state.meals[key] = (state.meals[key] || []).filter((meal) => meal.id !== button.dataset.deleteTodayMeal);
+      const list = state.meals[key] || [];
+      const index = list.findIndex((meal) => meal.id === button.dataset.deleteTodayMeal);
+      const deleted = index >= 0 ? clone(list[index]) : null;
+      state.meals[key] = list.filter((meal) => meal.id !== button.dataset.deleteTodayMeal);
       if (!state.meals[key].length) delete state.meals[key];
-      save(); render();
+      save({ silent: true }); render();
+      if (deleted) showUndoToast("Meal deleted", () => {
+        const restore = [...(state.meals[key] || [])];
+        restore.splice(Math.min(index, restore.length), 0, deleted);
+        state.meals[key] = restore;
+        save(); render();
+      });
+      return;
     }
     if (button.dataset.historyWeek) {
       const current = parseDay(historySelectedDate()) || new Date();
@@ -4783,15 +5025,27 @@ function bind() {
       log.sets = [...(log.sets || []), { id: uid(), reps, weightKg, targetId: selectedTarget?.id || "", targetLabel: selectedTarget?.label || "Working set", targetDetails: selectedTarget?.details || "", createdAt: Date.now() }];
       const nextLog = exerciseLogStatus(log).status === "complete" ? nextExerciseAfter(draft.exerciseLogs, log.exerciseId) : null;
       setOpenExerciseCard(nextLog?.exerciseId || log.exerciseId);
+      startRestTimerForLog(log);
       save(); renderWorkoutEditor();
       if (nextLog) showAppToast(`Next: ${nextLog.name}`, "saved");
     }
     if (button.dataset.deleteSet) {
       const draft = ensureDraft(selectedSplit());
       const log = draft.exerciseLogs.find((entry) => entry.exerciseId === button.dataset.exerciseId);
+      const index = log ? (log.sets || []).findIndex((set) => set.id === button.dataset.deleteSet) : -1;
+      const deleted = index >= 0 ? clone(log.sets[index]) : null;
       if (log) log.sets = (log.sets || []).filter((set) => set.id !== button.dataset.deleteSet);
       if (log) setOpenExerciseCard(log.exerciseId);
-      save(); renderWorkoutEditor();
+      save({ silent: true }); renderWorkoutEditor();
+      if (deleted && log) showUndoToast("Set deleted", () => {
+        const restoreDraft = ensureDraft(selectedSplit());
+        const restoreLog = restoreDraft.exerciseLogs.find((entry) => entry.exerciseId === log.exerciseId);
+        if (!restoreLog) return;
+        restoreLog.sets = [...(restoreLog.sets || [])];
+        restoreLog.sets.splice(Math.min(index, restoreLog.sets.length), 0, deleted);
+        setOpenExerciseCard(restoreLog.exerciseId);
+        save(); renderWorkoutEditor();
+      });
     }
     if (button.dataset.openWorkoutExercise !== undefined) {
       openWorkoutExercise(button.dataset.openWorkoutExercise);
@@ -4803,6 +5057,16 @@ function bind() {
       const nextLog = nextExerciseAfter(draft.exerciseLogs || [], openId) || (draft.exerciseLogs || []).find((log) => exerciseLogStatus(log).status !== "complete");
       if (nextLog) openWorkoutExercise(nextLog.exerciseId);
       else showAppToast("Workout complete", "saved");
+      return;
+    }
+    if (button.dataset.toggleFocusMode !== undefined) {
+      state.settings.workoutFocusMode = !state.settings.workoutFocusMode;
+      if (!state.settings.workoutFocusMode) clearRestTimer();
+      save();
+      renderLog();
+      const logPanel = $("#view-log > .drop-panel");
+      if (state.settings.workoutFocusMode && logPanel) logPanel.open = true;
+      setView("log", { persist: false });
       return;
     }
     if (button.dataset.cycleDay !== undefined) {
@@ -4838,15 +5102,33 @@ function bind() {
     }
     if (button.dataset.deleteExercise) {
       const key = button.dataset.deleteExercise;
-      state.workoutTemplates[key].exercises = state.workoutTemplates[key].exercises.filter((exercise) => exercise.id !== button.dataset.exerciseId);
-      save(); render();
+      const exercises = state.workoutTemplates[key]?.exercises || [];
+      const index = exercises.findIndex((exercise) => exercise.id === button.dataset.exerciseId);
+      const deleted = index >= 0 ? clone(exercises[index]) : null;
+      state.workoutTemplates[key].exercises = exercises.filter((exercise) => exercise.id !== button.dataset.exerciseId);
+      save({ silent: true }); render();
+      if (deleted) showUndoToast("Exercise deleted", () => {
+        const restore = [...(state.workoutTemplates[key]?.exercises || [])];
+        restore.splice(Math.min(index, restore.length), 0, deleted);
+        if (state.workoutTemplates[key]) state.workoutTemplates[key].exercises = restore;
+        save(); render();
+      });
+      return;
     }
     if (button.dataset.deleteSplit) {
       const key = button.dataset.deleteSplit;
       if (!confirm(`Delete ${splitTitle(key)}? Existing workout history stays saved.`)) return;
+      const deletedTemplate = clone(state.workoutTemplates[key]);
+      const previousAssignments = clone(state.weeklyPlan.assignments || {});
       delete state.workoutTemplates[key];
       for (const day of Object.keys(state.weeklyPlan.assignments)) if (state.weeklyPlan.assignments[day] === key) state.weeklyPlan.assignments[day] = "rest";
-      save(); render();
+      save({ silent: true }); render();
+      showUndoToast("Split deleted", () => {
+        state.workoutTemplates[key] = deletedTemplate;
+        state.weeklyPlan.assignments = previousAssignments;
+        save(); render();
+      });
+      return;
     }
     if (button.dataset.history) { state.settings.historyType = button.dataset.history; save(); renderHistory(); }
     if (button.dataset.endCycle) {
@@ -4857,20 +5139,69 @@ function bind() {
     }
     if (button.dataset.deleteCycle) {
       if (!confirm("Delete this peptide cycle? Existing dosage history stays saved.")) return;
+      const index = (state.peptideCycles || []).findIndex((cycle) => cycle.id === button.dataset.deleteCycle);
+      const deleted = index >= 0 ? clone(state.peptideCycles[index]) : null;
       state.peptideCycles = (state.peptideCycles || []).filter((cycle) => cycle.id !== button.dataset.deleteCycle);
-      save(); renderPeptides(); renderToday();
+      save({ silent: true }); renderPeptides(); renderToday();
+      if (deleted) showUndoToast("Cycle deleted", () => {
+        state.peptideCycles = [...(state.peptideCycles || [])];
+        state.peptideCycles.splice(Math.min(index, state.peptideCycles.length), 0, deleted);
+        save(); renderPeptides(); renderToday();
+      });
+      return;
     }
     if (button.dataset.deleteDose) {
+      const index = (state.peptideLogs || []).findIndex((log) => log.id === button.dataset.deleteDose);
+      const deleted = index >= 0 ? clone(state.peptideLogs[index]) : null;
       state.peptideLogs = (state.peptideLogs || []).filter((log) => log.id !== button.dataset.deleteDose);
-      save(); render();
+      save({ silent: true }); render();
+      if (deleted) showUndoToast("Dose deleted", () => {
+        state.peptideLogs = [...(state.peptideLogs || [])];
+        state.peptideLogs.splice(Math.min(index, state.peptideLogs.length), 0, deleted);
+        save(); render();
+      });
+      return;
     }
     if (button.dataset.deleteWorkoutDate) {
       const date = button.dataset.deleteWorkoutDate;
-      state.workouts[date] = (state.workouts[date] || []).filter((workout) => workout.id !== button.dataset.deleteWorkoutId);
-      save(); render();
+      const list = state.workouts[date] || [];
+      const index = list.findIndex((workout) => workout.id === button.dataset.deleteWorkoutId);
+      const deleted = index >= 0 ? clone(list[index]) : null;
+      state.workouts[date] = list.filter((workout) => workout.id !== button.dataset.deleteWorkoutId);
+      if (!state.workouts[date].length) delete state.workouts[date];
+      save({ silent: true }); render();
+      if (deleted) showUndoToast("Workout deleted", () => {
+        const restore = [...(state.workouts[date] || [])];
+        restore.splice(Math.min(index, restore.length), 0, deleted);
+        state.workouts[date] = restore;
+        save(); render();
+      });
+      return;
     }
-    if (button.dataset.deleteWeight) { state.bodyMetrics = state.bodyMetrics.filter((m) => m.id !== button.dataset.deleteWeight); save(); render(); }
-    if (button.dataset.deleteProgress) { state.progressCheckins = (state.progressCheckins || []).filter((entry) => entry.id !== button.dataset.deleteProgress); save(); render(); }
+    if (button.dataset.deleteWeight) {
+      const index = (state.bodyMetrics || []).findIndex((m) => m.id === button.dataset.deleteWeight);
+      const deleted = index >= 0 ? clone(state.bodyMetrics[index]) : null;
+      state.bodyMetrics = state.bodyMetrics.filter((m) => m.id !== button.dataset.deleteWeight);
+      save({ silent: true }); render();
+      if (deleted) showUndoToast("Weight deleted", () => {
+        state.bodyMetrics = [...(state.bodyMetrics || [])];
+        state.bodyMetrics.splice(Math.min(index, state.bodyMetrics.length), 0, deleted);
+        save(); render();
+      });
+      return;
+    }
+    if (button.dataset.deleteProgress) {
+      const index = (state.progressCheckins || []).findIndex((entry) => entry.id === button.dataset.deleteProgress);
+      const deleted = index >= 0 ? clone(state.progressCheckins[index]) : null;
+      state.progressCheckins = (state.progressCheckins || []).filter((entry) => entry.id !== button.dataset.deleteProgress);
+      save({ silent: true }); render();
+      if (deleted) showUndoToast("Check-in deleted", () => {
+        state.progressCheckins = [...(state.progressCheckins || [])];
+        state.progressCheckins.splice(Math.min(index, state.progressCheckins.length), 0, deleted);
+        save(); render();
+      });
+      return;
+    }
   });
   document.addEventListener("input", (event) => {
     const el = event.target;
@@ -4995,12 +5326,17 @@ function bind() {
     const draft = ensureDraft(split);
     const exerciseLogs = (draft.exerciseLogs || []).map((log) => ({ ...log, sets: (log.sets || []).filter((set) => num(set.reps) || rawNum(set.weightKg)) })).filter((log) => log.sets.length);
     if (!exerciseLogs.length) { alert("Add at least one set before saving this workout."); return; }
+    const unfinished = (draft.exerciseLogs || []).filter((log) => exerciseLogStatus(log).status !== "complete");
+    if (unfinished.length && !confirm(`${unfinished.length} planned exercise${unfinished.length === 1 ? " is" : "s are"} still unfinished. Save this workout anyway?`)) return;
     const minutes = 45;
     const session = { id: uid(), name: splitTitle(split), type: "strength", split, planTitle: splitTitle(split), exerciseLogs, durationMin: minutes, caloriesBurned: estimateCalories(minutes), createdAt: Date.now() };
     const key = todayKey();
     state.workouts[key] = [session, ...todayWorkouts()];
     delete state.workoutDrafts[`${key}:${split}`];
+    state.settings.workoutFocusMode = false;
+    clearRestTimer();
     save(); render();
+    showWorkoutSummary(session, draft);
   });
   $("#peptide-cycle-form").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -5257,8 +5593,10 @@ function setView(view, options = {}) {
   state.settings.activeView = target;
   $$(".view").forEach((el) => el.classList.toggle("active", el.id === `view-${target}`));
   $$(".tabbar [data-view]").forEach((button) => button.classList.toggle("active", button.dataset.view === target));
+  document.body.classList.toggle("workout-focus-mode", target === "log" && Boolean(state.settings.workoutFocusMode));
   renderHeader();
   renderPanelLimit();
+  renderStickyWorkoutFooter();
   scheduleCalendarScroll();
   if (options.persist !== false) save({ silent: true });
 }
