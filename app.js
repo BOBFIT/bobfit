@@ -1450,6 +1450,11 @@ function render() {
   setView(view, { persist: false });
   collapseStartupDetails();
 }
+function prepareLaunchState() {
+  state.settings = { ...(state.settings || {}), activeView: "today", workoutFocusMode: false };
+  openExerciseCards.clear();
+  clearRestTimer();
+}
 function renderFeatureAccess() {
   const canUsePeptides = userCanUsePeptides();
   document.body.classList.toggle("peptides-locked", !canUsePeptides);
@@ -5601,4 +5606,4 @@ function setView(view, options = {}) {
   if (options.persist !== false) save({ silent: true });
 }
 
-load().then(() => { bind(); render(); save({ silent: true, skipCloud: true }); initCloud(); saveFeedbackReady = true; });
+load().then(() => { prepareLaunchState(); bind(); render(); save({ silent: true, skipCloud: true }); initCloud(); saveFeedbackReady = true; });
