@@ -28,6 +28,20 @@ const TRAINING_TERMS = [
   ["Pause on stretch", "Hold the stretched position under control before the next rep."],
   ["Tempo 3120 / 3121", "3 sec eccentric, 1 sec pause, 2 sec concentric, then 0-1 sec at the top."],
 ];
+const PR_BODY_PARTS = ["All", "Chest", "Back", "Shoulders", "Biceps", "Triceps", "Quads", "Hamstrings", "Glutes", "Calves", "Abs", "Other"];
+const PR_DATE_RANGES = [
+  ["all", "All time"],
+  ["30", "Last 30 days"],
+  ["90", "Last 90 days"],
+  ["180", "Last 6 months"],
+  ["365", "Last year"],
+];
+const PR_SORTS = [
+  ["bestWeight", "Best weight"],
+  ["bestReps", "Best reps"],
+  ["bestVolume", "Best volume"],
+  ["bestEst1rm", "Est. 1RM"],
+];
 const PEPTIDE_TIMINGS = [
   ["morning", "Morning"],
   ["night", "Night"],
@@ -569,7 +583,7 @@ function defaults() {
     weeklyPlan: { assignments: { ...DEFAULT_WEEKLY_ASSIGNMENTS }, doseDays: [] },
     workoutTemplates: clone(DEFAULT_TEMPLATES),
     workoutDrafts: {},
-    settings: { activeView: "today", selectedSplit: "", selectedSplitDate: "", historyType: "meals", historyDate: todayKey(), peptideReminderDate: todayKey(), workoutFocusMode: false, trainingPlanVersion: TRAINING_PLAN_VERSION },
+    settings: { activeView: "today", selectedSplit: "", selectedSplitDate: "", historyType: "meals", historyDate: todayKey(), peptideReminderDate: todayKey(), workoutFocusMode: false, prBodyPart: "All", prRange: "all", prSort: "bestEst1rm", prQuery: "", trainingPlanVersion: TRAINING_PLAN_VERSION },
     createdAt: Date.now(),
   };
 }
@@ -946,6 +960,20 @@ function substitutionOptionsForExercise(name = "", blockedNames = []) {
     .filter((option) => slug(option.name) !== current)
     .filter((option) => !blockedNames.some((blocked) => blocked && exerciseNamesMatch(option.name, blocked)))
     .slice(0, 5);
+}
+function exerciseBodyPart(name = "") {
+  const key = slug(motraExerciseName(name));
+  if (/(leg-hamstring-curl|leg-curl|hamstring|lying-leg-curl|seated-leg-curl|prone|rdl|romanian|stiff-leg|good-morning)/.test(key)) return "Hamstrings";
+  if (/(calf|calve|toe-press)/.test(key)) return "Calves";
+  if (/(ab|crunch|leg-raise|hanging|plank|core|torso|russian|dead-bug|flutter)/.test(key)) return "Abs";
+  if (/(hip-thrust|glute|adductor|adduction|abductor|sumo)/.test(key)) return "Glutes";
+  if (/(leg-press|hack-squat|pendulum|squat|leg-extension|lunge|split-squat|step-up|quad)/.test(key)) return "Quads";
+  if (/(tricep|pushdown|skull|extension|dip|jm-press|close-grip)/.test(key)) return "Triceps";
+  if (/(bicep|curl|preacher|bayesian|hammer|drag)/.test(key)) return "Biceps";
+  if (/(rear-delt|reverse-pec|lateral|front-raise|shoulder|overhead-press|upright-row|face-pull|y-raise)/.test(key)) return "Shoulders";
+  if (/(pulldown|pull-down|pull-up|chin|row|t-bar|tbar|deadlift|rack-pull|pullover|straight-arm)/.test(key)) return "Back";
+  if (/(chest|pec|fly|bench|incline|decline|press|squeeze)/.test(key)) return "Chest";
+  return "Other";
 }
 function escapeHtml(v) {
   return String(v ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -2284,12 +2312,30 @@ function smartSetDefaults(log, previous) {
     setNumber: index + 1,
   };
 }
-function restSecondsForLog(log) {
-  const text = `${log?.name || ""} ${log?.notes || ""} ${(log?.targets || []).map((target) => `${target.label} ${target.details}`).join(" ")}`.toLowerCase();
-  if (text.includes("cluster")) return 15;
-  if (text.includes("rest-pause") || text.includes("rest pause")) return 20;
+function restSecondsFromText(text = "") {
+  const clean = String(text || "").toLowerCase().replace(/[–—]/g, "-");
+  const isClusterBreak = /\b(cluster|rest-pause|rest pause|breaks?|between sections?)\b/.test(clean);
+  const labeledRange = clean.match(/\brest(?:-pause)?(?:\s+breaks?)?\s*:?\s*(\d{1,3})\s*(?:-|to)\s*(\d{1,3})\s*(?:sec|second)/);
+  const trailingRange = clean.match(/(\d{1,3})\s*(?:-|to)\s*(\d{1,3})\s*(?:sec|second)s?\s*(?:rest|break|between)/);
+  const range = labeledRange || trailingRange;
+  if (range) {
+    const low = Number(range[1]) || 0;
+    const high = Number(range[2]) || low;
+    return isClusterBreak || high <= 45 ? high : low;
+  }
+  const labeledSingle = clean.match(/\b(?:rest(?:-pause)?(?:\s+breaks?)?|breaks?|between sections?)\s*:?\s*(\d{1,3})\s*(?:sec|second)/);
+  if (labeledSingle) return Number(labeledSingle[1]) || 0;
+  return 0;
+}
+function restSecondsForLog(log, target = null) {
+  const text = `${log?.name || ""} ${log?.notes || ""} ${target ? `${target.label || ""} ${target.details || ""}` : ""} ${(log?.targets || []).map((item) => `${item.label} ${item.details}`).join(" ")}`;
+  const explicit = restSecondsFromText(text);
+  if (explicit) return clamp(explicit, 10, 300);
+  const lower = text.toLowerCase();
+  if (lower.includes("cluster")) return 15;
+  if (lower.includes("rest-pause") || lower.includes("rest pause")) return 20;
   if (/(deadlift|squat|press|rdl|row|lunge|leg press|dip)/i.test(text)) return 150;
-  return 75;
+  return 90;
 }
 function restTimerLabel() {
   const left = Math.max(0, Math.ceil((restTimerEndAt - Date.now()) / 1000));
@@ -2298,8 +2344,18 @@ function restTimerLabel() {
   const secs = String(left % 60).padStart(2, "0");
   return `${mins}:${secs}`;
 }
-function startRestTimerForLog(log) {
-  restTimerEndAt = Date.now() + (restSecondsForLog(log) * 1000);
+function restDurationLabel(seconds = 0) {
+  const value = Math.max(0, Math.round(Number(seconds) || 0));
+  if (value >= 60) {
+    const mins = Math.floor(value / 60);
+    const secs = value % 60;
+    return secs ? `${mins}m ${secs}s` : `${mins}m`;
+  }
+  return `${value}s`;
+}
+function startRestTimerForLog(log, target = null) {
+  const seconds = restSecondsForLog(log, target);
+  restTimerEndAt = Date.now() + (seconds * 1000);
   clearInterval(restTimerInterval);
   restTimerInterval = setInterval(() => {
     renderStickyWorkoutFooter();
@@ -2310,6 +2366,7 @@ function startRestTimerForLog(log) {
     }
   }, 1000);
   renderStickyWorkoutFooter();
+  return seconds;
 }
 function clearRestTimer() {
   restTimerEndAt = 0;
@@ -2326,30 +2383,64 @@ function bestSetBeats(current, previous) {
   if (Math.abs(currentWeight - previousWeight) <= 0.24 && num(current.reps) > num(previous.reps)) return true;
   return estimatedOneRepMax(current) > estimatedOneRepMax(previous) + 0.24;
 }
+function topLiftForLogs(logs = []) {
+  return logs.flatMap((log) => (log.sets || []).map((set) => ({ log, set })))
+    .filter((entry) => num(entry.set.reps) || rawNum(entry.set.weightKg))
+    .sort((a, b) => rawNum(b.set.weightKg) - rawNum(a.set.weightKg) || estimatedOneRepMax(b.set) - estimatedOneRepMax(a.set) || num(b.set.reps) - num(a.set.reps))[0] || null;
+}
+function prHitsForSession(logs = [], before = Date.now()) {
+  return logs.map((log) => {
+    const current = summarizeExerciseLog({ log }).bestSet;
+    const previousBest = exerciseStats(log.name, before).bestSet;
+    return bestSetBeats(current, previousBest) ? { log, current, previousBest } : null;
+  }).filter(Boolean);
+}
+function nextWorkoutTargetForLog(log, before = Date.now()) {
+  const current = summarizeExerciseLog({ log }).bestSet;
+  if (!current) return null;
+  const stats = exerciseStats(log.name, before);
+  const previousBest = stats.bestSet;
+  const name = originalExerciseDisplayName(log.name);
+  if (previousBest && !bestSetBeats(current, previousBest)) {
+    return { main: `${name}: match ${setResultText(previousBest)}`, detail: "You are still chasing the old best." };
+  }
+  const high = targetRepHigh(log.targets || []);
+  if (high && num(current.reps) >= high && rawNum(current.weightKg) > 0) {
+    return { main: `${name}: try ${fmtWeight(rawNum(current.weightKg) + 2.5)}kg`, detail: `You hit ${setResultText(current)}. Add load if warm-ups move well.` };
+  }
+  return { main: `${name}: beat ${setResultText(current)}`, detail: "Match the load first, then steal one more rep." };
+}
 function workoutSummaryData(session, draft) {
   const draftLogs = draft?.exerciseLogs || [];
   const savedLogs = session?.exerciseLogs || [];
+  const before = draft?.startedAt || session?.createdAt || Date.now();
   const totalExercises = draftLogs.length || savedLogs.length;
   const completeExercises = draftLogs.filter((log) => exerciseLogStatus(log).status === "complete").length;
-  const missedExercises = draftLogs.filter((log) => exerciseLogStatus(log).status !== "complete").length;
+  const missedNames = draftLogs.filter((log) => exerciseLogStatus(log).status !== "complete").map((log) => originalExerciseDisplayName(log.name, session?.split)).slice(0, 5);
   const totalSets = savedLogs.reduce((sum, log) => sum + loggedSetCount(log), 0);
-  const prCount = savedLogs.reduce((sum, log) => {
-    const current = summarizeExerciseLog({ log }).bestSet;
-    const previousBest = exerciseStats(log.name, draft?.startedAt || session?.createdAt || Date.now()).bestSet;
-    return sum + (bestSetBeats(current, previousBest) ? 1 : 0);
-  }, 0);
+  const prHits = prHitsForSession(savedLogs, before);
+  const topLift = topLiftForLogs(savedLogs);
+  const nextTarget = savedLogs.map((log) => nextWorkoutTargetForLog(log, before)).find(Boolean);
   return {
     totalExercises,
     completeExercises,
-    missedExercises,
+    missedCount: missedNames.length,
+    missedNames,
     totalSets,
-    prCount,
+    prHits,
+    prCount: prHits.length,
+    topLift,
+    nextTarget,
     note: coachNotes()[0] || "Workout saved. The log has something useful to judge now.",
   };
 }
 function showWorkoutSummary(session, draft) {
   $(".workout-summary-modal")?.remove();
   const data = workoutSummaryData(session, draft);
+  const topLiftText = data.topLift ? setResultText(data.topLift.set) : "-";
+  const topLiftExercise = data.topLift ? originalExerciseDisplayName(data.topLift.log.name, session?.split) : "No top lift saved";
+  const prText = data.prHits.length ? data.prHits.map((item) => `${originalExerciseDisplayName(item.log.name, session?.split)} ${setResultText(item.current)}`).slice(0, 3).join(" / ") : "No new PRs this session.";
+  const missedText = data.missedNames.length ? data.missedNames.join(" / ") : "Nothing missed. Clean work.";
   const modal = document.createElement("div");
   modal.className = "workout-summary-modal show";
   modal.innerHTML = `<section class="workout-summary-card" role="dialog" aria-modal="true" aria-label="Workout summary">
@@ -2360,8 +2451,14 @@ function showWorkoutSummary(session, draft) {
       <div><strong>${fmt(data.completeExercises)}/${fmt(data.totalExercises)}</strong><small>Exercises done</small></div>
       <div><strong>${fmt(data.totalSets)}</strong><small>Sets logged</small></div>
       <div><strong>${fmt(data.prCount)}</strong><small>PR hits</small></div>
-      <div class="${data.missedExercises ? "warn" : "done"}"><strong>${fmt(data.missedExercises)}</strong><small>Missed</small></div>
+      <div class="${data.missedCount ? "warn" : "done"}"><strong>${fmt(data.missedCount)}</strong><small>Missed</small></div>
     </div>
+    <div class="summary-detail-grid">
+      <div><span>Top lift</span><strong>${escapeHtml(topLiftText)}</strong><small>${escapeHtml(topLiftExercise)}</small></div>
+      <div><span>Beat next time</span><strong>${escapeHtml(data.nextTarget?.main || "Log another workout")}</strong><small>${escapeHtml(data.nextTarget?.detail || "More data gives better targets.")}</small></div>
+    </div>
+    <div class="summary-note-card"><span>PRs</span><p>${escapeHtml(prText)}</p></div>
+    <div class="summary-note-card ${data.missedCount ? "warn" : "done"}"><span>Missed exercises</span><p>${escapeHtml(missedText)}</p></div>
     <p>${escapeHtml(data.note)}</p>
     <button class="primary wide-button" data-close-workout-summary type="button">Done</button>
   </section>`;
@@ -2491,6 +2588,11 @@ function renderWorkoutEditor() {
           ${logTargetDetailsHtml(log.targets)}
           ${progressiveOverloadHtml(log, draft.startedAt)}
           ${exerciseSwapHtml(log, logs)}
+          <div class="rest-timer-card">
+            <span>Rest timer</span>
+            <strong>${escapeHtml(restDurationLabel(restSecondsForLog(log)))}</strong>
+            <small>Starts automatically after Add set, using this exercise's notes.</small>
+          </div>
           <div class="set-entry">
             <div class="previous-set-banner wide"><strong>Set ${fmt(defaults.setNumber)}</strong><span>${defaults.previousSet ? `Last time: ${fmtWeight(defaults.previousSet.weightKg)}kg x ${fmt(defaults.previousSet.reps)}` : "No matching previous set yet"}</span></div>
             <label class="target-select">Set target<select name="targetId">${targetOptionsHtml(log.targets, nextTargetId(log.targets, log.sets))}</select></label>
@@ -2587,15 +2689,43 @@ function progressiveOverloadHtml(log, before = Infinity) {
     </div>
   </details>`;
 }
-function personalRecords(limit = 10) {
+function prFilters() {
+  const settings = state.settings || {};
+  return {
+    bodyPart: PR_BODY_PARTS.includes(settings.prBodyPart) ? settings.prBodyPart : "All",
+    range: PR_DATE_RANGES.some(([value]) => value === settings.prRange) ? settings.prRange : "all",
+    sort: PR_SORTS.some(([value]) => value === settings.prSort) ? settings.prSort : "bestEst1rm",
+    query: String(settings.prQuery || "").trim().toLowerCase(),
+  };
+}
+function prRangeCutoff(range = "all") {
+  const days = Number(range);
+  return days ? Date.now() - (days * 86400000) : 0;
+}
+function prSortValue(record, sort = "bestEst1rm") {
+  if (sort === "bestWeight") return rawNum(record.bestSet?.weightKg);
+  if (sort === "bestReps") return rawNum(record.bestReps);
+  if (sort === "bestVolume") return rawNum(record.bestVolume);
+  return rawNum(record.bestEst1rm);
+}
+function personalRecords(limit = 10, filters = {}) {
   const grouped = new Map();
+  const cutoff = prRangeCutoff(filters.range || "all");
+  const query = String(filters.query || "").trim().toLowerCase();
   for (const workout of allWorkoutSessions()) {
+    const workoutTime = parseDay(workout.date)?.getTime?.() || rawNum(workout.createdAt) || 0;
+    if (cutoff && workoutTime < cutoff) continue;
     for (const log of workout.exerciseLogs || []) {
       const key = exerciseMatchKey(log.name);
       if (!key || !log.sets?.length) continue;
-      const current = grouped.get(key) || { name: originalExerciseDisplayName(log.name, workout.split), bestSet: null, bestReps: 0, bestVolume: 0, bestEst1rm: 0, dates: [] };
+      const name = originalExerciseDisplayName(log.name, workout.split);
+      const bodyPart = exerciseBodyPart(name);
+      if (filters.bodyPart && filters.bodyPart !== "All" && bodyPart !== filters.bodyPart) continue;
+      if (query && !name.toLowerCase().includes(query)) continue;
+      const current = grouped.get(key) || { name, bodyPart, bestSet: null, bestReps: 0, bestVolume: 0, bestEst1rm: 0, dates: [], sessions: 0 };
       const summary = summarizeExerciseLog({ log });
       current.dates.push(workout.date);
+      current.sessions += 1;
       if (summary.bestSet && (!current.bestSet || rawNum(summary.bestSet.weightKg) > rawNum(current.bestSet.weightKg) || (rawNum(summary.bestSet.weightKg) === rawNum(current.bestSet.weightKg) && num(summary.bestSet.reps) > num(current.bestSet.reps)))) current.bestSet = { ...summary.bestSet, date: workout.date };
       current.bestReps = Math.max(current.bestReps, summary.bestReps);
       current.bestVolume = Math.max(current.bestVolume, summary.volume);
@@ -2603,23 +2733,36 @@ function personalRecords(limit = 10) {
       grouped.set(key, current);
     }
   }
-  return [...grouped.values()].sort((a, b) => b.bestEst1rm - a.bestEst1rm || b.bestVolume - a.bestVolume).slice(0, limit);
+  const sort = filters.sort || "bestEst1rm";
+  return [...grouped.values()].sort((a, b) => prSortValue(b, sort) - prSortValue(a, sort) || b.bestVolume - a.bestVolume).slice(0, limit);
 }
 function renderPersonalRecords() {
   const el = $("#personal-record-list");
   if (!el) return;
-  const records = personalRecords();
-  el.innerHTML = records.length ? records.map((record) => `<details class="pr-card pr-accordion" data-pr-exercise="${escapeHtml(exerciseMatchKey(record.name))}">
+  const filters = prFilters();
+  const allRecords = personalRecords(999, { ...filters, bodyPart: "All", query: "" });
+  const availableParts = PR_BODY_PARTS.filter((part) => part === "All" || allRecords.some((record) => record.bodyPart === part));
+  const records = personalRecords(50, filters);
+  const filterHtml = `<div class="pr-filter-panel">
+    <label>Body part<select data-pr-filter="prBodyPart">${availableParts.map((part) => `<option value="${escapeHtml(part)}"${part === filters.bodyPart ? " selected" : ""}>${escapeHtml(part)}</option>`).join("")}</select></label>
+    <label>Exercise<input data-pr-filter="prQuery" value="${escapeHtml(state.settings.prQuery || "")}" placeholder="Search exercise" /></label>
+    <label>Date range<select data-pr-filter="prRange">${PR_DATE_RANGES.map(([value, label]) => `<option value="${escapeHtml(value)}"${value === filters.range ? " selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label>
+    <label>Sort by<select data-pr-filter="prSort">${PR_SORTS.map(([value, label]) => `<option value="${escapeHtml(value)}"${value === filters.sort ? " selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select></label>
+  </div>`;
+  el.innerHTML = `${filterHtml}${records.length ? records.map((record) => `<details class="pr-card pr-accordion" data-pr-exercise="${escapeHtml(exerciseMatchKey(record.name))}">
     <summary class="pr-summary">
-      <span><strong>${escapeHtml(record.name)}</strong><small>${record.bestSet ? `Best set ${fmtWeight(record.bestSet.weightKg)}kg x ${fmt(record.bestSet.reps)}` : "No best set yet"}</small></span>
+      <span><strong>${escapeHtml(record.name)}</strong><small>${escapeHtml(record.bodyPart)} / ${record.bestSet ? `Best set ${fmtWeight(record.bestSet.weightKg)}kg x ${fmt(record.bestSet.reps)}` : "No best set yet"}</small></span>
       <span class="summary-pill">PRs</span>
     </summary>
     <div class="pr-metrics">
       <span><small>Best set</small><b>${record.bestSet ? `${fmtWeight(record.bestSet.weightKg)}kg x ${fmt(record.bestSet.reps)}` : "-"}</b></span>
+      <span><small>Best reps</small><b>${fmt(record.bestReps)}</b></span>
       <span><small>Volume</small><b>${fmtWeight(record.bestVolume)}kg</b></span>
       <span><small>Est. 1RM</small><b>${fmtWeight(record.bestEst1rm)}kg</b></span>
+      <span><small>Sessions</small><b>${fmt(record.sessions)}</b></span>
+      <span><small>Latest</small><b>${escapeHtml(record.dates[0] || "-")}</b></span>
     </div>
-  </details>`).join("") : `<div class="empty">Save workout sets to start earning PR badges.</div>`;
+  </details>`).join("") : `<div class="empty">No PRs match these filters yet.</div>`}`;
 }
 function setResultText(set) {
   return `${fmtWeight(set.weightKg)}kg x ${fmt(set.reps)}`;
@@ -3198,7 +3341,78 @@ function renderPeptideDayHistory() {
 function renderWeightHistory() {
   const date = historySelectedDate();
   const entries = weightEntriesForDate(date);
-  $("#history-list").innerHTML = entries.length ? entries.map((m) => `<div class="history-card"><div class="history-head"><div><strong>${dateLabel(date)}</strong><small>${fmtWeight(m.weightKg || m.weight)} kg${rawNum(m.fatPercent) ? ` / ${fmtWeight(m.fatPercent)}% fat` : ""}</small></div><button class="danger-button" data-delete-weight="${escapeHtml(m.id)}" type="button">Delete</button></div></div>`).join("") : `<div class="empty">No weight entries for ${escapeHtml(dateLabel(date))}.</div>`;
+  const dayEntries = entries.length ? entries.map((m) => `<div class="history-card"><div class="history-head"><div><strong>${dateLabel(date)}</strong><small>${fmtWeight(m.weightKg || m.weight)} kg${rawNum(m.fatPercent) ? ` / ${fmtWeight(m.fatPercent)}% fat` : ""}</small></div><button class="danger-button" data-delete-weight="${escapeHtml(m.id)}" type="button">Delete</button></div></div>`).join("") : `<div class="empty">No weight entries for ${escapeHtml(dateLabel(date))}.</div>`;
+  $("#history-list").innerHTML = `${weightTrendChartHtml()}${dayEntries}`;
+}
+function allWeightEntries() {
+  return [...(state.bodyMetrics || [])]
+    .map((entry) => ({ ...entry, date: metricDateKey(entry), value: weightValue(entry), createdAt: rawNum(entry.createdAt) || parseDay(metricDateKey(entry))?.getTime?.() || 0 }))
+    .filter((entry) => entry.value > 0)
+    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+}
+function averageWeight(entries = []) {
+  return entries.length ? entries.reduce((sum, entry) => sum + weightValue(entry), 0) / entries.length : 0;
+}
+function weekWeightEntriesFrom(entries = [], weekStartDate = new Date()) {
+  const start = startOfWeek(weekStartDate);
+  const end = addDays(start, 7);
+  return entries.filter((entry) => {
+    const date = parseDay(entry.date);
+    return date && date >= start && date < end;
+  });
+}
+function weightTrendChartHtml() {
+  const entries = allWeightEntries();
+  if (!entries.length) {
+    return `<div class="weight-trend-card">
+      <div class="weight-trend-head"><div><span>Bodyweight trend</span><strong>No entries yet</strong></div><small>Add weight to start the graph.</small></div>
+    </div>`;
+  }
+  const selected = parseDay(historySelectedDate()) || new Date();
+  const currentWeek = weekWeightEntriesFrom(entries, selected);
+  const previousWeek = weekWeightEntriesFrom(entries, addDays(startOfWeek(selected), -7));
+  const currentAvg = averageWeight(currentWeek);
+  const previousAvg = averageWeight(previousWeek);
+  const weekChange = currentAvg && previousAvg ? currentAvg - previousAvg : 0;
+  const lowest = entries.reduce((min, entry) => Math.min(min, entry.value), entries[0].value);
+  const highest = entries.reduce((max, entry) => Math.max(max, entry.value), entries[0].value);
+  const latest = entries[entries.length - 1];
+  const previous = entries[entries.length - 2];
+  const latestChange = previous ? latest.value - previous.value : 0;
+  const chartEntries = entries.slice(-14);
+  const width = 320;
+  const height = 150;
+  const padX = 22;
+  const padY = 20;
+  const min = Math.min(...chartEntries.map((entry) => entry.value));
+  const max = Math.max(...chartEntries.map((entry) => entry.value));
+  const spread = Math.max(0.5, max - min);
+  const points = chartEntries.map((entry, index) => {
+    const x = chartEntries.length === 1 ? width / 2 : padX + ((width - (padX * 2)) * (index / (chartEntries.length - 1)));
+    const y = padY + ((height - (padY * 2)) * (1 - ((entry.value - min) / spread)));
+    return { x, y, entry };
+  });
+  const line = points.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(" ");
+  const area = points.length > 1 ? `${points[0].x.toFixed(1)},${(height - padY).toFixed(1)} ${line} ${points[points.length - 1].x.toFixed(1)},${(height - padY).toFixed(1)}` : "";
+  return `<div class="weight-trend-card">
+    <div class="weight-trend-head">
+      <div><span>Bodyweight trend</span><strong>${fmtWeight(latest.value)}kg</strong></div>
+      <small>${previous ? `${latestChange >= 0 ? "+" : ""}${fmtWeight(latestChange)}kg since last entry` : "First entry saved"}</small>
+    </div>
+    <svg class="weight-chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Bodyweight trend chart">
+      <line x1="${padX}" y1="${height - padY}" x2="${width - padX}" y2="${height - padY}" />
+      <line x1="${padX}" y1="${padY}" x2="${padX}" y2="${height - padY}" />
+      ${area ? `<polygon points="${area}" />` : ""}
+      ${points.length > 1 ? `<polyline points="${line}" />` : ""}
+      ${points.map((point) => `<circle cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="4"><title>${escapeHtml(dateLabel(point.entry.date))}: ${fmtWeight(point.entry.value)}kg</title></circle>`).join("")}
+    </svg>
+    <div class="weight-stat-grid">
+      <span><small>Weekly avg</small><strong>${currentAvg ? `${fmtWeight(currentAvg)}kg` : "No entry"}</strong></span>
+      <span><small>Vs last week</small><strong>${currentAvg && previousAvg ? `${weekChange >= 0 ? "+" : ""}${fmtWeight(weekChange)}kg` : "-"}</strong></span>
+      <span><small>Lowest</small><strong>${fmtWeight(lowest)}kg</strong></span>
+      <span><small>Highest</small><strong>${fmtWeight(highest)}kg</strong></span>
+    </div>
+  </div>`;
 }
 function progressCheckinsForDate(date) {
   return (state.progressCheckins || []).filter((entry) => entry.date === date).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -5343,9 +5557,10 @@ function bind() {
       log.sets = [...(log.sets || []), { id: uid(), reps, weightKg, targetId: selectedTarget?.id || "", targetLabel: selectedTarget?.label || "Working set", targetDetails: selectedTarget?.details || "", createdAt: Date.now() }];
       const nextLog = exerciseLogStatus(log).status === "complete" ? nextExerciseAfter(draft.exerciseLogs, log.exerciseId) : null;
       setOpenExerciseCard(nextLog?.exerciseId || log.exerciseId);
-      startRestTimerForLog(log);
+      const restSeconds = startRestTimerForLog(log, selectedTarget);
       save(); renderWorkoutEditor();
       if (nextLog) showAppToast(`Next: ${nextLog.name}`, "saved");
+      else showAppToast(`Rest ${restDurationLabel(restSeconds)}`, "saved");
     }
     if (button.dataset.deleteSet) {
       const draft = ensureDraft(selectedSplit());
@@ -5523,6 +5738,11 @@ function bind() {
   });
   document.addEventListener("input", (event) => {
     const el = event.target;
+    if (el.dataset?.prFilter) {
+      state.settings[el.dataset.prFilter] = el.value;
+      save({ silent: true });
+      return;
+    }
     if (el.dataset?.splitTitle) state.workoutTemplates[el.dataset.splitTitle].title = el.value;
     if (el.dataset?.exerciseName) {
       const exercise = state.workoutTemplates[el.dataset.exerciseName]?.exercises.find((item) => item.id === el.dataset.exerciseId);
@@ -5597,6 +5817,12 @@ function bind() {
   }, true);
   document.addEventListener("change", (event) => {
     const el = event.target;
+    if (el.dataset?.prFilter) {
+      state.settings[el.dataset.prFilter] = el.value;
+      save({ silent: true });
+      renderPersonalRecords();
+      return;
+    }
     if (el.dataset?.splitTitle || el.dataset?.exerciseName || el.dataset?.exerciseNotes) render();
     if (el.id === "cycle-peptide" && userCanUsePeptides()) applyCompoundDefaults($("#peptide-cycle-form"), el.value, true);
     if (el.id === "calc-peptide" && userCanUsePeptides()) { applyCompoundDefaults($("#reconstitution-form"), el.value, true); renderReconstitution(); }
