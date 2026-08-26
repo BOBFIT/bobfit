@@ -532,6 +532,7 @@ let restTimerInterval = 0;
 let calendarScrollTimer = 0;
 const tabCloseTimers = new WeakMap();
 const openExerciseCards = new Set();
+const exerciseToolDrawers = new Map();
 let motraImportPreview = [];
 let motraImportSourceName = "";
 let cloudSession = null;
@@ -2475,20 +2476,21 @@ function warmupRowsHtml(rows = []) {
     <strong>${fmtWeight(row.weight)}kg x ${fmt(row.reps)}</strong>
   </span>`).join("")}</div>`;
 }
-function warmupGeneratorHtml(log, previous = null, before = Date.now()) {
+function warmupGeneratorContentHtml(log, previous = null, before = Date.now()) {
   const rows = warmupSuggestionsForLog(log, previous, before);
   const working = rows[0]?.workingWeight || 0;
+  return `<div class="warmup-card">
+    <div>
+      <strong>Warm-up generator</strong>
+      <small>${working ? `Based on previous working weight of ${fmtWeight(working)}kg.` : "Log this exercise once with weight to generate warm-ups."}</small>
+    </div>
+    ${rows.length ? warmupRowsHtml(rows) : emptyStateHtml("No warm-up data yet", "Log this exercise once with weight and warm-up suggestions will appear.")}
+  </div>`;
+}
+function warmupGeneratorHtml(log, previous = null, before = Date.now()) {
   return `<details class="log-dropdown warmup-dropdown">
     <summary>Warm-up sets</summary>
-    <div class="log-dropdown-body">
-      <div class="warmup-card">
-        <div>
-          <strong>Warm-up generator</strong>
-          <small>${working ? `Based on previous working weight of ${fmtWeight(working)}kg.` : "Log this exercise once with weight to generate warm-ups."}</small>
-        </div>
-        ${rows.length ? warmupRowsHtml(rows) : `<div class="empty">No previous working weight found yet.</div>`}
-      </div>
-    </div>
+    <div class="log-dropdown-body">${warmupGeneratorContentHtml(log, previous, before)}</div>
   </details>`;
 }
 function restSecondsFromText(text = "") {
@@ -2771,32 +2773,68 @@ function openWorkoutExercise(exerciseId = "") {
   });
 }
 function exerciseSwapHtml(log, logs = []) {
+  return `<details class="log-dropdown swap-dropdown">
+    <summary>Swap exercise</summary>
+    <div class="log-dropdown-body">${exerciseSwapContentHtml(log, logs)}</div>
+  </details>`;
+}
+function exerciseSwapContentHtml(log, logs = []) {
   const plannedName = log.substitutedFrom || log.plannedName || log.name;
   const blockedNames = logs
     .filter((entry) => String(entry.exerciseId) !== String(log.exerciseId))
     .flatMap((entry) => [entry.name, entry.plannedName, entry.substitutedFrom])
     .filter(Boolean);
   const options = substitutionOptionsForExercise(plannedName, blockedNames);
-  if (!options.length) return "";
   const current = log.substitutedFrom
     ? `<div class="swap-current">
         <div><strong>Using substitute</strong><small>${escapeHtml(log.name)} for ${escapeHtml(log.substitutedFrom)}</small></div>
         <button class="secondary" data-reset-exercise-swap="${escapeHtml(log.exerciseId)}" type="button">Reset</button>
       </div>`
     : "";
-  return `<details class="log-dropdown swap-dropdown">
-    <summary>Swap exercise</summary>
-    <div class="log-dropdown-body">
-      ${current}
-      <p class="swap-help">Same muscle area and similar movement. Already-planned exercises are hidden. Your set targets stay the same.</p>
-      <div class="swap-option-grid">
-        ${options.map((option) => `<button class="swap-option" data-swap-exercise="${escapeHtml(log.exerciseId)}" data-swap-name="${escapeHtml(option.name)}" data-swap-equipment="${escapeHtml(option.equipment)}" type="button">
-          <strong>${escapeHtml(option.name)}</strong>
-          <span>${escapeHtml(option.equipment)}</span>
-        </button>`).join("")}
-      </div>
-    </div>
-  </details>`;
+  return `${current}
+    <p class="swap-help">Same muscle area and similar movement. Already-planned exercises are hidden. Your set targets stay the same.</p>
+    ${options.length ? `<div class="swap-option-grid">
+      ${options.map((option) => `<button class="swap-option" data-swap-exercise="${escapeHtml(log.exerciseId)}" data-swap-name="${escapeHtml(option.name)}" data-swap-equipment="${escapeHtml(option.equipment)}" type="button">
+        <strong>${escapeHtml(option.name)}</strong>
+        <span>${escapeHtml(option.equipment)}</span>
+      </button>`).join("")}
+    </div>` : emptyStateHtml("No close swaps found", "Add more exercise alternatives later if this machine is unavailable.")}`;
+}
+const EXERCISE_TOOL_TABS = [
+  ["targets", "Targets"],
+  ["warmup", "Warm-up"],
+  ["overload", "Overload"],
+  ["swap", "Swap"],
+];
+function activeExerciseTool(exerciseId = "") {
+  return exerciseToolDrawers.get(String(exerciseId || "")) || "";
+}
+function setExerciseTool(exerciseId = "", tool = "") {
+  const id = String(exerciseId || "");
+  if (!id) return;
+  if (activeExerciseTool(id) === tool) exerciseToolDrawers.delete(id);
+  else exerciseToolDrawers.set(id, tool);
+}
+function exerciseToolContentHtml(tool, log, logs = [], previous = null, before = Date.now()) {
+  if (tool === "targets") {
+    return `<div class="exercise-tool-section">
+      <div class="exercise-tool-head"><strong>Set targets</strong><small>${escapeHtml(targetRepText(log.targets || []))}</small></div>
+      ${targetListHtml(log.targets || [])}
+    </div>`;
+  }
+  if (tool === "warmup") return warmupGeneratorContentHtml(log, previous, before);
+  if (tool === "overload") return progressiveOverloadContentHtml(log, before);
+  if (tool === "swap") return exerciseSwapContentHtml(log, logs);
+  return "";
+}
+function exerciseToolDrawerHtml(log, logs = [], previous = null, before = Date.now()) {
+  const active = activeExerciseTool(log.exerciseId);
+  const buttons = EXERCISE_TOOL_TABS.map(([id, label]) => `<button class="exercise-tool-button${active === id ? " active" : ""}" data-exercise-tool="${escapeHtml(id)}" data-exercise-id="${escapeHtml(log.exerciseId)}" type="button">${escapeHtml(label)}</button>`).join("");
+  const content = active ? exerciseToolContentHtml(active, log, logs, previous, before) : "";
+  return `<div class="exercise-tools">
+    <div class="exercise-tool-rail" aria-label="Exercise tools">${buttons}</div>
+    ${content ? `<div class="exercise-tool-drawer" data-active-tool="${escapeHtml(active)}">${content}</div>` : ""}
+  </div>`;
 }
 function renderWorkoutEditor() {
   const split = selectedSplit();
@@ -2820,19 +2858,19 @@ function renderWorkoutEditor() {
           <span class="summary-pill">${escapeHtml(progress.label)}</span>
         </summary>
         <div class="exercise-log-body">
-          <div class="set-entry">
-            <div class="previous-set-banner wide"><strong>Set ${fmt(defaults.setNumber)}</strong><span>${defaults.previousSet ? `Last time: ${fmtWeight(defaults.previousSet.weightKg)}kg x ${fmt(defaults.previousSet.reps)}` : "No matching previous set yet"}</span></div>
-            <label class="target-select">Set target<select name="targetId">${targetOptionsHtml(log.targets, nextTargetId(log.targets, log.sets))}</select></label>
-            <label>Reps done<input name="reps" type="number" min="0" inputmode="numeric" value="${escapeHtml(defaults.reps)}" /></label>
-            <label>Weight kg<input name="weightKg" type="number" min="0" step="0.5" inputmode="decimal" value="${escapeHtml(defaults.weightKg)}" /></label>
-            <button class="secondary" data-add-set="${escapeHtml(log.exerciseId)}" type="button">Add set</button>
+          <div class="exercise-control-grid">
+            <div class="exercise-main-entry">
+              <div class="set-entry">
+                <div class="previous-set-banner wide"><strong>Set ${fmt(defaults.setNumber)}</strong><span>${defaults.previousSet ? `Last time: ${fmtWeight(defaults.previousSet.weightKg)}kg x ${fmt(defaults.previousSet.reps)}` : "No matching previous set yet"}</span></div>
+                <label class="target-select">Set target<select name="targetId">${targetOptionsHtml(log.targets, nextTargetId(log.targets, log.sets))}</select></label>
+                <label>Reps done<input name="reps" type="number" min="0" inputmode="numeric" value="${escapeHtml(defaults.reps)}" /></label>
+                <label>Weight kg<input name="weightKg" type="number" min="0" step="0.5" inputmode="decimal" value="${escapeHtml(defaults.weightKg)}" /></label>
+                <button class="secondary" data-add-set="${escapeHtml(log.exerciseId)}" type="button">Add set</button>
+              </div>
+              <div class="set-list">${log.sets?.length ? log.sets.map((set) => `<span class="set-chip"><strong>${escapeHtml(set.targetLabel || "Set")}</strong>${fmtWeight(set.weightKg)}kg x ${fmt(set.reps)} <button data-delete-set="${escapeHtml(set.id)}" data-exercise-id="${escapeHtml(log.exerciseId)}" type="button">x</button></span>`).join("") : `<span class="empty">No sets added yet</span>`}</div>
+            </div>
+            ${exerciseToolDrawerHtml(log, logs, previous, draft.startedAt)}
           </div>
-          <div class="set-list">${log.sets?.length ? log.sets.map((set) => `<span class="set-chip"><strong>${escapeHtml(set.targetLabel || "Set")}</strong>${fmtWeight(set.weightKg)}kg x ${fmt(set.reps)} <button data-delete-set="${escapeHtml(set.id)}" data-exercise-id="${escapeHtml(log.exerciseId)}" type="button">x</button></span>`).join("") : `<span class="empty">No sets added yet</span>`}</div>
-          ${logNotesDropdownHtml(log.notes)}
-          ${logTargetDetailsHtml(log.targets)}
-          ${warmupGeneratorHtml(log, previous, draft.startedAt)}
-          ${progressiveOverloadHtml(log, draft.startedAt)}
-          ${exerciseSwapHtml(log, logs)}
         </div>
       </details>`;
     }).join("")}` : emptyStateHtml("No exercises in this split", "Open Planner and add exercises to this split.", "Open Planner", `data-view="planner"`);
@@ -2903,23 +2941,24 @@ function overloadSuggestion(log, before = Infinity) {
   return "Match last week, then add reps if it moves well.";
 }
 function progressiveOverloadHtml(log, before = Infinity) {
+  return `<details class="log-dropdown overload-dropdown">
+    <summary>Progressive overload</summary>
+    <div class="log-dropdown-body">${progressiveOverloadContentHtml(log, before)}</div>
+  </details>`;
+}
+function progressiveOverloadContentHtml(log, before = Infinity) {
   const stats = exerciseStats(log.name, before);
   const last = stats.latest?.summary?.bestSet;
   const best = stats.bestSet;
-  return `<details class="log-dropdown overload-dropdown">
-    <summary>Progressive overload</summary>
-    <div class="log-dropdown-body">
-      <div class="overload-card">
-        <div class="overload-head"><strong>Progressive overload</strong><small>${escapeHtml(overloadSuggestion(log, before))}</small></div>
-        <div class="overload-grid">
-          <span><small>Last weight</small><strong>${last ? `${fmtWeight(last.weightKg)}kg` : "-"}</strong></span>
-          <span><small>Best weight</small><strong>${best ? `${fmtWeight(best.weightKg)}kg` : "-"}</strong></span>
-          <span><small>Last reps</small><strong>${last ? fmt(last.reps) : "-"}</strong></span>
-          <span><small>Target reps</small><strong>${escapeHtml(targetRepText(log.targets || []))}</strong></span>
-        </div>
-      </div>
+  return `<div class="overload-card">
+    <div class="overload-head"><strong>Progressive overload</strong><small>${escapeHtml(overloadSuggestion(log, before))}</small></div>
+    <div class="overload-grid">
+      <span><small>Last weight</small><strong>${last ? `${fmtWeight(last.weightKg)}kg` : "-"}</strong></span>
+      <span><small>Best weight</small><strong>${best ? `${fmtWeight(best.weightKg)}kg` : "-"}</strong></span>
+      <span><small>Last reps</small><strong>${last ? fmt(last.reps) : "-"}</strong></span>
+      <span><small>Target</small><strong>${escapeHtml(targetRepText(log.targets || []))}</strong></span>
     </div>
-  </details>`;
+  </div>`;
 }
 function weekDatesFrom(date = new Date()) {
   const start = startOfWeek(date);
@@ -5931,6 +5970,26 @@ function bind() {
         setOpenExerciseCard(restoreLog.exerciseId);
         save(); renderWorkoutEditor();
       });
+    }
+    if (button.dataset.exerciseTool !== undefined) {
+      const id = button.dataset.exerciseId || button.closest(".exercise-log")?.dataset.exerciseId || "";
+      const draft = ensureDraft(selectedSplit());
+      const logs = draft.exerciseLogs || [];
+      const log = logs.find((entry) => String(entry.exerciseId) === String(id));
+      setOpenExerciseCard(id);
+      setExerciseTool(id, button.dataset.exerciseTool);
+      const tools = button.closest(".exercise-tools");
+      if (tools && log) {
+        const previous = latestExerciseSets(log.name, draft.startedAt);
+        tools.outerHTML = exerciseToolDrawerHtml(log, logs, previous, draft.startedAt);
+      } else {
+        renderWorkoutEditor();
+      }
+      requestAnimationFrame(() => {
+        const card = document.querySelector(`.exercise-log[data-exercise-id="${cssEscape(id)}"]`);
+        card?.querySelector(".exercise-tool-drawer")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
+      return;
     }
     if (button.dataset.openWorkoutExercise !== undefined) {
       openWorkoutExercise(button.dataset.openWorkoutExercise);

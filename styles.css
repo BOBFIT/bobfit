@@ -1849,6 +1849,8 @@ button.delete-pulse {
   .today-exercise-card[open] > .today-exercise-body,
   .pr-accordion[open] > .pr-metrics,
   .score-detail-card[open] > .score-detail-body,
+  .exercise-tool-drawer,
+  .exercise-tool-button.active,
   .log-dropdown[open] > .log-dropdown-body,
   .training-terms[open] > div,
   .target-details[open] > div,
@@ -1964,6 +1966,81 @@ button.delete-pulse {
   gap: 10px;
   padding-top: 10px;
   border-top: 1px solid var(--border);
+}
+.exercise-control-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 124px;
+  align-items: start;
+  gap: 10px;
+}
+.exercise-main-entry {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.exercise-tools {
+  display: contents;
+}
+.exercise-tool-rail {
+  display: grid;
+  gap: 7px;
+}
+.exercise-tool-button {
+  position: relative;
+  min-height: 38px;
+  min-width: 0;
+  padding: 0 26px 0 10px;
+  border: 1px solid rgba(95, 225, 255, 0.14);
+  border-radius: 14px;
+  background: rgba(3, 16, 31, 0.34);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 950;
+  text-align: left;
+  transition: transform 150ms ease, border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+}
+.exercise-tool-button::after {
+  content: "+";
+  position: absolute;
+  top: 50%;
+  right: 9px;
+  color: var(--primary-dark);
+  transform: translateY(-50%);
+}
+.exercise-tool-button.active {
+  border-color: rgba(95, 225, 255, 0.34);
+  background: rgba(18, 184, 255, 0.18);
+  box-shadow: 0 0 18px rgba(18, 184, 255, 0.14);
+  animation: tabSubtlePulse 1.15s ease-out;
+}
+.exercise-tool-button.active::after {
+  content: "-";
+}
+.exercise-tool-drawer {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 10px;
+  padding: 11px;
+  border: 1px solid rgba(95, 225, 255, 0.16);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(95, 225, 255, 0.12), transparent 38%),
+    rgba(3, 16, 31, 0.34);
+  animation: tabSlideDown 680ms cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: top;
+}
+.exercise-tool-section,
+.exercise-tool-head {
+  display: grid;
+  gap: 8px;
+}
+.exercise-tool-head strong,
+.exercise-tool-head small {
+  display: block;
+}
+.exercise-tool-head small {
+  color: var(--primary-dark);
+  line-height: 1.35;
 }
 .today-exercise-body {
   display: grid;
@@ -3612,6 +3689,31 @@ body.rest-timer-done::before {
   .sync-status-pill small { display: none; }
   .app { padding-inline: 12px; }
   .grid, .quick-grid, .help-grid, .two-col, .add-line, .set-entry, .pr-filter-panel, .focus-stats, .volume-meta { grid-template-columns: 1fr; }
+  .exercise-control-grid {
+    grid-template-columns: 1fr;
+  }
+  .exercise-control-grid .set-entry {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .exercise-control-grid .set-entry .wide,
+  .exercise-control-grid .target-select,
+  .exercise-control-grid .set-entry button {
+    grid-column: 1 / -1;
+  }
+  .exercise-tool-rail {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .exercise-tool-button {
+    min-height: 38px;
+    padding: 0 6px;
+    font-size: 10px;
+    text-align: center;
+  }
+  .exercise-tool-button::after {
+    display: none;
+  }
   .warmup-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .macro-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .picker-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
