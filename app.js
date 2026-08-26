@@ -2853,6 +2853,21 @@ function exerciseToolDrawerHtml(log, logs = [], previous = null, before = Date.n
     ${content ? `<div class="exercise-tool-drawer" data-active-tool="${escapeHtml(active)}">${content}</div>` : ""}
   </div>`;
 }
+function focusSmartJumpDropdownHtml(log, before = Infinity) {
+  const smart = smartWeightJump(log, before);
+  const modeLabel = smart.mode === "jump" ? "Jump" : smart.mode === "steady" ? "Steady" : smart.mode === "rebuild" ? "Rebuild" : smart.mode === "start" ? "Start" : "Match";
+  const recommended = smart.beatText || smart.title || "Log first set";
+  return `<details class="focus-smart-dropdown">
+    <summary>
+      <span>
+        <small>Recommended best today</small>
+        <strong>${escapeHtml(recommended)}</strong>
+      </span>
+      <b>${escapeHtml(modeLabel)}</b>
+    </summary>
+    <div class="focus-smart-body">${smartJumpCardHtml(log, before, { actions: false })}</div>
+  </details>`;
+}
 function focusQueueHtml(logs = [], currentId = "") {
   const rows = logs.map((log, index) => {
     const progress = exerciseLogStatus(log);
@@ -2900,7 +2915,8 @@ function focusWorkoutHtml(draft, logs = []) {
         <span class="summary-pill">${escapeHtml(status.label)}</span>
       </div>
       <div class="exercise-log-body">
-        ${smartJumpCardHtml(current, draft.startedAt, { actions: false })}
+        ${focusSmartJumpDropdownHtml(current, draft.startedAt)}
+        ${focusRestTimerHtml(current)}
         <div class="exercise-main-entry">
           <div class="set-entry focus-set-entry">
             <div class="previous-set-banner wide"><strong>Set ${fmt(defaults.setNumber)}</strong><span>${defaults.previousSet ? `Last time: ${fmtWeight(defaults.previousSet.weightKg)}kg x ${fmt(defaults.previousSet.reps)}` : "No matching previous set yet"}</span></div>
@@ -2915,7 +2931,6 @@ function focusWorkoutHtml(draft, logs = []) {
       </div>
     </section>
     ${focusQueueHtml(logs, currentId)}
-    ${focusRestTimerHtml(current)}
   </div>`;
 }
 function renderWorkoutEditor() {
