@@ -2540,6 +2540,7 @@ function startRestTimerForLog(log, target = null) {
   clearInterval(restTimerInterval);
   restTimerInterval = setInterval(() => {
     renderStickyWorkoutFooter();
+    renderFocusRestTimer();
     if (Date.now() >= restTimerEndAt) {
       clearInterval(restTimerInterval);
       restTimerInterval = 0;
@@ -2547,21 +2548,27 @@ function startRestTimerForLog(log, target = null) {
     }
   }, 1000);
   renderStickyWorkoutFooter();
+  renderFocusRestTimer();
   return seconds;
 }
 function finishRestAlert() {
   document.body.classList.remove("rest-timer-done");
   void document.body.offsetWidth;
   document.body.classList.add("rest-timer-done");
+  renderFocusRestTimer();
   if (navigator.vibrate) navigator.vibrate([240, 90, 240, 90, 420]);
   showAppToast("Rest done. Go again.", "rest");
-  setTimeout(() => document.body.classList.remove("rest-timer-done"), 1900);
+  setTimeout(() => {
+    document.body.classList.remove("rest-timer-done");
+    renderFocusRestTimer();
+  }, 1900);
 }
 function clearRestTimer() {
   restTimerEndAt = 0;
   clearInterval(restTimerInterval);
   restTimerInterval = 0;
   renderStickyWorkoutFooter();
+  renderFocusRestTimer();
 }
 function bestSetBeats(current, previous) {
   if (!current) return false;
@@ -2658,6 +2665,28 @@ function showWorkoutSummary(session, draft) {
   </section>`;
   document.body.appendChild(modal);
 }
+function focusRestTimerHtml(log) {
+  const active = restTimerEndAt > Date.now();
+  const done = document.body.classList.contains("rest-timer-done");
+  return `<div id="focus-rest-timer" class="focus-rest-timer${active ? " rest-active" : ""}${done && !active ? " timer-done" : ""}"${active || done ? "" : " hidden"}>
+    <span>Rest timer</span>
+    <strong data-rest-time>${active ? restTimerLabel() : "Rest ready"}</strong>
+    <small data-rest-note>${active ? "Next set when this hits zero." : `Rest is normally ${restDurationLabel(restSecondsForLog(log))}.`}</small>
+  </div>`;
+}
+function renderFocusRestTimer() {
+  const chip = $("#focus-rest-timer");
+  if (!chip) return;
+  const active = restTimerEndAt > Date.now();
+  const done = document.body.classList.contains("rest-timer-done");
+  chip.hidden = !(active || done);
+  chip.classList.toggle("rest-active", active);
+  chip.classList.toggle("timer-done", done && !active);
+  const time = chip.querySelector("[data-rest-time]");
+  const note = chip.querySelector("[data-rest-note]");
+  if (time) time.textContent = active ? restTimerLabel() : "Rest ready";
+  if (note) note.textContent = active ? "Next set when this hits zero." : "Go again.";
+}
 function focusWorkoutHtml(draft, logs = []) {
   const progress = workoutProgressData(logs);
   const current = progress.current;
@@ -2665,10 +2694,6 @@ function focusWorkoutHtml(draft, logs = []) {
   const previous = current ? latestExerciseSets(current.name, draft.startedAt) : null;
   const status = current ? exerciseLogStatus(current) : null;
   const target = current ? getTarget(current.targets || [], nextTargetId(current.targets || [], current.sets || [])) : null;
-  const restActive = restTimerEndAt > Date.now();
-  const nextDifferent = current
-    ? logs.slice(currentIndex).find((log) => exerciseLogStatus(log).status !== "complete")
-    : null;
   if (!current) {
     return `<div class="focus-workout-screen wide">
       <div class="focus-workout-head">
@@ -2697,12 +2722,7 @@ function focusWorkoutHtml(draft, logs = []) {
         </div>
         <strong>${escapeHtml(status?.label || "0 sets")}</strong>
       </div>
-      <div class="focus-live-grid">
-        <span><small>Target</small><strong>${escapeHtml(target?.label || "Working set")}</strong></span>
-        <span><small>Previous</small><strong>${previous ? escapeHtml(setSummary(previous.sets)) : "No previous"}</strong></span>
-        <span class="${restActive ? "rest-live" : ""}"><small>Rest</small><strong>${restActive ? restTimerLabel() : restDurationLabel(restSecondsForLog(current))}</strong></span>
-        <span><small>Next</small><strong>${escapeHtml(nextDifferent?.name || "Finish this one")}</strong></span>
-      </div>
+      ${focusRestTimerHtml(current)}
       ${focusSmartJumpHtml(current, draft.startedAt)}
       ${focusSetTableHtml(current)}
       <div class="focus-set-entry">
@@ -2718,10 +2738,6 @@ function focusWorkoutHtml(draft, logs = []) {
         <button class="secondary" data-open-next-exercise type="button">Next</button>
       </div>
     </section>
-    <div class="focus-support-actions">
-      <button class="secondary" data-open-next-exercise type="button">Next unfinished</button>
-      <button class="secondary" data-open-workout-exercise="${escapeHtml(current.exerciseId)}" type="button">Centre current</button>
-    </div>
   </div>`;
 }
 function guidedWorkoutHtml(draft, logs = []) {
@@ -2801,15 +2817,13 @@ function focusSetTableHtml(log) {
 }
 function focusSmartJumpHtml(log, before = Infinity) {
   const smart = smartWeightJump(log, before);
-  const action = smart.actionLabel ? `<button class="primary" data-apply-smart-jump="${escapeHtml(log.exerciseId)}" data-smart-weight="${escapeHtml(smart.suggestedWeight)}" data-smart-reps="${escapeHtml(smart.suggestedReps)}" type="button">${escapeHtml(smart.actionLabel)}</button>` : "";
-  const copy = smart.copyLabel ? `<button class="secondary" data-apply-smart-jump="${escapeHtml(log.exerciseId)}" data-smart-weight="${escapeHtml(smart.copyWeight)}" data-smart-reps="${escapeHtml(smart.copyReps)}" type="button">${escapeHtml(smart.copyLabel)}</button>` : "";
   return `<div class="focus-smart-jump mode-${escapeHtml(smart.mode)}">
     <div>
       <span>Smart jump</span>
       <strong>${escapeHtml(smart.title)}</strong>
       <small>Last ${escapeHtml(smart.lastText)} / beat ${escapeHtml(smart.beatText)}</small>
     </div>
-    <div class="focus-smart-actions">${action}${copy}</div>
+    <b>${escapeHtml(smart.mode === "jump" ? "+2.5kg" : smart.mode === "steady" ? "Steady" : smart.mode === "rebuild" ? "Rebuild" : smart.mode === "start" ? "Start" : "Match")}</b>
   </div>`;
 }
 function focusWorkoutQueueHtml(logs = [], current = null) {
@@ -2904,7 +2918,7 @@ function exerciseToolContentHtml(tool, log, logs = [], previous = null, before =
     </div>`;
   }
   if (tool === "warmup") return warmupGeneratorContentHtml(log, previous, before);
-  if (tool === "overload") return progressiveOverloadContentHtml(log, before);
+  if (tool === "overload") return progressiveOverloadContentHtml(log, before, { actions: !state.settings.workoutFocusMode });
   if (tool === "swap") return exerciseSwapContentHtml(log, logs);
   return "";
 }
@@ -3124,13 +3138,14 @@ function progressiveOverloadHtml(log, before = Infinity) {
     <div class="log-dropdown-body">${progressiveOverloadContentHtml(log, before)}</div>
   </details>`;
 }
-function progressiveOverloadContentHtml(log, before = Infinity) {
+function progressiveOverloadContentHtml(log, before = Infinity, options = {}) {
   const stats = exerciseStats(log.name, before);
   const last = stats.latest?.summary?.bestSet;
   const best = stats.bestSet;
   const smart = smartWeightJump(log, before);
-  const smartAction = smart.actionLabel ? `<button class="primary" data-apply-smart-jump="${escapeHtml(log.exerciseId)}" data-smart-weight="${escapeHtml(smart.suggestedWeight)}" data-smart-reps="${escapeHtml(smart.suggestedReps)}" type="button">${escapeHtml(smart.actionLabel)}</button>` : "";
-  const copyAction = smart.copyLabel ? `<button class="secondary" data-apply-smart-jump="${escapeHtml(log.exerciseId)}" data-smart-weight="${escapeHtml(smart.copyWeight)}" data-smart-reps="${escapeHtml(smart.copyReps)}" type="button">${escapeHtml(smart.copyLabel)}</button>` : "";
+  const showActions = options.actions !== false;
+  const smartAction = showActions && smart.actionLabel ? `<button class="primary" data-apply-smart-jump="${escapeHtml(log.exerciseId)}" data-smart-weight="${escapeHtml(smart.suggestedWeight)}" data-smart-reps="${escapeHtml(smart.suggestedReps)}" type="button">${escapeHtml(smart.actionLabel)}</button>` : "";
+  const copyAction = showActions && smart.copyLabel ? `<button class="secondary" data-apply-smart-jump="${escapeHtml(log.exerciseId)}" data-smart-weight="${escapeHtml(smart.copyWeight)}" data-smart-reps="${escapeHtml(smart.copyReps)}" type="button">${escapeHtml(smart.copyLabel)}</button>` : "";
   return `<div class="smart-jump-card mode-${escapeHtml(smart.mode)}">
     <div class="smart-jump-head">
       <div><span>Smart weight jump</span><strong>${escapeHtml(smart.title)}</strong><small>${escapeHtml(smart.note)}</small></div>

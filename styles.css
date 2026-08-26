@@ -913,7 +913,8 @@ button { cursor: pointer; }
   gap: 10px;
 }
 .focus-active-head span,
-.focus-live-grid small,
+.focus-rest-timer span,
+.focus-rest-timer small,
 .focus-smart-jump span,
 .focus-smart-jump small,
 .focus-set-row span,
@@ -953,36 +954,47 @@ button { cursor: pointer; }
   font-size: 12px;
   text-transform: uppercase;
 }
-.focus-live-grid {
+.focus-rest-timer {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(245, 158, 11, 0.52);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 90% 18%, rgba(245, 158, 11, 0.24), transparent 40%),
+    rgba(3, 16, 31, 0.5);
+  box-shadow: 0 0 24px rgba(245, 158, 11, 0.18);
 }
-.focus-live-grid span {
-  min-width: 0;
-  display: grid;
-  gap: 4px;
-  padding: 10px;
-  border: 1px solid rgba(95, 225, 255, 0.11);
-  border-radius: 17px;
-  background: rgba(3, 16, 31, 0.46);
+.focus-rest-timer[hidden] {
+  display: none;
 }
-.focus-live-grid strong {
-  min-width: 0;
-  overflow: hidden;
-  color: var(--ink);
-  font-size: 14px;
-  line-height: 1.15;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.focus-live-grid .rest-live {
-  border-color: rgba(245, 158, 11, 0.52);
-  box-shadow: 0 0 20px rgba(245, 158, 11, 0.16);
-}
-.focus-live-grid .rest-live strong {
+.focus-rest-timer strong {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  min-width: 76px;
   color: #fde68a;
-  font-size: 19px;
+  font-size: 28px;
+  line-height: 1;
+  text-align: right;
+}
+.focus-rest-timer small {
+  grid-column: 1;
+  color: #d9f1ff;
+  text-transform: none;
+}
+.focus-rest-timer.rest-active {
+  animation: restFooterPulse 1.4s ease-in-out infinite;
+}
+.focus-rest-timer.timer-done {
+  border-color: rgba(95, 225, 255, 0.52);
+  box-shadow: 0 0 30px rgba(95, 225, 255, 0.26);
+  animation: tabSubtlePulse 1.15s ease-out;
+}
+.focus-rest-timer.timer-done strong {
+  color: var(--primary-dark);
+  font-size: 21px;
 }
 .focus-smart-jump {
   display: grid;
@@ -1015,15 +1027,18 @@ button { cursor: pointer; }
   color: #d9f1ff;
   text-transform: none;
 }
-.focus-smart-actions {
-  display: grid;
-  gap: 7px;
-  min-width: 112px;
-}
-.focus-smart-actions button {
-  min-height: 38px;
-  padding-inline: 10px;
-  font-size: 11px;
+.focus-smart-jump > b {
+  display: inline-grid;
+  place-items: center;
+  min-width: 74px;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(19, 168, 245, 0.16);
+  color: var(--primary-dark);
+  font-size: 12px;
+  line-height: 1;
+  text-align: center;
 }
 .focus-set-table {
   display: grid;
@@ -1088,17 +1103,12 @@ button { cursor: pointer; }
 .focus-active-exercise .exercise-tool-button::after {
   display: none;
 }
-.focus-bottom-actions,
-.focus-support-actions {
+.focus-bottom-actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
-.focus-support-actions {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-.focus-bottom-actions button,
-.focus-support-actions button {
+.focus-bottom-actions button {
   min-width: 0;
   padding-inline: 10px;
 }
@@ -4091,10 +4101,6 @@ body.rest-timer-done::before {
   }
   .focus-smart-jump {
     grid-template-columns: 1fr;
-  }
-  .focus-smart-actions {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    min-width: 0;
   }
   .focus-set-row {
     grid-template-columns: 48px minmax(0, 1fr);
