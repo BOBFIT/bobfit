@@ -534,6 +534,7 @@ let calendarScrollTimer = 0;
 const tabCloseTimers = new WeakMap();
 const openExerciseCards = new Set();
 const exerciseToolDrawers = new Map();
+let mealLibraryQuery = "";
 let motraImportPreview = [];
 let motraImportSourceName = "";
 let cloudSession = null;
@@ -3352,16 +3353,37 @@ function mealLibraryBlock(title, subtitle, content) {
     ${content}
   </section>`;
 }
+function mealMatchesLibrarySearch(meal, query) {
+  const terms = String(query || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (!terms.length) return true;
+  const haystack = [
+    meal?.name,
+    meal?.date,
+    meal?.date ? dateLabel(meal.date) : "",
+    macroText(normalizeMeal(meal) || {}),
+    "calories kcal protein carbs fat",
+  ].join(" ").toLowerCase();
+  return terms.every((term) => haystack.includes(term));
+}
 function renderMealLibrary() {
   const el = $("#saved-meal-list");
   if (!el) return;
   const savedMeals = (state.savedMeals || []).map(normalizeMeal).filter(Boolean);
   const recentMeals = uniqueRecentMeals(12);
+  const search = $("#meal-library-search");
+  if (search && search.value !== mealLibraryQuery) search.value = mealLibraryQuery;
+  const query = mealLibraryQuery.trim();
+  const filteredSavedMeals = savedMeals.filter((meal) => mealMatchesLibrarySearch(meal, query));
+  const filteredRecentMeals = recentMeals.filter((meal) => mealMatchesLibrarySearch(meal, query));
   const savedHtml = savedMeals.length
-    ? savedMeals.map((meal) => mealCardHtml(meal, `${mealActionButton("Add today", `data-add-saved-meal="${escapeHtml(meal.id)}"`, "primary")}${mealActionButton("Delete", `data-delete-saved-meal="${escapeHtml(meal.id)}"`, "danger-button")}`)).join("")
+    ? filteredSavedMeals.length
+      ? filteredSavedMeals.map((meal) => mealCardHtml(meal, `${mealActionButton("Add today", `data-add-saved-meal="${escapeHtml(meal.id)}"`, "primary")}${mealActionButton("Delete", `data-delete-saved-meal="${escapeHtml(meal.id)}"`, "danger-button")}`)).join("")
+      : emptyStateHtml("No saved meals match", "Try a different meal name, macro, or date.")
     : emptyStateHtml("No saved meals yet", "Log a meal and keep Save meal ticked to build your library.", "Log meal", `data-view="log"`);
   const recentHtml = recentMeals.length
-    ? recentMeals.map((meal) => mealCardHtml(meal, `${mealActionButton("Add today", `data-add-meal-date="${escapeHtml(meal.date)}" data-add-meal-id="${escapeHtml(meal.id)}"`, "primary")}${mealActionButton("Save", `data-save-meal-date="${escapeHtml(meal.date)}" data-save-meal-id="${escapeHtml(meal.id)}"`, "secondary")}`, dateLabel(meal.date))).join("")
+    ? filteredRecentMeals.length
+      ? filteredRecentMeals.map((meal) => mealCardHtml(meal, `${mealActionButton("Add today", `data-add-meal-date="${escapeHtml(meal.date)}" data-add-meal-id="${escapeHtml(meal.id)}"`, "primary")}${mealActionButton("Save", `data-save-meal-date="${escapeHtml(meal.date)}" data-save-meal-id="${escapeHtml(meal.id)}"`, "secondary")}`, dateLabel(meal.date))).join("")
+      : emptyStateHtml("No previous meals match", "Try a different meal name, macro, or date.")
     : emptyStateHtml("No previous meals yet", "Meals from earlier dates will collect here automatically.");
   el.innerHTML = [
     mealLibraryBlock("Saved Meals", "Favourites you have chosen to keep", savedHtml),
@@ -6264,6 +6286,11 @@ function bind() {
   });
   document.addEventListener("input", (event) => {
     const el = event.target;
+    if (el.id === "meal-library-search") {
+      mealLibraryQuery = el.value;
+      renderMealLibrary();
+      return;
+    }
     if (el.dataset?.prFilter) {
       state.settings[el.dataset.prFilter] = el.value;
       save({ silent: true });

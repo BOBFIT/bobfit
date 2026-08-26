@@ -11,7 +11,7 @@
     <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="assets/icon.png" />
     <link rel="manifest" href="manifest.webmanifest" />
-    <link rel="stylesheet" href="styles.css?v=121" />
+    <link rel="stylesheet" href="styles.css?v=122" />
   </head>
   <body class="auth-locked">
     <section id="auth-gate" class="auth-gate" aria-live="polite">
@@ -147,20 +147,14 @@
         </details>
         <details class="panel drop-panel">
           <summary class="drop-summary">
-            <span><strong>Personal Records</strong><small>Best set, volume and estimated 1RM</small></span>
-            <span class="drop-pill">PR</span>
+            <span><strong>Meals Library</strong><small>Saved meals and previous logged meals</small></span>
+            <span class="drop-pill">Meals</span>
           </summary>
           <div class="drop-body">
-            <div id="personal-record-list" class="pr-grid"></div>
-          </div>
-        </details>
-        <details class="panel drop-panel">
-          <summary class="drop-summary">
-            <span><strong>Weekly Volume</strong><small>Muscle-group sets and total weight moved this week</small></span>
-            <span class="drop-pill">Volume</span>
-          </summary>
-          <div class="drop-body">
-            <div id="weekly-volume-tracker" class="volume-list"></div>
+            <label class="meal-library-search wide">Search meal library
+              <input id="meal-library-search" type="search" placeholder="Search meals, macros or dates" autocomplete="off" inputmode="search" />
+            </label>
+            <div id="saved-meal-list" class="meal-list"></div>
           </div>
         </details>
         <details class="panel drop-panel">
@@ -182,11 +176,20 @@
         </details>
         <details class="panel drop-panel">
           <summary class="drop-summary">
-            <span><strong>Meals Library</strong><small>Saved meals and previous logged meals</small></span>
-            <span class="drop-pill">Meals</span>
+            <span><strong>Personal Records</strong><small>Best set, volume and estimated 1RM</small></span>
+            <span class="drop-pill">PR</span>
           </summary>
           <div class="drop-body">
-            <div id="saved-meal-list" class="meal-list"></div>
+            <div id="personal-record-list" class="pr-grid"></div>
+          </div>
+        </details>
+        <details class="panel drop-panel">
+          <summary class="drop-summary">
+            <span><strong>Weekly Volume</strong><small>Muscle-group sets and total weight moved this week</small></span>
+            <span class="drop-pill">Volume</span>
+          </summary>
+          <div class="drop-body">
+            <div id="weekly-volume-tracker" class="volume-list"></div>
           </div>
         </details>
       </section>
@@ -536,7 +539,7 @@
       </button>
     </nav>
 
-    <script src="app.js?v=121"></script>
+    <script src="app.js?v=122"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js").catch(() => {}));

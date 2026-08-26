@@ -2863,6 +2863,16 @@ button.delete-pulse {
   min-height: 38px;
   padding-inline: 12px;
 }
+.meal-library-search {
+  margin-bottom: 2px;
+}
+.meal-library-search input {
+  min-height: 44px;
+  border-color: rgba(95, 225, 255, 0.12);
+  background:
+    linear-gradient(135deg, rgba(7, 31, 54, 0.95), rgba(9, 39, 66, 0.9));
+  box-shadow: inset 0 0 0 1px rgba(19, 168, 245, 0.06);
+}
 .meal-library-block {
   display: grid;
   gap: 9px;
