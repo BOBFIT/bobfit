@@ -11,7 +11,7 @@
     <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="assets/icon.png" />
     <link rel="manifest" href="manifest.webmanifest" />
-    <link rel="stylesheet" href="styles.css?v=118" />
+    <link rel="stylesheet" href="styles.css?v=119" />
   </head>
   <body class="auth-locked">
     <section id="auth-gate" class="auth-gate" aria-live="polite">
@@ -38,7 +38,13 @@
           <h1 id="screen-title">Today</h1>
         </div>
       </div>
-      <button id="backup-now" class="icon-button" type="button" aria-label="Download backup">Save</button>
+      <div class="topbar-actions">
+        <div id="sync-status-pill" class="sync-status-pill local" role="status" aria-live="polite">
+          <span></span>
+          <strong>Local</strong>
+        </div>
+        <button id="backup-now" class="icon-button" type="button" aria-label="Download backup">Save</button>
+      </div>
     </header>
 
     <main class="app">
@@ -62,6 +68,7 @@
           <button class="secondary today-shortcut" data-open-motra-import type="button">Import Motra</button>
           <button class="primary today-shortcut" data-start-workout type="button">Start Workout</button>
         </div>
+        <div id="today-widget-grid" class="today-widget-grid" aria-label="Today widgets"></div>
         <details class="panel drop-panel">
           <summary class="drop-summary">
             <span><strong>Daily Score</strong><small>Macros, workout and weight trend</small></span>
@@ -502,16 +509,34 @@
       </section>
     </main>
 
-    <nav class="tabbar">
-      <button class="active" data-view="today" type="button">Today</button>
-      <button data-view="log" type="button">Log</button>
-      <button data-view="planner" type="button">Planner</button>
-      <button data-view="peptides" data-peptide-feature type="button" hidden>Peptides</button>
-      <button data-view="history" type="button">History</button>
-      <button data-view="settings" type="button">Settings</button>
+    <nav class="tabbar" aria-label="Primary navigation">
+      <button class="active" data-view="today" type="button">
+        <span class="nav-icon nav-home" aria-hidden="true"></span>
+        <span>Today</span>
+      </button>
+      <button data-view="log" type="button">
+        <span class="nav-icon nav-log" aria-hidden="true"></span>
+        <span>Log</span>
+      </button>
+      <button data-view="planner" type="button">
+        <span class="nav-icon nav-planner" aria-hidden="true"></span>
+        <span>Planner</span>
+      </button>
+      <button data-view="peptides" data-peptide-feature type="button" hidden>
+        <span class="nav-icon nav-peptides" aria-hidden="true"></span>
+        <span>Peptides</span>
+      </button>
+      <button data-view="history" type="button">
+        <span class="nav-icon nav-history" aria-hidden="true"></span>
+        <span>History</span>
+      </button>
+      <button data-view="settings" type="button">
+        <span class="nav-icon nav-settings" aria-hidden="true"></span>
+        <span>Settings</span>
+      </button>
     </nav>
 
-    <script src="app.js?v=118"></script>
+    <script src="app.js?v=119"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js").catch(() => {}));

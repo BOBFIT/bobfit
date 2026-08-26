@@ -1,13 +1,13 @@
 "use strict";
 
-const CACHE_NAME = "just-train-website-v118";
+const CACHE_NAME = "just-train-website-v119";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
-  "./styles.css?v=118",
+  "./styles.css?v=119",
   "./app.js",
-  "./app.js?v=118",
+  "./app.js?v=119",
   "./manifest.webmanifest",
   "./assets/logo.svg",
   "./assets/icon.png",

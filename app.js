@@ -540,6 +540,9 @@ let cloudSyncTimer = 0;
 let cloudStatusMessage = "Log in or create an account to sync this app across devices.";
 let cloudStatusIsError = false;
 let cloudLastSyncedAt = "";
+let saveStatusLabel = "Local";
+let saveStatusType = "local";
+let saveStatusDetail = "Device saved";
 let cloudProfile = null;
 let cloudProfiles = [];
 let masterStatusMessage = "Master dashboard loads for the first account once Supabase user tracking is set up.";
@@ -1076,7 +1079,7 @@ function logTargetDetailsHtml(targets = []) {
   </details>`;
 }
 function targetListHtml(targets = []) {
-  if (!targets.length) return `<div class="empty">No target reps saved for this exercise.</div>`;
+  if (!targets.length) return emptyStateHtml("No targets saved", "Add set targets in Planner for this exercise.");
   return `<div class="target-list">${targets.map((item) => `<p><strong>${escapeHtml(item.label)}</strong> ${escapeHtml(item.details)}</p>`).join("")}</div>`;
 }
 function getTarget(targets = [], id = "") {
@@ -1664,6 +1667,43 @@ function showSaveFeedback() {
   lastSaveTrigger = null;
   lastSaveTriggerAt = 0;
 }
+function setSaveStatus(label = "Saved", type = "local", detail = "") {
+  saveStatusLabel = label;
+  saveStatusType = type;
+  saveStatusDetail = detail;
+  renderSyncStatusPill();
+}
+function renderSyncStatusPill() {
+  const pill = $("#sync-status-pill");
+  if (!pill) return;
+  const signedIn = Boolean(cloudUser?.id);
+  let label = saveStatusLabel;
+  let type = saveStatusType;
+  let detail = saveStatusDetail;
+  if (!signedIn && type !== "error" && type !== "syncing") {
+    label = "Local";
+    type = "local";
+    detail = "Device saved";
+  } else if (signedIn && cloudAutoSyncReady() && cloudLastSyncedAt && type !== "syncing" && type !== "error") {
+    label = "Synced";
+    type = "synced";
+    detail = cloudLastSyncedAt;
+  } else if (signedIn && !cloudAutoSyncReady() && type !== "error" && type !== "syncing") {
+    label = "Cloud";
+    type = "local";
+    detail = "Not started";
+  }
+  pill.className = `sync-status-pill ${type}`;
+  pill.innerHTML = `<span></span><strong>${escapeHtml(label)}</strong>${detail ? `<small>${escapeHtml(detail)}</small>` : ""}`;
+}
+function emptyStateHtml(title, detail = "", actionLabel = "", actionAttrs = "") {
+  return `<div class="empty-state">
+    <span aria-hidden="true"></span>
+    <strong>${escapeHtml(title)}</strong>
+    ${detail ? `<small>${escapeHtml(detail)}</small>` : ""}
+    ${actionLabel ? `<button class="secondary" ${actionAttrs} type="button">${escapeHtml(actionLabel)}</button>` : ""}
+  </div>`;
+}
 function flashOpenTab(panel) {
   if (!panel?.matches?.("details")) return;
   clearTimeout(tabCloseTimers.get(panel));
@@ -1689,6 +1729,10 @@ function closeTabSmooth(panel) {
 }
 function save(options = {}) {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch {}
+  if (!options.silent) {
+    const syncReady = cloudAutoSyncReady();
+    setSaveStatus(syncReady ? "Syncing" : "Saved", syncReady ? "syncing" : "local", syncReady ? "Cloud queued" : "Device saved");
+  }
   if (!options.silent) showSaveFeedback();
   if (!options.silent) renderCoachNotes();
   if (!options.skipCloud) scheduleCloudSync();
@@ -1718,6 +1762,7 @@ function render() {
   renderMotraPreview();
   renderCloudPanel();
   renderMasterDashboard();
+  renderSyncStatusPill();
   setView(view, { persist: false });
   collapseStartupDetails();
 }
@@ -1798,12 +1843,13 @@ function renderToday() {
           ${targetListHtml(exercise.targets)}
         </div>
       </details>`).join("")}${trainingTermsHtml()}`
-    : `<div class="empty">Rest and recover.</div>`;
+    : emptyStateHtml("Rest day", "No exercises are planned for today.");
   $("#meal-count").textContent = `${todayMeals().length} meals`;
   $("#meal-total").textContent = `${fmt(mealTotal.calories)} kcal`;
   $("#workout-count").textContent = `${todayWorkouts().length} workouts`;
   $("#workout-total").textContent = `${fmt(burned())} kcal burned`;
   renderMacroHero(mealTotal);
+  renderTodayWidgets(mealTotal, exercises);
   renderHomeDashboard(mealTotal);
   renderCoachNotes();
   renderTodayMealList();
@@ -2080,6 +2126,66 @@ function renderHomeDashboard(total = totals()) {
     <div class="score-detail-body">${dailyScoreDetailHtml(item, total)}</div>
   </details>`).join("");
 }
+function todayWidgetHtml(widget) {
+  return `<button class="today-widget ${escapeHtml(widget.tone || "")}" ${widget.attrs || ""} type="button">
+    <span class="widget-mark" aria-hidden="true"></span>
+    <span>${escapeHtml(widget.title)}</span>
+    <strong>${escapeHtml(widget.value)}</strong>
+    <small>${escapeHtml(widget.detail)}</small>
+  </button>`;
+}
+function renderTodayWidgets(total = totals(), exercises = []) {
+  const el = $("#today-widget-grid");
+  if (!el) return;
+  const assign = state.weeklyPlan.assignments[weekdayIndex()] || "rest";
+  const target = normalizeMacroTargets(state.macroTargets || {});
+  const caloriePct = target.calories ? Math.min(999, Math.round((rawNum(total.calories) / rawNum(target.calories)) * 100)) : 0;
+  const weight = latestWeightTrend();
+  const due = dueDoseSlots();
+  const dueLogged = due.filter((slot) => doseLoggedForSlot(slot)).length;
+  const alert = weakPointAlerts(1)[0];
+  const widgets = [
+    {
+      tone: "workout",
+      title: "Workout",
+      value: assign === "rest" ? "Rest day" : splitTitle(assign),
+      detail: assign === "rest" ? "Planner says recover" : todayWorkouts().length ? `${fmt(todayWorkouts().length)} logged today` : `${fmt(exercises.length)} exercises ready`,
+      attrs: assign === "rest" ? `data-view="planner"` : "data-start-workout",
+    },
+    {
+      tone: "meals",
+      title: "Meals",
+      value: `${fmt(total.calories)} kcal`,
+      detail: hasMacroTargets(target) ? `${fmt(caloriePct)}% of calorie target` : `${fmt(todayMeals().length)} meals logged`,
+      attrs: `data-view="log"`,
+    },
+    {
+      tone: "weight",
+      title: "Weight",
+      value: weight.label,
+      detail: weight.detail,
+      attrs: `data-view="history"`,
+    },
+  ];
+  if (userCanUsePeptides()) {
+    widgets.push({
+      tone: "peptide",
+      title: "Peptides",
+      value: due.length ? `${fmt(dueLogged)}/${fmt(due.length)} due` : "Clear",
+      detail: due.length ? "Tap to open cycles" : "No dose due today",
+      attrs: `data-view="peptides" data-peptide-feature`,
+    });
+  } else {
+    widgets.push({
+      tone: "coach",
+      title: "Coach",
+      value: alert ? "Watch" : "Clear",
+      detail: alert ? alert.title : "No weak points flagged",
+      attrs: "data-open-coach-notes",
+    });
+  }
+  el.innerHTML = widgets.map(todayWidgetHtml).join("");
+}
 function dayAdherence(date) {
   const meals = mealsForDate(date);
   const total = totals(meals);
@@ -2165,7 +2271,7 @@ function renderTodayMealList() {
   el.innerHTML = meals.length
     ? `<div class="macro-bars">${["calories", "protein", "carbs", "fat"].map((key) => macroBarHtml(key, total, state.macroTargets || {})).join("")}</div>
       ${meals.map((meal) => mealCardHtml(meal, `${mealActionButton("Save", `data-save-meal-date="${todayKey()}" data-save-meal-id="${escapeHtml(meal.id)}"`)}${mealActionButton("Delete", `data-delete-today-meal="${escapeHtml(meal.id)}"`, "danger-button")}`)).join("")}`
-    : `<div class="empty">No meals logged today.</div>`;
+    : emptyStateHtml("No meals yet", "Log your first meal and the macro totals will update here.", "Log meal", `data-view="log"`);
 }
 function macroGapOpen(remaining) {
   return ["calories", "protein", "carbs", "fat"].some((key) => rawNum(remaining[key]) > (key === "calories" ? 50 : 5));
@@ -2521,11 +2627,16 @@ function showWorkoutSummary(session, draft) {
   const prText = data.prHits.length ? data.prHits.map((item) => `${originalExerciseDisplayName(item.log.name, session?.split)} ${setResultText(item.current)}`).slice(0, 3).join(" / ") : "No new PRs this session.";
   const missedText = data.missedNames.length ? data.missedNames.join(" / ") : "Nothing missed. Clean work.";
   const modal = document.createElement("div");
-  modal.className = "workout-summary-modal show";
+  modal.className = `workout-summary-modal show${data.prCount ? " has-pr" : ""}`;
   modal.innerHTML = `<section class="workout-summary-card" role="dialog" aria-modal="true" aria-label="Workout summary">
     <button class="summary-close" data-close-workout-summary type="button" aria-label="Close workout summary">x</button>
-    <span>Workout saved</span>
+    <span>${data.prCount ? "New PR" : "Workout saved"}</span>
     <h2>${escapeHtml(session?.name || session?.planTitle || "Workout")}</h2>
+    ${data.prCount ? `<div class="pr-celebration-strip">
+      <span>Record hit</span>
+      <strong>${fmt(data.prCount)} PR${data.prCount === 1 ? "" : "s"} banked</strong>
+      <small>${escapeHtml(prText)}</small>
+    </div>` : ""}
     <div class="summary-stat-grid">
       <div><strong>${fmt(data.completeExercises)}/${fmt(data.totalExercises)}</strong><small>Exercises done</small></div>
       <div><strong>${fmt(data.totalSets)}</strong><small>Sets logged</small></div>
@@ -2724,7 +2835,7 @@ function renderWorkoutEditor() {
           ${exerciseSwapHtml(log, logs)}
         </div>
       </details>`;
-    }).join("")}` : `<div class="empty">No exercises in this split yet.</div>`;
+    }).join("")}` : emptyStateHtml("No exercises in this split", "Open Planner and add exercises to this split.", "Open Planner", `data-view="planner"`);
   renderStickyWorkoutFooter();
 }
 function latestExerciseSets(name, before = Date.now()) {
@@ -2866,7 +2977,7 @@ function renderWeeklyVolumeTracker() {
         <span>Top: ${escapeHtml(row.topExercise?.name || "No lift yet")}</span>
       </div>
     </div>`;
-  }).join("") : `<div class="empty">Log sets this week and your muscle-group volume will appear here.</div>`}`;
+  }).join("") : emptyStateHtml("No weekly volume yet", "Log workout sets this week and muscle-group volume will appear here.", "Start Workout", "data-start-workout")}`;
 }
 function exerciseProgressScore(summary) {
   return rawNum(summary?.est1rm) || rawNum(summary?.bestSet?.weightKg) || rawNum(summary?.volume) || rawNum(summary?.bestReps);
@@ -2985,7 +3096,7 @@ function renderPersonalRecords() {
       <span><small>Sessions</small><b>${fmt(record.sessions)}</b></span>
       <span><small>Latest</small><b>${escapeHtml(record.dates[0] || "-")}</b></span>
     </div>
-  </details>`).join("") : `<div class="empty">No PRs match these filters yet.</div>`}`;
+  </details>`).join("") : emptyStateHtml("No PRs match", "Change the filters or log more workouts to build records.")}`;
 }
 function setResultText(set) {
   return `${fmtWeight(set.weightKg)}kg x ${fmt(set.reps)}`;
@@ -3105,10 +3216,10 @@ function renderMealLibrary() {
   const recentMeals = uniqueRecentMeals(12);
   const savedHtml = savedMeals.length
     ? savedMeals.map((meal) => mealCardHtml(meal, `${mealActionButton("Add today", `data-add-saved-meal="${escapeHtml(meal.id)}"`, "primary")}${mealActionButton("Delete", `data-delete-saved-meal="${escapeHtml(meal.id)}"`, "danger-button")}`)).join("")
-    : `<div class="empty">No saved meals yet. Log a meal and keep Save meal ticked.</div>`;
+    : emptyStateHtml("No saved meals yet", "Log a meal and keep Save meal ticked to build your library.", "Log meal", `data-view="log"`);
   const recentHtml = recentMeals.length
     ? recentMeals.map((meal) => mealCardHtml(meal, `${mealActionButton("Add today", `data-add-meal-date="${escapeHtml(meal.date)}" data-add-meal-id="${escapeHtml(meal.id)}"`, "primary")}${mealActionButton("Save", `data-save-meal-date="${escapeHtml(meal.date)}" data-save-meal-id="${escapeHtml(meal.id)}"`, "secondary")}`, dateLabel(meal.date))).join("")
-    : `<div class="empty">Previous logged meals will appear here.</div>`;
+    : emptyStateHtml("No previous meals yet", "Meals from earlier dates will collect here automatically.");
   el.innerHTML = [
     mealLibraryBlock("Saved Meals", "Favourites you have chosen to keep", savedHtml),
     mealLibraryBlock("Previous Meals", "Unique meals from past days", recentHtml),
@@ -3372,7 +3483,7 @@ function renderPeptideCycles() {
         ${calc.ok && calc.drawMl ? `<span class="pill">${fmtDose(calc.drawMl)}ml${calc.type === "peptide" ? ` / ${fmt(calc.drawUnits)} units` : ""}</span>` : ""}
       </div>
     </div>`;
-  }).join("") : `<div class="empty">No peptide cycles saved yet.</div>`;
+  }).join("") : emptyStateHtml("No peptide cycles saved", "Create a cycle to show reminders and dosage history here.");
 }
 function cycleDaysText(days = []) {
   return days.length ? days.map((day) => WEEK_DAYS[day] || "").filter(Boolean).join(", ") : "No days";
@@ -3420,7 +3531,7 @@ function renderPeptideHistory() {
       ${componentHtml}
       ${log.notes ? `<small>${escapeHtml(log.notes)}</small>` : ""}
     </div>`;
-  }).join("") : `<div class="empty">No dosage history yet.</div>`;
+  }).join("") : emptyStateHtml("No dosage history yet", "Dose logs will appear here after you save them.");
 }
 function renderHistory() {
   renderHistoryCalendar();
@@ -3921,6 +4032,8 @@ function cloudAutoSyncReady() {
 function setCloudStatus(message = "", isError = false) {
   cloudStatusMessage = message || (cloudUser ? "Cloud sync ready." : "Log in or create an account to sync this app across devices.");
   cloudStatusIsError = Boolean(isError);
+  if (isError) setSaveStatus("Sync issue", "error", "Settings");
+  else renderSyncStatusPill();
   renderCloudPanel();
 }
 function renderCloudPanel() {
@@ -3955,6 +4068,7 @@ function renderCloudPanel() {
     status.textContent = cloudStatusMessage;
     status.classList.toggle("error", cloudStatusIsError);
   }
+  renderSyncStatusPill();
   renderMasterDashboard();
 }
 function friendlyCloudError(error) {
@@ -4338,6 +4452,7 @@ async function uploadCloudData(data = state, statusMessage = "Cloud saved. Futur
   } catch (error) { setCloudStatus(friendlyCloudError(error), true); }
   enableCloudAutoSync();
   cloudLastSyncedAt = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  setSaveStatus("Synced", "synced", cloudLastSyncedAt);
   setCloudStatus(statusMessage);
   if (isMasterAccount()) refreshMasterProfiles();
 }
@@ -4368,6 +4483,7 @@ async function pullCloudState(confirmFirst = true) {
   state.settings.activeView = currentView;
   enableCloudAutoSync();
   cloudLastSyncedAt = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  setSaveStatus("Synced", "synced", cloudLastSyncedAt);
   save({ silent: true, skipCloud: true });
   render();
   if (trainingPlanAutoUpgradePending) {
@@ -4405,11 +4521,13 @@ async function cloudAfterLogin() {
 }
 function scheduleCloudSync() {
   if (!cloudAutoSyncReady()) return;
+  setSaveStatus("Syncing", "syncing", "Cloud queued");
   clearTimeout(cloudSyncTimer);
   cloudSyncTimer = setTimeout(async () => {
     try {
       await uploadCloudState();
     } catch (error) {
+      setSaveStatus("Sync issue", "error", "Settings");
       setCloudStatus(friendlyCloudError(error), true);
     }
   }, 1400);
@@ -4901,7 +5019,7 @@ function renderMotraImportList() {
   if (!el) return;
   const sessions = motraImportedSessions();
   if (!sessions.length) {
-    el.innerHTML = `<div class="empty">No Motra workouts imported yet.</div>`;
+    el.innerHTML = emptyStateHtml("No Motra files imported", "Imported Motra workout files will be listed here after upload.");
     return;
   }
   const batches = new Map();
@@ -5627,6 +5745,17 @@ function bind() {
         document.querySelectorAll("#view-settings > details[open]").forEach((detail) => { if (detail !== panel) detail.open = false; });
         panel.open = true;
         requestAnimationFrame(() => panel.scrollIntoView({ behavior: "smooth", block: "start" }));
+      }
+      return;
+    }
+    if (button.dataset.openCoachNotes !== undefined) {
+      setView("today");
+      const panel = $("#coach-notes")?.closest("details");
+      if (panel) {
+        document.querySelectorAll("#view-today > details[open]").forEach((detail) => { if (detail !== panel) closeTabSmooth(detail); });
+        panel.open = true;
+        flashOpenTab(panel);
+        requestAnimationFrame(() => panel.scrollIntoView({ behavior: "smooth", block: "center" }));
       }
       return;
     }
