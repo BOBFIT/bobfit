@@ -2916,7 +2916,6 @@ function focusWorkoutHtml(draft, logs = []) {
         <span>
           <small>Exercise ${fmt(currentIndex)} of ${fmt(logs.length)}</small>
           <strong>${escapeHtml(current.name)}</strong>
-          <small>${previous ? `Previous ${previous.date}: ${escapeHtml(setSummary(previous.sets))}` : "No previous sets saved"}</small>
         </span>
         <span class="summary-pill">${escapeHtml(status.label)}</span>
       </div>
