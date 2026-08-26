@@ -2071,6 +2071,100 @@ button.delete-pulse {
   border-radius: 20px;
   background: linear-gradient(135deg, rgba(6, 52, 91, 0.92), rgba(9, 39, 66, 0.92));
 }
+.smart-jump-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(95, 225, 255, 0.2);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(95, 225, 255, 0.16), transparent 40%),
+    linear-gradient(135deg, rgba(18, 184, 255, 0.16), rgba(3, 16, 31, 0.4));
+  box-shadow: 0 0 22px rgba(18, 184, 255, 0.12);
+}
+.smart-jump-card.mode-jump {
+  border-color: rgba(45, 212, 191, 0.34);
+  box-shadow: 0 0 24px rgba(45, 212, 191, 0.12);
+}
+.smart-jump-card.mode-steady,
+.smart-jump-card.mode-rebuild {
+  border-color: rgba(245, 158, 11, 0.36);
+  box-shadow: 0 0 24px rgba(245, 158, 11, 0.12);
+}
+.smart-jump-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+}
+.smart-jump-head span,
+.smart-jump-meta small {
+  display: block;
+  color: var(--primary-dark);
+  font-size: 10px;
+  font-weight: 950;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+.smart-jump-head strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--ink);
+  font-size: 20px;
+  line-height: 1.08;
+}
+.smart-jump-head small {
+  display: block;
+  margin-top: 5px;
+  color: #d9f1ff;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.smart-mode-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(18, 184, 255, 0.16);
+  color: var(--primary-dark);
+  font-size: 11px;
+  font-weight: 950;
+}
+.smart-jump-card.mode-jump .smart-mode-pill {
+  background: rgba(45, 212, 191, 0.16);
+  color: #99f6e4;
+}
+.smart-jump-card.mode-steady .smart-mode-pill,
+.smart-jump-card.mode-rebuild .smart-mode-pill {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fde68a;
+}
+.smart-jump-meta,
+.smart-jump-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.smart-jump-meta span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.smart-jump-meta strong {
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.smart-jump-actions button {
+  min-width: 0;
+  padding-inline: 10px;
+}
 .overload-head strong,
 .overload-head small {
   display: block;

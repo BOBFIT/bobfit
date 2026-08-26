@@ -44,6 +44,7 @@ const PR_SORTS = [
 ];
 const REST_BIG_COMPOUND_SECONDS = 120;
 const REST_DEFAULT_SECONDS = 90;
+const SMART_WEIGHT_INCREMENT_KG = 2.5;
 const BIG_COMPOUND_MATCH = /(deadlift|rdl|romanian|squat|leg press|bench press|chest press|incline press|decline press|shoulder press|overhead press|smith.*press|machine press|row|pulldown|pull-down|chin-up|chin up|pull-up|pull up|dip|hack squat)/i;
 const ISOLATION_MATCH = /(curl|lateral|front raise|rear delt|pec deck|fly|pushdown|extension|calf|crunch|leg extension|leg curl|pullover|raise|y-raise)/i;
 const PEPTIDE_TIMINGS = [
@@ -2913,6 +2914,19 @@ function targetRepText(targets = []) {
   if (!targets.length) return "Working sets";
   return targets.map((target) => target.label).slice(0, 2).join(" / ");
 }
+function targetRepRange(target) {
+  const text = `${target?.label || ""} ${target?.details || ""}`;
+  const range = text.match(/(\d+)\s*[-–—]\s*(\d+)/);
+  if (range) return { low: Number(range[1]) || 0, high: Number(range[2]) || 0 };
+  const restPause = text.match(/\b(\d+)\s*\/\s*\d+/);
+  if (restPause) {
+    const value = Number(restPause[1]) || 0;
+    return { low: value, high: value };
+  }
+  const single = text.match(/\b(\d+)\s*(?:reps?|rep\b)/i);
+  const value = single ? Number(single[1]) || 0 : 0;
+  return { low: value, high: value };
+}
 function targetRepHigh(targets = []) {
   const text = targets.map((target) => `${target.label} ${target.details}`).join(" ");
   const range = text.match(/(\d+)\s*[-/]\s*(\d+)/);
@@ -2930,6 +2944,82 @@ function exerciseStats(name, before = Infinity) {
   const bestEst1rm = allSets.reduce((max, set) => Math.max(max, estimatedOneRepMax(set)), 0);
   const bestVolume = sessions.reduce((max, entry) => Math.max(max, summarizeExerciseLog(entry).volume), 0);
   return { sessions, latest, previous, bestSet, bestReps, bestEst1rm, bestVolume };
+}
+function smartJumpInputValue(value) {
+  const number = rawNum(value);
+  return number ? String(Number(number.toFixed(2))) : "";
+}
+function smartWeightJump(log, before = Infinity) {
+  const target = getTarget(log.targets || [], nextTargetId(log.targets || [], log.sets || []));
+  const range = targetRepRange(target);
+  const low = range.low || targetRepDefault(target) || 0;
+  const high = range.high || low;
+  const previous = latestExerciseSets(log.name, before);
+  const setIndex = Math.max(0, (log.sets || []).length);
+  const sameSet = previous?.sets?.[setIndex] || previous?.sets?.[Math.max(0, (previous?.sets?.length || 1) - 1)] || null;
+  const stats = exerciseStats(log.name, before);
+  const usingMatchingSet = Boolean(sameSet && (num(sameSet.reps) || rawNum(sameSet.weightKg)));
+  const last = sameSet && (num(sameSet.reps) || rawNum(sameSet.weightKg)) ? sameSet : stats.latest?.summary?.bestSet || null;
+  if (!last) {
+    return {
+      mode: "start",
+      title: low ? `Start at ${fmt(low)} reps` : "No previous data",
+      note: low ? `No previous set found for this exercise. Use the target reps, then the app will judge the next one.` : "Log this exercise once and smart jumps will unlock.",
+      suggestedWeight: "",
+      suggestedReps: low || "",
+      lastText: "No previous",
+      beatText: low ? `${fmt(low)}+ reps` : "First set",
+      actionLabel: low ? `Use ${fmt(low)} reps` : "",
+      copyLabel: "",
+      copyWeight: "",
+      copyReps: "",
+    };
+  }
+  const lastWeight = rawNum(last.weightKg);
+  const lastReps = num(last.reps);
+  const bestWeight = rawNum(stats.bestSet?.weightKg);
+  const increment = SMART_WEIGHT_INCREMENT_KG;
+  let mode = "match";
+  let suggestedWeight = lastWeight;
+  let suggestedReps = high ? Math.min(high, Math.max(low || 1, lastReps + 1)) : Math.max(1, lastReps + 1);
+  let title = lastWeight ? `Match ${fmtWeight(lastWeight)}kg` : `Beat ${fmt(lastReps)} reps`;
+  let note = high
+    ? `Last time was close. Keep ${lastWeight ? `${fmtWeight(lastWeight)}kg` : "the same load"} and push for ${fmt(suggestedReps)} clean reps.`
+    : "Beat the last logged reps before adding weight.";
+  if (!usingMatchingSet && bestWeight && lastWeight && lastWeight < bestWeight - 0.24) {
+    mode = "rebuild";
+    suggestedWeight = lastWeight;
+    suggestedReps = low || lastReps;
+    title = `Build toward ${fmtWeight(bestWeight)}kg`;
+    note = `Your best is ${fmtWeight(bestWeight)}kg. Use today's set to climb back there without ugly reps.`;
+  } else if (high && lastReps >= high && lastWeight) {
+    mode = "jump";
+    suggestedWeight = lastWeight + increment;
+    suggestedReps = low || Math.max(1, lastReps - 2);
+    title = `Try ${fmtWeight(suggestedWeight)}kg`;
+    note = `You hit the top of the range last time. Add ${fmtWeight(increment)}kg and chase ${fmt(suggestedReps)}+ clean reps.`;
+  } else if (low && lastReps < low) {
+    mode = "steady";
+    suggestedWeight = lastWeight > increment ? lastWeight - increment : lastWeight;
+    suggestedReps = low;
+    title = lastWeight && suggestedWeight < lastWeight ? `Drop to ${fmtWeight(suggestedWeight)}kg` : `Hold ${lastWeight ? `${fmtWeight(lastWeight)}kg` : "weight"}`;
+    note = `Last time missed the target range. Rebuild with cleaner reps before trying to be heroic.`;
+  }
+  const suggestedWeightText = smartJumpInputValue(suggestedWeight);
+  const suggestedRepsText = suggestedReps ? String(Math.round(suggestedReps)) : "";
+  return {
+    mode,
+    title,
+    note,
+    suggestedWeight: suggestedWeightText,
+    suggestedReps: suggestedRepsText,
+    lastText: lastWeight ? `${fmtWeight(lastWeight)}kg x ${fmt(lastReps)}` : `${fmt(lastReps)} reps`,
+    beatText: suggestedWeightText ? `${fmtWeight(suggestedWeightText)}kg x ${suggestedRepsText || fmt(Math.max(lastReps, low || 1))}+` : `${suggestedRepsText || fmt(lastReps + 1)} reps`,
+    actionLabel: suggestedWeightText ? `Use ${fmtWeight(suggestedWeightText)}kg` : suggestedRepsText ? `Use ${suggestedRepsText} reps` : "",
+    copyLabel: lastWeight || lastReps ? "Copy last set" : "",
+    copyWeight: smartJumpInputValue(lastWeight),
+    copyReps: lastReps ? String(lastReps) : "",
+  };
 }
 function overloadSuggestion(log, before = Infinity) {
   const stats = exerciseStats(log.name, before);
@@ -2950,7 +3040,21 @@ function progressiveOverloadContentHtml(log, before = Infinity) {
   const stats = exerciseStats(log.name, before);
   const last = stats.latest?.summary?.bestSet;
   const best = stats.bestSet;
-  return `<div class="overload-card">
+  const smart = smartWeightJump(log, before);
+  const smartAction = smart.actionLabel ? `<button class="primary" data-apply-smart-jump="${escapeHtml(log.exerciseId)}" data-smart-weight="${escapeHtml(smart.suggestedWeight)}" data-smart-reps="${escapeHtml(smart.suggestedReps)}" type="button">${escapeHtml(smart.actionLabel)}</button>` : "";
+  const copyAction = smart.copyLabel ? `<button class="secondary" data-apply-smart-jump="${escapeHtml(log.exerciseId)}" data-smart-weight="${escapeHtml(smart.copyWeight)}" data-smart-reps="${escapeHtml(smart.copyReps)}" type="button">${escapeHtml(smart.copyLabel)}</button>` : "";
+  return `<div class="smart-jump-card mode-${escapeHtml(smart.mode)}">
+    <div class="smart-jump-head">
+      <div><span>Smart weight jump</span><strong>${escapeHtml(smart.title)}</strong><small>${escapeHtml(smart.note)}</small></div>
+      <span class="smart-mode-pill">${escapeHtml(smart.mode === "jump" ? "Jump" : smart.mode === "steady" ? "Steady" : smart.mode === "rebuild" ? "Rebuild" : smart.mode === "start" ? "Start" : "Match")}</span>
+    </div>
+    <div class="smart-jump-meta">
+      <span><small>Last best</small><strong>${escapeHtml(smart.lastText)}</strong></span>
+      <span><small>Beat today</small><strong>${escapeHtml(smart.beatText)}</strong></span>
+    </div>
+    ${smartAction || copyAction ? `<div class="smart-jump-actions">${smartAction}${copyAction}</div>` : ""}
+  </div>
+  <div class="overload-card">
     <div class="overload-head"><strong>Progressive overload</strong><small>${escapeHtml(overloadSuggestion(log, before))}</small></div>
     <div class="overload-grid">
       <span><small>Last weight</small><strong>${last ? `${fmtWeight(last.weightKg)}kg` : "-"}</strong></span>
@@ -5934,6 +6038,17 @@ function bind() {
       setOpenExerciseCard(log.exerciseId);
       save(); renderWorkoutEditor();
       showAppToast("Exercise reset", "saved");
+      return;
+    }
+    if (button.dataset.applySmartJump) {
+      const card = button.closest(".exercise-log");
+      if (!card) return;
+      const repsInput = card.querySelector('input[name="reps"]');
+      const weightInput = card.querySelector('input[name="weightKg"]');
+      if (button.dataset.smartReps && repsInput) repsInput.value = button.dataset.smartReps;
+      if (button.dataset.smartWeight && weightInput) weightInput.value = button.dataset.smartWeight;
+      flashSaved(button);
+      showAppToast("Smart jump loaded", "saved");
       return;
     }
     if (button.dataset.addSet) {
