@@ -2709,11 +2709,6 @@ function renderWorkoutEditor() {
           <span class="summary-pill">${escapeHtml(progress.label)}</span>
         </summary>
         <div class="exercise-log-body">
-          ${logNotesDropdownHtml(log.notes)}
-          ${logTargetDetailsHtml(log.targets)}
-          ${warmupGeneratorHtml(log, previous, draft.startedAt)}
-          ${progressiveOverloadHtml(log, draft.startedAt)}
-          ${exerciseSwapHtml(log, logs)}
           <div class="set-entry">
             <div class="previous-set-banner wide"><strong>Set ${fmt(defaults.setNumber)}</strong><span>${defaults.previousSet ? `Last time: ${fmtWeight(defaults.previousSet.weightKg)}kg x ${fmt(defaults.previousSet.reps)}` : "No matching previous set yet"}</span></div>
             <label class="target-select">Set target<select name="targetId">${targetOptionsHtml(log.targets, nextTargetId(log.targets, log.sets))}</select></label>
@@ -2722,6 +2717,11 @@ function renderWorkoutEditor() {
             <button class="secondary" data-add-set="${escapeHtml(log.exerciseId)}" type="button">Add set</button>
           </div>
           <div class="set-list">${log.sets?.length ? log.sets.map((set) => `<span class="set-chip"><strong>${escapeHtml(set.targetLabel || "Set")}</strong>${fmtWeight(set.weightKg)}kg x ${fmt(set.reps)} <button data-delete-set="${escapeHtml(set.id)}" data-exercise-id="${escapeHtml(log.exerciseId)}" type="button">x</button></span>`).join("") : `<span class="empty">No sets added yet</span>`}</div>
+          ${logNotesDropdownHtml(log.notes)}
+          ${logTargetDetailsHtml(log.targets)}
+          ${warmupGeneratorHtml(log, previous, draft.startedAt)}
+          ${progressiveOverloadHtml(log, draft.startedAt)}
+          ${exerciseSwapHtml(log, logs)}
         </div>
       </details>`;
     }).join("")}` : `<div class="empty">No exercises in this split yet.</div>`;
