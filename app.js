@@ -42,6 +42,10 @@ const PR_SORTS = [
   ["bestVolume", "Best volume"],
   ["bestEst1rm", "Est. 1RM"],
 ];
+const REST_BIG_COMPOUND_SECONDS = 120;
+const REST_DEFAULT_SECONDS = 90;
+const BIG_COMPOUND_MATCH = /(deadlift|rdl|romanian|squat|leg press|bench press|chest press|incline press|decline press|shoulder press|overhead press|smith.*press|machine press|row|pulldown|pull-down|chin-up|chin up|pull-up|pull up|dip|hack squat)/i;
+const ISOLATION_MATCH = /(curl|lateral|front raise|rear delt|pec deck|fly|pushdown|extension|calf|crunch|leg extension|leg curl|pullover|raise|y-raise)/i;
 const PEPTIDE_TIMINGS = [
   ["morning", "Morning"],
   ["night", "Night"],
@@ -2131,7 +2135,16 @@ function coachNotes() {
 function renderCoachNotes() {
   const el = $("#coach-notes");
   if (!el) return;
-  el.innerHTML = coachNotes().map((note) => `<div class="coach-card"><span>Coach</span><p>${escapeHtml(note)}</p></div>`).join("");
+  const alerts = weakPointAlerts();
+  el.innerHTML = `${coachNotes().map((note) => `<div class="coach-card"><span>Coach</span><p>${escapeHtml(note)}</p></div>`).join("")}
+    <div class="weak-alert-section">
+      <div class="weak-alert-head"><strong>Weak point alerts</strong><small>${alerts.length ? "Stalls and dropped volume from your logs" : "No stalls flagged yet"}</small></div>
+      ${alerts.length ? alerts.map((alert) => `<div class="weak-alert-card">
+        <span>Alert</span>
+        <strong>${escapeHtml(alert.title)}</strong>
+        <p>${escapeHtml(alert.detail)}</p>
+      </div>`).join("") : `<div class="weak-alert-card clear"><span>Clear</span><strong>No weak points showing</strong><p>Keep logging sets and this will call out stalls when the numbers stop moving.</p></div>`}
+    </div>`;
 }
 function mealActionButton(label, attrs, kind = "secondary") {
   return `<button class="${kind}" ${attrs} type="button">${label}</button>`;
@@ -2252,6 +2265,7 @@ function renderLog() {
   $("#planned-log-detail").textContent = template?.exercises?.length ? `${template.exercises.length} exercises from today's Weekly Plan` : "Change today's day in Planner to choose this workout.";
   renderWorkoutEditor();
   renderPersonalRecords();
+  renderWeeklyVolumeTracker();
   renderMealLibrary();
 }
 function ensureDraft(split = selectedSplit()) {
@@ -2312,6 +2326,65 @@ function smartSetDefaults(log, previous) {
     setNumber: index + 1,
   };
 }
+function bestSetFromSets(sets = []) {
+  return [...(sets || [])]
+    .filter((set) => num(set.reps) || rawNum(set.weightKg))
+    .sort((a, b) => rawNum(b.weightKg) - rawNum(a.weightKg) || estimatedOneRepMax(b) - estimatedOneRepMax(a) || num(b.reps) - num(a.reps))[0] || null;
+}
+function roundWarmupWeight(value, workingWeight) {
+  const step = workingWeight < 20 ? 0.5 : 2.5;
+  return Math.max(step, Math.round((Number(value) || 0) / step) * step);
+}
+function warmupSuggestionsForLog(log, previous = null, before = Date.now()) {
+  const previousBest = bestSetFromSets(previous?.sets || []);
+  const statsBest = previousBest || exerciseStats(log?.name || "", before).bestSet;
+  const draftBest = bestSetFromSets(log?.sets || []);
+  const workingWeight = rawNum(statsBest?.weightKg) || rawNum(draftBest?.weightKg);
+  if (!workingWeight) return [];
+  const compound = isBigCompoundLift(log);
+  const scheme = compound
+    ? [
+      ["Primer", 0.4, 8],
+      ["Build", 0.6, 5],
+      ["Sharpener", 0.75, 3],
+      ["Ready", 0.85, 1],
+    ]
+    : [
+      ["Primer", 0.5, 10],
+      ["Feel set", 0.7, 6],
+    ];
+  const seen = new Set();
+  return scheme.map(([label, pct, reps]) => {
+    const rounded = roundWarmupWeight(workingWeight * pct, workingWeight);
+    const weight = rounded >= workingWeight ? Math.max(0.5, workingWeight - (workingWeight < 20 ? 0.5 : 2.5)) : rounded;
+    const key = `${weight}-${reps}`;
+    if (seen.has(key) || weight <= 0) return null;
+    seen.add(key);
+    return { label, weight, reps, workingWeight };
+  }).filter(Boolean);
+}
+function warmupRowsHtml(rows = []) {
+  return `<div class="warmup-list">${rows.map((row) => `<span>
+    <small>${escapeHtml(row.label)}</small>
+    <strong>${fmtWeight(row.weight)}kg x ${fmt(row.reps)}</strong>
+  </span>`).join("")}</div>`;
+}
+function warmupGeneratorHtml(log, previous = null, before = Date.now()) {
+  const rows = warmupSuggestionsForLog(log, previous, before);
+  const working = rows[0]?.workingWeight || 0;
+  return `<details class="log-dropdown warmup-dropdown">
+    <summary>Warm-up sets</summary>
+    <div class="log-dropdown-body">
+      <div class="warmup-card">
+        <div>
+          <strong>Warm-up generator</strong>
+          <small>${working ? `Based on previous working weight of ${fmtWeight(working)}kg.` : "Log this exercise once with weight to generate warm-ups."}</small>
+        </div>
+        ${rows.length ? warmupRowsHtml(rows) : `<div class="empty">No previous working weight found yet.</div>`}
+      </div>
+    </div>
+  </details>`;
+}
 function restSecondsFromText(text = "") {
   const clean = String(text || "").toLowerCase().replace(/[–—]/g, "-");
   const isClusterBreak = /\b(cluster|rest-pause|rest pause|breaks?|between sections?)\b/.test(clean);
@@ -2327,15 +2400,12 @@ function restSecondsFromText(text = "") {
   if (labeledSingle) return Number(labeledSingle[1]) || 0;
   return 0;
 }
+function isBigCompoundLift(log) {
+  const text = `${log?.name || ""} ${log?.plannedName || ""}`;
+  return BIG_COMPOUND_MATCH.test(text) && !ISOLATION_MATCH.test(text);
+}
 function restSecondsForLog(log, target = null) {
-  const text = `${log?.name || ""} ${log?.notes || ""} ${target ? `${target.label || ""} ${target.details || ""}` : ""} ${(log?.targets || []).map((item) => `${item.label} ${item.details}`).join(" ")}`;
-  const explicit = restSecondsFromText(text);
-  if (explicit) return clamp(explicit, 10, 300);
-  const lower = text.toLowerCase();
-  if (lower.includes("cluster")) return 15;
-  if (lower.includes("rest-pause") || lower.includes("rest pause")) return 20;
-  if (/(deadlift|squat|press|rdl|row|lunge|leg press|dip)/i.test(text)) return 150;
-  return 90;
+  return isBigCompoundLift(log) ? REST_BIG_COMPOUND_SECONDS : REST_DEFAULT_SECONDS;
 }
 function restTimerLabel() {
   const left = Math.max(0, Math.ceil((restTimerEndAt - Date.now()) / 1000));
@@ -2356,17 +2426,26 @@ function restDurationLabel(seconds = 0) {
 function startRestTimerForLog(log, target = null) {
   const seconds = restSecondsForLog(log, target);
   restTimerEndAt = Date.now() + (seconds * 1000);
+  document.body.classList.remove("rest-timer-done");
   clearInterval(restTimerInterval);
   restTimerInterval = setInterval(() => {
     renderStickyWorkoutFooter();
     if (Date.now() >= restTimerEndAt) {
       clearInterval(restTimerInterval);
       restTimerInterval = 0;
-      showAppToast("Rest done", "saved");
+      finishRestAlert();
     }
   }, 1000);
   renderStickyWorkoutFooter();
   return seconds;
+}
+function finishRestAlert() {
+  document.body.classList.remove("rest-timer-done");
+  void document.body.offsetWidth;
+  document.body.classList.add("rest-timer-done");
+  if (navigator.vibrate) navigator.vibrate([240, 90, 240, 90, 420]);
+  showAppToast("Rest done. Go again.", "rest");
+  setTimeout(() => document.body.classList.remove("rest-timer-done"), 1900);
 }
 function clearRestTimer() {
   restTimerEndAt = 0;
@@ -2464,6 +2543,52 @@ function showWorkoutSummary(session, draft) {
   </section>`;
   document.body.appendChild(modal);
 }
+function focusWorkoutHtml(draft, logs = []) {
+  const progress = workoutProgressData(logs);
+  const current = progress.current;
+  const currentIndex = current ? logs.findIndex((log) => log.exerciseId === current.exerciseId) + 1 : 0;
+  const previous = current ? latestExerciseSets(current.name, draft.startedAt) : null;
+  const status = current ? exerciseLogStatus(current) : null;
+  const target = current ? getTarget(current.targets || [], nextTargetId(current.targets || [], current.sets || [])) : null;
+  const restActive = restTimerEndAt > Date.now();
+  const nextDifferent = current
+    ? logs.slice(currentIndex).find((log) => exerciseLogStatus(log).status !== "complete")
+    : null;
+  const warmups = current ? warmupSuggestionsForLog(current, previous, draft.startedAt) : [];
+  if (!current) {
+    return `<div class="focus-workout-screen wide">
+      <div class="focus-workout-head">
+        <div><span>Start workout</span><strong>Rest day</strong><small>No exercises planned for today.</small></div>
+        <button class="secondary" data-toggle-focus-mode type="button">Exit</button>
+      </div>
+    </div>`;
+  }
+  return `<div class="focus-workout-screen wide">
+    <div class="focus-workout-head">
+      <div>
+        <span>Start workout</span>
+        <strong>${escapeHtml(current.name)}</strong>
+        <small>Exercise ${fmt(currentIndex)} of ${fmt(logs.length)} / ${escapeHtml(status?.label || "0 sets")}</small>
+      </div>
+      <button class="secondary" data-toggle-focus-mode type="button">Exit</button>
+    </div>
+    <div class="guided-progress"><span style="width:${progress.pct}%"></span></div>
+    <div class="focus-stats">
+      <span><small>Target set</small><strong>${escapeHtml(target?.label || "Working set")}</strong></span>
+      <span><small>Previous set</small><strong>${previous ? escapeHtml(setSummary(previous.sets)) : "No previous"}</strong></span>
+      <span class="${restActive ? "rest-live" : ""}"><small>Rest timer</small><strong>${restActive ? restTimerLabel() : restDurationLabel(restSecondsForLog(current))}</strong></span>
+      <span><small>Next exercise</small><strong>${escapeHtml(nextDifferent?.name || "Finish this one")}</strong></span>
+    </div>
+    <div class="focus-warmup-card">
+      <div><strong>Warm-up sets</strong><small>${warmups.length ? `Based on ${fmtWeight(warmups[0].workingWeight)}kg working weight.` : "Add a previous session to generate warm-ups."}</small></div>
+      ${warmups.length ? warmupRowsHtml(warmups) : ""}
+    </div>
+    <div class="guided-actions">
+      <button class="primary" data-open-workout-exercise="${escapeHtml(current.exerciseId)}" type="button">Open set entry</button>
+      <button class="secondary" data-open-next-exercise type="button">Next unfinished</button>
+    </div>
+  </div>`;
+}
 function guidedWorkoutHtml(draft, logs = []) {
   const progress = workoutProgressData(logs);
   const current = progress.current;
@@ -2499,7 +2624,7 @@ function stickyWorkoutFooterHtml(draft, logs = []) {
   const status = current ? exerciseLogStatus(current) : null;
   const setsLeft = status ? Math.max(0, status.required - status.logged) : 0;
   const restActive = restTimerEndAt > Date.now();
-  return `<div class="workout-sticky-footer${state.settings.workoutFocusMode ? " focus" : ""}">
+  return `<div class="workout-sticky-footer${state.settings.workoutFocusMode ? " focus" : ""}${restActive ? " rest-active" : ""}">
     <div>
       <span>${current ? `Exercise ${currentIndex}/${logs.length}` : "Workout"}</span>
       <strong>${escapeHtml(current?.name || splitTitle(draft?.split || selectedSplit()))}</strong>
@@ -2568,7 +2693,7 @@ function renderWorkoutEditor() {
   const logs = draft.exerciseLogs || [];
   $("#workout-editor").innerHTML = logs.length ? `
     ${trainingTermsHtml()}
-    ${guidedWorkoutHtml(draft, logs)}
+    ${state.settings.workoutFocusMode ? focusWorkoutHtml(draft, logs) : guidedWorkoutHtml(draft, logs)}
     ${logs.map((log) => {
       const previous = latestExerciseSets(log.name, draft.startedAt);
       const defaults = smartSetDefaults(log, previous);
@@ -2586,12 +2711,13 @@ function renderWorkoutEditor() {
         <div class="exercise-log-body">
           ${logNotesDropdownHtml(log.notes)}
           ${logTargetDetailsHtml(log.targets)}
+          ${warmupGeneratorHtml(log, previous, draft.startedAt)}
           ${progressiveOverloadHtml(log, draft.startedAt)}
           ${exerciseSwapHtml(log, logs)}
           <div class="rest-timer-card">
             <span>Rest timer</span>
             <strong>${escapeHtml(restDurationLabel(restSecondsForLog(log)))}</strong>
-            <small>Starts automatically after Add set, using this exercise's notes.</small>
+            <small>Starts after Add set. Big compound lifts use 120 seconds, all other sets use 90 seconds.</small>
           </div>
           <div class="set-entry">
             <div class="previous-set-banner wide"><strong>Set ${fmt(defaults.setNumber)}</strong><span>${defaults.previousSet ? `Last time: ${fmtWeight(defaults.previousSet.weightKg)}kg x ${fmt(defaults.previousSet.reps)}` : "No matching previous set yet"}</span></div>
@@ -2688,6 +2814,108 @@ function progressiveOverloadHtml(log, before = Infinity) {
       </div>
     </div>
   </details>`;
+}
+function weekDatesFrom(date = new Date()) {
+  const start = startOfWeek(date);
+  return Array.from({ length: 7 }, (_, index) => dayKey(addDays(start, index)));
+}
+function weeklyVolumeData(dates = weekDatesFrom()) {
+  const groups = new Map();
+  for (const date of dates) {
+    for (const workout of workoutsForDate(date)) {
+      for (const log of workout.exerciseLogs || []) {
+        const summary = summarizeExerciseLog({ log });
+        const sets = summary.sets.length;
+        if (!sets) continue;
+        const bodyPart = exerciseBodyPart(log.name);
+        const group = groups.get(bodyPart) || { bodyPart, sets: 0, volume: 0, days: new Set(), exercises: new Map() };
+        group.sets += sets;
+        group.volume += summary.volume;
+        group.days.add(date);
+        const exerciseName = originalExerciseDisplayName(log.name, workout.split);
+        const key = exerciseMatchKey(exerciseName);
+        const exercise = group.exercises.get(key) || { name: exerciseName, sets: 0, volume: 0 };
+        exercise.sets += sets;
+        exercise.volume += summary.volume;
+        group.exercises.set(key, exercise);
+        groups.set(bodyPart, group);
+      }
+    }
+  }
+  return [...groups.values()].map((group) => {
+    const exercises = [...group.exercises.values()].sort((a, b) => b.volume - a.volume || b.sets - a.sets);
+    return { ...group, days: [...group.days], exercises, topExercise: exercises[0] || null };
+  }).sort((a, b) => b.volume - a.volume || b.sets - a.sets || a.bodyPart.localeCompare(b.bodyPart));
+}
+function renderWeeklyVolumeTracker() {
+  const el = $("#weekly-volume-tracker");
+  if (!el) return;
+  const dates = weekDatesFrom(parseDay(todayKey()) || new Date());
+  const rows = weeklyVolumeData(dates);
+  const maxBar = Math.max(1, ...rows.map((row) => row.volume || row.sets));
+  el.innerHTML = `<div class="volume-week-head">
+    <div><strong>This week</strong><small>${escapeHtml(dateLabel(dates[0]))} to ${escapeHtml(dateLabel(dates[6]))}</small></div>
+    <span>${fmt(rows.reduce((sum, row) => sum + row.sets, 0))} sets</span>
+  </div>${rows.length ? rows.map((row) => {
+    const barValue = row.volume || row.sets;
+    const pct = clamp((barValue / maxBar) * 100, 4, 100);
+    return `<div class="volume-card">
+      <div class="volume-card-head">
+        <div><strong>${escapeHtml(row.bodyPart)}</strong><small>${fmt(row.days.length)} training day${row.days.length === 1 ? "" : "s"}</small></div>
+        <span>${fmt(row.sets)} sets</span>
+      </div>
+      <div class="volume-track"><span style="width:${pct}%"></span></div>
+      <div class="volume-meta">
+        <span>${fmtWeight(row.volume)}kg total volume</span>
+        <span>${fmt(row.exercises.length)} exercise${row.exercises.length === 1 ? "" : "s"}</span>
+        <span>Top: ${escapeHtml(row.topExercise?.name || "No lift yet")}</span>
+      </div>
+    </div>`;
+  }).join("") : `<div class="empty">Log sets this week and your muscle-group volume will appear here.</div>`}`;
+}
+function exerciseProgressScore(summary) {
+  return rawNum(summary?.est1rm) || rawNum(summary?.bestSet?.weightKg) || rawNum(summary?.volume) || rawNum(summary?.bestReps);
+}
+function previousWeekDates() {
+  const start = addDays(startOfWeek(parseDay(todayKey()) || new Date()), -7);
+  return weekDatesFrom(start);
+}
+function weakPointAlerts(limit = 4) {
+  const alerts = [];
+  const used = new Set();
+  for (const record of personalRecords(999, { bodyPart: "All", range: "all", sort: "bestEst1rm", query: "" })) {
+    const sessions = exerciseSessions(record.name)
+      .slice(0, 3)
+      .map((entry) => ({ ...entry, summary: summarizeExerciseLog(entry) }));
+    if (sessions.length < 3) continue;
+    const latestScore = exerciseProgressScore(sessions[0].summary);
+    const previousBestScore = Math.max(exerciseProgressScore(sessions[1].summary), exerciseProgressScore(sessions[2].summary));
+    const latestSet = sessions[0].summary.bestSet;
+    const previousBest = [sessions[1], sessions[2]].sort((a, b) => exerciseProgressScore(b.summary) - exerciseProgressScore(a.summary))[0]?.summary.bestSet;
+    if (!latestScore || latestScore > previousBestScore + 0.24) continue;
+    const key = exerciseMatchKey(record.name);
+    if (used.has(key)) continue;
+    used.add(key);
+    alerts.push({
+      title: `${record.name} has stalled`,
+      detail: `${latestSet ? setResultText(latestSet) : "Latest set"} is not beating ${previousBest ? setResultText(previousBest) : "your recent best"}. Next time: match the best load first, then steal one clean rep.`,
+    });
+    if (alerts.length >= limit) return alerts;
+  }
+  const current = new Map(weeklyVolumeData(weekDatesFrom()).map((row) => [row.bodyPart, row]));
+  for (const previous of weeklyVolumeData(previousWeekDates())) {
+    const now = current.get(previous.bodyPart);
+    if (previous.sets < 4 || (now?.sets || 0) >= previous.sets * 0.7) continue;
+    const key = `volume-${previous.bodyPart}`;
+    if (used.has(key)) continue;
+    used.add(key);
+    alerts.push({
+      title: `${previous.bodyPart} volume dropped`,
+      detail: `Last week had ${fmt(previous.sets)} sets. This week has ${fmt(now?.sets || 0)}. Either recover on purpose or stop letting that body part quietly vanish.`,
+    });
+    if (alerts.length >= limit) return alerts;
+  }
+  return alerts;
 }
 function prFilters() {
   const settings = state.settings || {};

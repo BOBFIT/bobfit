@@ -11,7 +11,7 @@
     <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="assets/icon.png" />
     <link rel="manifest" href="manifest.webmanifest" />
-    <link rel="stylesheet" href="styles.css?v=115" />
+    <link rel="stylesheet" href="styles.css?v=116" />
   </head>
   <body class="auth-locked">
     <section id="auth-gate" class="auth-gate" aria-live="polite">
@@ -145,6 +145,15 @@
           </summary>
           <div class="drop-body">
             <div id="personal-record-list" class="pr-grid"></div>
+          </div>
+        </details>
+        <details class="panel drop-panel">
+          <summary class="drop-summary">
+            <span><strong>Weekly Volume</strong><small>Muscle-group sets and total weight moved this week</small></span>
+            <span class="drop-pill">Volume</span>
+          </summary>
+          <div class="drop-body">
+            <div id="weekly-volume-tracker" class="volume-list"></div>
           </div>
         </details>
         <details class="panel drop-panel">
@@ -502,7 +511,7 @@
       <button data-view="settings" type="button">Settings</button>
     </nav>
 
-    <script src="app.js?v=115"></script>
+    <script src="app.js?v=116"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js").catch(() => {}));

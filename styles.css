@@ -646,6 +646,126 @@ button { cursor: pointer; }
   min-width: 0;
   padding-inline: 10px;
 }
+.focus-workout-screen {
+  display: grid;
+  gap: 13px;
+  padding: 16px;
+  border: 1px solid rgba(95, 225, 255, 0.24);
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 84% 8%, rgba(95, 225, 255, 0.18), transparent 30%),
+    linear-gradient(145deg, rgba(3, 16, 31, 0.98), rgba(8, 50, 84, 0.94));
+  box-shadow: 0 22px 56px rgba(0, 8, 20, 0.36), 0 0 28px rgba(19, 168, 245, 0.14);
+}
+.focus-workout-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+}
+.focus-workout-head span,
+.focus-stats small,
+.focus-warmup-card small,
+.volume-week-head small,
+.volume-card-head small,
+.volume-meta span,
+.weak-alert-card span,
+.weak-alert-head small {
+  color: var(--primary-dark);
+  font-size: 10px;
+  font-weight: 950;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+.focus-workout-head strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 27px;
+  line-height: 1.02;
+}
+.focus-workout-head small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.3;
+}
+.focus-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.focus-stats span,
+.focus-warmup-card {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  padding: 11px;
+  border: 1px solid rgba(95, 225, 255, 0.12);
+  border-radius: 19px;
+  background: rgba(7, 31, 54, 0.78);
+}
+.focus-stats strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 15px;
+  line-height: 1.15;
+}
+.focus-stats .rest-live {
+  border-color: rgba(245, 158, 11, 0.52);
+  box-shadow: 0 0 22px rgba(245, 158, 11, 0.18);
+}
+.focus-stats .rest-live strong {
+  color: #fde68a;
+  font-size: 20px;
+}
+.focus-warmup-card strong,
+.warmup-card strong,
+.volume-week-head strong,
+.volume-card-head strong,
+.weak-alert-head strong,
+.weak-alert-card strong {
+  display: block;
+  color: var(--ink);
+  line-height: 1.15;
+}
+.warmup-card {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(95, 225, 255, 0.14);
+  border-radius: 18px;
+  background: rgba(3, 16, 31, 0.28);
+}
+.warmup-card small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.3;
+}
+.warmup-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.warmup-list span {
+  display: grid;
+  gap: 4px;
+  padding: 9px;
+  border: 1px solid rgba(95, 225, 255, 0.1);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.warmup-list small {
+  color: var(--primary-dark);
+  font-size: 10px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+.warmup-list strong {
+  font-size: 13px;
+}
 .fixed-rule-card {
   display: grid;
   gap: 7px;
@@ -1583,6 +1703,8 @@ button.delete-pulse {
   .training-terms.tab-closing > div,
   .target-details.tab-closing > div,
   .exercise-log.status-complete::after,
+  body.rest-timer-done::before,
+  .workout-sticky-footer.rest-active,
   .ui-haptic-saved .app,
   .ui-haptic-deleted .app,
   .workout-summary-card,
@@ -2152,6 +2274,125 @@ button.delete-pulse {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
+.volume-list {
+  display: grid;
+  gap: 10px;
+}
+.volume-week-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(95, 225, 255, 0.14);
+  border-radius: 20px;
+  background: rgba(3, 16, 31, 0.32);
+}
+.volume-week-head strong,
+.volume-card-head strong,
+.weak-alert-head strong,
+.weak-alert-card strong {
+  display: block;
+  color: var(--ink);
+  line-height: 1.15;
+}
+.volume-week-head small,
+.volume-card-head small,
+.volume-meta span,
+.weak-alert-card span,
+.weak-alert-head small {
+  color: var(--primary-dark);
+  font-size: 10px;
+  font-weight: 950;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+.volume-week-head span {
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(19, 168, 245, 0.14);
+  color: var(--primary-dark);
+  font-size: 12px;
+  font-weight: 950;
+  white-space: nowrap;
+}
+.volume-card {
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid rgba(95, 225, 255, 0.13);
+  border-radius: 21px;
+  background: linear-gradient(135deg, rgba(7, 31, 54, 0.96), rgba(13, 44, 73, 0.82));
+  box-shadow: var(--soft-shadow);
+}
+.volume-card-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+}
+.volume-card-head span {
+  color: var(--primary-dark);
+  font-size: 12px;
+  font-weight: 950;
+  white-space: nowrap;
+}
+.volume-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.volume-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(135deg, #11c4ff, #5fe1ff);
+  box-shadow: 0 0 18px rgba(95, 225, 255, 0.3);
+}
+.volume-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+.volume-meta span {
+  min-width: 0;
+  padding: 8px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow-wrap: anywhere;
+  text-transform: none;
+}
+.weak-alert-section {
+  display: grid;
+  gap: 10px;
+}
+.weak-alert-head {
+  display: grid;
+  gap: 3px;
+  padding: 4px 2px 0;
+}
+.weak-alert-card {
+  display: grid;
+  gap: 6px;
+  padding: 13px;
+  border: 1px solid rgba(245, 158, 11, 0.34);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 10% 8%, rgba(245, 158, 11, 0.16), transparent 34%),
+    rgba(7, 31, 54, 0.94);
+  box-shadow: 0 12px 36px rgba(245, 158, 11, 0.1);
+}
+.weak-alert-card.clear {
+  border-color: rgba(45, 212, 191, 0.3);
+  box-shadow: 0 12px 36px rgba(45, 212, 191, 0.1);
+}
+.weak-alert-card p {
+  margin: 0;
+  color: #d7efff;
+  font-size: 13px;
+  line-height: 1.35;
+}
 .weight-trend-card {
   display: grid;
   gap: 12px;
@@ -2674,6 +2915,12 @@ body.peptides-locked .consistency-dots {
   border-color: rgba(248, 113, 113, 0.56);
   box-shadow: 0 16px 38px rgba(0, 8, 20, 0.34), 0 0 30px rgba(248, 113, 113, 0.24);
 }
+.app-toast.rest {
+  border-color: rgba(245, 158, 11, 0.72);
+  background: rgba(68, 38, 8, 0.94);
+  color: #fff7ed;
+  box-shadow: 0 18px 44px rgba(0, 8, 20, 0.42), 0 0 42px rgba(245, 158, 11, 0.42);
+}
 .app-toast button {
   min-height: 30px;
   padding: 0 12px;
@@ -2700,6 +2947,29 @@ body.peptides-locked .consistency-dots {
   32% { filter: brightness(1.08) drop-shadow(0 0 14px rgba(248, 113, 113, 0.18)); }
   100% { filter: brightness(1); }
 }
+body.rest-timer-done::before {
+  content: "REST DONE";
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: grid;
+  place-items: center;
+  background: rgba(3, 16, 31, 0.28);
+  color: #fff7ed;
+  font-size: clamp(38px, 12vw, 72px);
+  font-weight: 950;
+  letter-spacing: 0;
+  pointer-events: none;
+  text-shadow: 0 0 28px rgba(245, 158, 11, 0.9);
+  animation: restDoneFlash 1.9s ease-out both;
+}
+@keyframes restDoneFlash {
+  0% { opacity: 0; transform: scale(0.92); background: rgba(245, 158, 11, 0); }
+  15% { opacity: 1; transform: scale(1); background: rgba(245, 158, 11, 0.28); }
+  33% { opacity: 0.35; background: rgba(3, 16, 31, 0.08); }
+  52% { opacity: 1; background: rgba(245, 158, 11, 0.24); }
+  100% { opacity: 0; transform: scale(1.08); background: rgba(3, 16, 31, 0); }
+}
 .workout-sticky-footer {
   position: fixed;
   left: 50%;
@@ -2720,6 +2990,15 @@ body.peptides-locked .consistency-dots {
 }
 .workout-sticky-footer.focus {
   bottom: calc(16px + env(safe-area-inset-bottom));
+}
+.workout-sticky-footer.rest-active {
+  border-color: rgba(245, 158, 11, 0.56);
+  box-shadow: 0 18px 46px rgba(0, 8, 20, 0.42), 0 0 34px rgba(245, 158, 11, 0.28);
+  animation: restFooterPulse 1.4s ease-in-out infinite;
+}
+@keyframes restFooterPulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.12); }
 }
 .workout-sticky-footer span,
 .workout-sticky-footer small {
@@ -2967,7 +3246,8 @@ body.peptides-locked .consistency-dots {
 @media (max-width: 520px) {
   .topbar h1 { font-size: 30px; }
   .app { padding-inline: 12px; }
-  .grid, .quick-grid, .help-grid, .two-col, .add-line, .set-entry, .pr-filter-panel { grid-template-columns: 1fr; }
+  .grid, .quick-grid, .help-grid, .two-col, .add-line, .set-entry, .pr-filter-panel, .focus-stats, .volume-meta { grid-template-columns: 1fr; }
+  .warmup-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .macro-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .picker-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .hero-panel, .section-head, .exercise-head, .split-head, .history-head, .history-mini-head { display: grid; }
