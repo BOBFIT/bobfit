@@ -2669,7 +2669,6 @@ function focusWorkoutHtml(draft, logs = []) {
   const nextDifferent = current
     ? logs.slice(currentIndex).find((log) => exerciseLogStatus(log).status !== "complete")
     : null;
-  const warmups = current ? warmupSuggestionsForLog(current, previous, draft.startedAt) : [];
   if (!current) {
     return `<div class="focus-workout-screen wide">
       <div class="focus-workout-head">
@@ -2678,29 +2677,50 @@ function focusWorkoutHtml(draft, logs = []) {
       </div>
     </div>`;
   }
+  const defaults = smartSetDefaults(current, previous);
   return `<div class="focus-workout-screen wide">
     <div class="focus-workout-head">
       <div>
-        <span>Start workout</span>
-        <strong>${escapeHtml(current.name)}</strong>
-        <small>Exercise ${fmt(currentIndex)} of ${fmt(logs.length)} / ${escapeHtml(status?.label || "0 sets")}</small>
+        <span>Focus mode</span>
+        <strong>${escapeHtml(splitTitle(draft?.split || selectedSplit()))}</strong>
+        <small>Exercise ${fmt(currentIndex)} of ${fmt(logs.length)} / ${fmt(progress.complete)} complete</small>
       </div>
       <button class="secondary" data-toggle-focus-mode type="button">Exit</button>
     </div>
     <div class="guided-progress"><span style="width:${progress.pct}%"></span></div>
-    <div class="focus-stats">
-      <span><small>Target set</small><strong>${escapeHtml(target?.label || "Working set")}</strong></span>
-      <span><small>Previous set</small><strong>${previous ? escapeHtml(setSummary(previous.sets)) : "No previous"}</strong></span>
-      <span class="${restActive ? "rest-live" : ""}"><small>Rest timer</small><strong>${restActive ? restTimerLabel() : restDurationLabel(restSecondsForLog(current))}</strong></span>
-      <span><small>Next exercise</small><strong>${escapeHtml(nextDifferent?.name || "Finish this one")}</strong></span>
-    </div>
-    <div class="focus-warmup-card">
-      <div><strong>Warm-up sets</strong><small>${warmups.length ? `Based on ${fmtWeight(warmups[0].workingWeight)}kg working weight.` : "Add a previous session to generate warm-ups."}</small></div>
-      ${warmups.length ? warmupRowsHtml(warmups) : ""}
-    </div>
-    <div class="guided-actions">
-      <button class="primary" data-open-workout-exercise="${escapeHtml(current.exerciseId)}" type="button">Open set entry</button>
+    <section class="focus-active-exercise status-${escapeHtml(status?.status || "empty")}" data-exercise-id="${escapeHtml(current.exerciseId)}">
+      <div class="focus-active-head">
+        <div>
+          <span>Now logging</span>
+          <h3>${escapeHtml(current.name)}</h3>
+          <small>${escapeHtml(target?.details || target?.label || "Working set")}</small>
+        </div>
+        <strong>${escapeHtml(status?.label || "0 sets")}</strong>
+      </div>
+      <div class="focus-live-grid">
+        <span><small>Target</small><strong>${escapeHtml(target?.label || "Working set")}</strong></span>
+        <span><small>Previous</small><strong>${previous ? escapeHtml(setSummary(previous.sets)) : "No previous"}</strong></span>
+        <span class="${restActive ? "rest-live" : ""}"><small>Rest</small><strong>${restActive ? restTimerLabel() : restDurationLabel(restSecondsForLog(current))}</strong></span>
+        <span><small>Next</small><strong>${escapeHtml(nextDifferent?.name || "Finish this one")}</strong></span>
+      </div>
+      ${focusSmartJumpHtml(current, draft.startedAt)}
+      ${focusSetTableHtml(current)}
+      <div class="focus-set-entry">
+        <label>Set target<select name="targetId">${targetOptionsHtml(current.targets, nextTargetId(current.targets, current.sets))}</select></label>
+        <label>Reps done<input name="reps" type="number" min="0" inputmode="numeric" value="${escapeHtml(defaults.reps)}" /></label>
+        <label>Weight kg<input name="weightKg" type="number" min="0" step="0.5" inputmode="decimal" value="${escapeHtml(defaults.weightKg)}" /></label>
+        <button class="primary" data-add-set="${escapeHtml(current.exerciseId)}" type="button">Add set</button>
+      </div>
+      ${exerciseToolDrawerHtml(current, logs, previous, draft.startedAt)}
+      <div class="focus-bottom-actions">
+        <button class="secondary" data-open-workout-exercise="${escapeHtml(logs[Math.max(0, currentIndex - 2)]?.exerciseId || current.exerciseId)}" type="button">Previous</button>
+        <button class="primary" data-add-set="${escapeHtml(current.exerciseId)}" type="button">Add set</button>
+        <button class="secondary" data-open-next-exercise type="button">Next</button>
+      </div>
+    </section>
+    <div class="focus-support-actions">
       <button class="secondary" data-open-next-exercise type="button">Next unfinished</button>
+      <button class="secondary" data-open-workout-exercise="${escapeHtml(current.exerciseId)}" type="button">Centre current</button>
     </div>
   </div>`;
 }
@@ -2748,12 +2768,71 @@ function stickyWorkoutFooterHtml(draft, logs = []) {
     <button class="secondary" data-open-next-exercise type="button">Next</button>
   </div>`;
 }
+function focusPlannedTargets(log) {
+  const targets = log?.targets || [];
+  const hasExplicitSets = targets.some(isExplicitSetTarget);
+  const counted = targets.filter((target) => targetCountsAsSet(target, hasExplicitSets));
+  if (counted.length) return counted;
+  return Array.from({ length: plannedSetCount(log) }, (_, index) => ({ id: `focus-working-${index + 1}`, label: `Set ${index + 1}`, details: "Working set" }));
+}
+function focusSetTableHtml(log) {
+  const planned = focusPlannedTargets(log);
+  const sets = (log?.sets || []).filter((set) => num(set.reps) || rawNum(set.weightKg));
+  const rows = planned.map((target, index) => {
+    const set = sets[index];
+    const isCurrent = !set && index === sets.length;
+    const stateClass = set ? "logged" : isCurrent ? "current" : "pending";
+    const result = set ? `${fmtWeight(set.weightKg)}kg x ${fmt(set.reps)}` : isCurrent ? "Add now" : "Pending";
+    const detail = target.details || target.label || "Working set";
+    return `<div class="focus-set-row ${stateClass}">
+      <span>${escapeHtml(target.label || `Set ${index + 1}`)}</span>
+      <strong>${escapeHtml(detail)}</strong>
+      <b>${escapeHtml(result)}</b>
+    </div>`;
+  });
+  sets.slice(planned.length).forEach((set, index) => {
+    rows.push(`<div class="focus-set-row logged extra">
+      <span>Extra ${fmt(index + 1)}</span>
+      <strong>${escapeHtml(set.targetLabel || "Extra set")}</strong>
+      <b>${fmtWeight(set.weightKg)}kg x ${fmt(set.reps)}</b>
+    </div>`);
+  });
+  return `<div class="focus-set-table">${rows.join("")}</div>`;
+}
+function focusSmartJumpHtml(log, before = Infinity) {
+  const smart = smartWeightJump(log, before);
+  const action = smart.actionLabel ? `<button class="primary" data-apply-smart-jump="${escapeHtml(log.exerciseId)}" data-smart-weight="${escapeHtml(smart.suggestedWeight)}" data-smart-reps="${escapeHtml(smart.suggestedReps)}" type="button">${escapeHtml(smart.actionLabel)}</button>` : "";
+  const copy = smart.copyLabel ? `<button class="secondary" data-apply-smart-jump="${escapeHtml(log.exerciseId)}" data-smart-weight="${escapeHtml(smart.copyWeight)}" data-smart-reps="${escapeHtml(smart.copyReps)}" type="button">${escapeHtml(smart.copyLabel)}</button>` : "";
+  return `<div class="focus-smart-jump mode-${escapeHtml(smart.mode)}">
+    <div>
+      <span>Smart jump</span>
+      <strong>${escapeHtml(smart.title)}</strong>
+      <small>Last ${escapeHtml(smart.lastText)} / beat ${escapeHtml(smart.beatText)}</small>
+    </div>
+    <div class="focus-smart-actions">${action}${copy}</div>
+  </div>`;
+}
+function focusWorkoutQueueHtml(logs = [], current = null) {
+  if (!logs.length) return "";
+  return `<div class="focus-exercise-queue wide">
+    <div class="focus-queue-head"><strong>Workout queue</strong><small>Tap any exercise to make it the focus card.</small></div>
+    <div class="focus-queue-list">${logs.map((log, index) => {
+      const progress = exerciseLogStatus(log);
+      const isCurrent = current && String(current.exerciseId) === String(log.exerciseId);
+      return `<button class="focus-queue-card status-${escapeHtml(progress.status)}${isCurrent ? " active" : ""}" data-open-workout-exercise="${escapeHtml(log.exerciseId)}" type="button">
+        <span>${escapeHtml(isCurrent ? "Now" : `#${index + 1}`)}</span>
+        <strong>${escapeHtml(log.name)}</strong>
+        <small>${escapeHtml(progress.label)}</small>
+      </button>`;
+    }).join("")}</div>
+  </div>`;
+}
 function renderStickyWorkoutFooter() {
   let footer = $("#workout-sticky-footer");
   const isLog = activeViewName() === "log";
   const draft = isLog ? ensureDraft(selectedSplit()) : null;
   const logs = draft?.exerciseLogs || [];
-  const shouldShow = state.settings.workoutFocusMode || restTimerEndAt > Date.now();
+  const shouldShow = !state.settings.workoutFocusMode && restTimerEndAt > Date.now();
   if (!isLog || !shouldShow || !logs.length) {
     footer?.remove();
     return;
@@ -2770,7 +2849,7 @@ function openWorkoutExercise(exerciseId = "") {
   setOpenExerciseCard(exerciseId);
   renderWorkoutEditor();
   requestAnimationFrame(() => {
-    const card = document.querySelector(`.exercise-log[data-exercise-id="${cssEscape(exerciseId)}"]`);
+    const card = document.querySelector(`.focus-active-exercise[data-exercise-id="${cssEscape(exerciseId)}"], .exercise-log[data-exercise-id="${cssEscape(exerciseId)}"]`);
     card?.scrollIntoView({ behavior: "smooth", block: "center" });
   });
 }
@@ -2842,10 +2921,12 @@ function renderWorkoutEditor() {
   const split = selectedSplit();
   const draft = ensureDraft(split);
   const logs = draft.exerciseLogs || [];
-  $("#workout-editor").innerHTML = logs.length ? `
-    ${trainingTermsHtml()}
-    ${state.settings.workoutFocusMode ? focusWorkoutHtml(draft, logs) : guidedWorkoutHtml(draft, logs)}
-    ${logs.map((log) => {
+  if (!logs.length) {
+    $("#workout-editor").innerHTML = emptyStateHtml("No exercises in this split", "Open Planner and add exercises to this split.", "Open Planner", `data-view="planner"`);
+    renderStickyWorkoutFooter();
+    return;
+  }
+  const exerciseCards = logs.map((log) => {
       const previous = latestExerciseSets(log.name, draft.startedAt);
       const defaults = smartSetDefaults(log, previous);
       const progress = exerciseLogStatus(log);
@@ -2875,7 +2956,13 @@ function renderWorkoutEditor() {
           </div>
         </div>
       </details>`;
-    }).join("")}` : emptyStateHtml("No exercises in this split", "Open Planner and add exercises to this split.", "Open Planner", `data-view="planner"`);
+    }).join("");
+  const focusCurrent = workoutProgressData(logs).current;
+  $("#workout-editor").innerHTML = `
+    ${trainingTermsHtml()}
+    ${state.settings.workoutFocusMode
+      ? `${focusWorkoutHtml(draft, logs)}${focusWorkoutQueueHtml(logs, focusCurrent)}`
+      : `${guidedWorkoutHtml(draft, logs)}${exerciseCards}`}`;
   renderStickyWorkoutFooter();
 }
 function latestExerciseSets(name, before = Date.now()) {
@@ -6063,7 +6150,7 @@ function bind() {
       return;
     }
     if (button.dataset.applySmartJump) {
-      const card = button.closest(".exercise-log");
+      const card = button.closest(".exercise-log, .focus-active-exercise");
       if (!card) return;
       const repsInput = card.querySelector('input[name="reps"]');
       const weightInput = card.querySelector('input[name="weightKg"]');
@@ -6074,7 +6161,7 @@ function bind() {
       return;
     }
     if (button.dataset.addSet) {
-      const card = button.closest(".exercise-log");
+      const card = button.closest(".exercise-log, .focus-active-exercise");
       const draft = ensureDraft(selectedSplit());
       const log = draft.exerciseLogs.find((entry) => entry.exerciseId === button.dataset.addSet);
       if (!card || !log) return;
@@ -6123,7 +6210,7 @@ function bind() {
         renderWorkoutEditor();
       }
       requestAnimationFrame(() => {
-        const card = document.querySelector(`.exercise-log[data-exercise-id="${cssEscape(id)}"]`);
+        const card = document.querySelector(`.exercise-log[data-exercise-id="${cssEscape(id)}"], .focus-active-exercise[data-exercise-id="${cssEscape(id)}"]`);
         card?.querySelector(".exercise-tool-drawer")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       });
       return;
