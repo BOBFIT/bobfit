@@ -529,6 +529,9 @@ let appToastTimer = 0;
 let undoToastAction = null;
 let undoToastTimer = 0;
 let restTimerEndAt = 0;
+let restTimerStartedAt = 0;
+let restTimerDurationSeconds = 0;
+let restTimerContext = { exerciseName: "", nextName: "", targetLabel: "" };
 let restTimerInterval = 0;
 let calendarScrollTimer = 0;
 const tabCloseTimers = new WeakMap();
@@ -2533,9 +2536,17 @@ function restDurationLabel(seconds = 0) {
   }
   return `${value}s`;
 }
-function startRestTimerForLog(log, target = null) {
+function startRestTimerForLog(log, target = null, nextLog = null) {
   const seconds = restSecondsForLog(log, target);
+  restTimerStartedAt = Date.now();
   restTimerEndAt = Date.now() + (seconds * 1000);
+  restTimerDurationSeconds = seconds;
+  const completed = exerciseLogStatus(log).status === "complete";
+  restTimerContext = {
+    exerciseName: log?.name || "",
+    nextName: nextLog?.name || (completed ? "Workout complete" : log?.name || ""),
+    targetLabel: target?.label || "",
+  };
   document.body.classList.remove("rest-timer-done");
   clearInterval(restTimerInterval);
   restTimerInterval = setInterval(() => {
@@ -2565,6 +2576,9 @@ function finishRestAlert() {
 }
 function clearRestTimer() {
   restTimerEndAt = 0;
+  restTimerStartedAt = 0;
+  restTimerDurationSeconds = 0;
+  restTimerContext = { exerciseName: "", nextName: "", targetLabel: "" };
   clearInterval(restTimerInterval);
   restTimerInterval = 0;
   renderStickyWorkoutFooter();
@@ -2665,13 +2679,27 @@ function showWorkoutSummary(session, draft) {
   </section>`;
   document.body.appendChild(modal);
 }
+function restTimerProgressValue() {
+  const duration = Math.max(1, restTimerDurationSeconds || Math.ceil((restTimerEndAt - restTimerStartedAt) / 1000) || 1);
+  const left = Math.max(0, Math.ceil((restTimerEndAt - Date.now()) / 1000));
+  return Math.max(0, Math.min(1, left / duration));
+}
 function focusRestTimerHtml(log) {
   const active = restTimerEndAt > Date.now();
   const done = document.body.classList.contains("rest-timer-done");
-  return `<div id="focus-rest-timer" class="focus-rest-timer${active ? " rest-active" : ""}${done && !active ? " timer-done" : ""}"${active || done ? "" : " hidden"}>
-    <span>Rest timer</span>
-    <strong data-rest-time>${active ? restTimerLabel() : "Rest ready"}</strong>
-    <small data-rest-note>${active ? "Next set when this hits zero." : `Rest is normally ${restDurationLabel(restSecondsForLog(log))}.`}</small>
+  const nextName = restTimerContext.nextName || log?.name || "";
+  const target = restTimerContext.targetLabel || targetRepText(log?.targets || []);
+  const title = nextName === "Workout complete" ? "Workout complete" : nextName ? `Next: ${escapeHtml(nextName)}` : "Next set soon";
+  return `<div id="focus-rest-timer" class="focus-rest-timer${active ? " rest-active" : ""}${done && !active ? " timer-done" : ""}" style="--rest-progress:${restTimerProgressValue()}"${active || done ? "" : " hidden"}>
+    <div class="focus-rest-main">
+      <div>
+        <span>Rest timer</span>
+        <strong data-rest-title>${done && !active ? "Go" : title}</strong>
+        <small data-rest-note>${active ? escapeHtml(target) : done ? "Rest done. Get back in." : `Rest is normally ${restDurationLabel(restSecondsForLog(log))}.`}</small>
+      </div>
+      <b data-rest-time>${active ? restTimerLabel() : "Ready"}</b>
+    </div>
+    <div class="focus-rest-progress"><i data-rest-progress></i></div>
   </div>`;
 }
 function renderFocusRestTimer() {
@@ -2682,63 +2710,14 @@ function renderFocusRestTimer() {
   chip.hidden = !(active || done);
   chip.classList.toggle("rest-active", active);
   chip.classList.toggle("timer-done", done && !active);
+  chip.style.setProperty("--rest-progress", restTimerProgressValue());
+  const title = chip.querySelector("[data-rest-title]");
   const time = chip.querySelector("[data-rest-time]");
   const note = chip.querySelector("[data-rest-note]");
-  if (time) time.textContent = active ? restTimerLabel() : "Rest ready";
-  if (note) note.textContent = active ? "Next set when this hits zero." : "Go again.";
-}
-function focusWorkoutHtml(draft, logs = []) {
-  const progress = workoutProgressData(logs);
-  const current = progress.current;
-  const currentIndex = current ? logs.findIndex((log) => log.exerciseId === current.exerciseId) + 1 : 0;
-  const previous = current ? latestExerciseSets(current.name, draft.startedAt) : null;
-  const status = current ? exerciseLogStatus(current) : null;
-  const target = current ? getTarget(current.targets || [], nextTargetId(current.targets || [], current.sets || [])) : null;
-  if (!current) {
-    return `<div class="focus-workout-screen wide">
-      <div class="focus-workout-head">
-        <div><span>Start workout</span><strong>Rest day</strong><small>No exercises planned for today.</small></div>
-        <button class="secondary" data-toggle-focus-mode type="button">Exit</button>
-      </div>
-    </div>`;
-  }
-  const defaults = smartSetDefaults(current, previous);
-  return `<div class="focus-workout-screen wide">
-    <div class="focus-workout-head">
-      <div>
-        <span>Focus mode</span>
-        <strong>${escapeHtml(splitTitle(draft?.split || selectedSplit()))}</strong>
-        <small>Exercise ${fmt(currentIndex)} of ${fmt(logs.length)} / ${fmt(progress.complete)} complete</small>
-      </div>
-      <button class="secondary" data-toggle-focus-mode type="button">Exit</button>
-    </div>
-    <div class="guided-progress"><span style="width:${progress.pct}%"></span></div>
-    <section class="focus-active-exercise status-${escapeHtml(status?.status || "empty")}" data-exercise-id="${escapeHtml(current.exerciseId)}">
-      <div class="focus-active-head">
-        <div>
-          <span>Now logging</span>
-          <h3>${escapeHtml(current.name)}</h3>
-          <small>${escapeHtml(target?.details || target?.label || "Working set")}</small>
-        </div>
-        <strong>${escapeHtml(status?.label || "0 sets")}</strong>
-      </div>
-      ${focusRestTimerHtml(current)}
-      ${focusSmartJumpHtml(current, draft.startedAt)}
-      ${focusSetTableHtml(current)}
-      <div class="focus-set-entry">
-        <label>Set target<select name="targetId">${targetOptionsHtml(current.targets, nextTargetId(current.targets, current.sets))}</select></label>
-        <label>Reps done<input name="reps" type="number" min="0" inputmode="numeric" value="${escapeHtml(defaults.reps)}" /></label>
-        <label>Weight kg<input name="weightKg" type="number" min="0" step="0.5" inputmode="decimal" value="${escapeHtml(defaults.weightKg)}" /></label>
-        <button class="primary" data-add-set="${escapeHtml(current.exerciseId)}" type="button">Add set</button>
-      </div>
-      ${exerciseToolDrawerHtml(current, logs, previous, draft.startedAt)}
-      <div class="focus-bottom-actions">
-        <button class="secondary" data-open-workout-exercise="${escapeHtml(logs[Math.max(0, currentIndex - 2)]?.exerciseId || current.exerciseId)}" type="button">Previous</button>
-        <button class="primary" data-add-set="${escapeHtml(current.exerciseId)}" type="button">Add set</button>
-        <button class="secondary" data-open-next-exercise type="button">Next</button>
-      </div>
-    </section>
-  </div>`;
+  const nextName = restTimerContext.nextName || "";
+  if (title) title.textContent = done && !active ? "Go" : nextName === "Workout complete" ? "Workout complete" : nextName ? `Next: ${nextName}` : "Next set soon";
+  if (time) time.textContent = active ? restTimerLabel() : "Ready";
+  if (note) note.textContent = active ? (restTimerContext.targetLabel || "Next set when this hits zero.") : "Rest done. Get back in.";
 }
 function guidedWorkoutHtml(draft, logs = []) {
   const progress = workoutProgressData(logs);
@@ -2784,63 +2763,6 @@ function stickyWorkoutFooterHtml(draft, logs = []) {
     <button class="secondary" data-open-next-exercise type="button">Next</button>
   </div>`;
 }
-function focusPlannedTargets(log) {
-  const targets = log?.targets || [];
-  const hasExplicitSets = targets.some(isExplicitSetTarget);
-  const counted = targets.filter((target) => targetCountsAsSet(target, hasExplicitSets));
-  if (counted.length) return counted;
-  return Array.from({ length: plannedSetCount(log) }, (_, index) => ({ id: `focus-working-${index + 1}`, label: `Set ${index + 1}`, details: "Working set" }));
-}
-function focusSetTableHtml(log) {
-  const planned = focusPlannedTargets(log);
-  const sets = (log?.sets || []).filter((set) => num(set.reps) || rawNum(set.weightKg));
-  const rows = planned.map((target, index) => {
-    const set = sets[index];
-    const isCurrent = !set && index === sets.length;
-    const stateClass = set ? "logged" : isCurrent ? "current" : "pending";
-    const result = set ? `${fmtWeight(set.weightKg)}kg x ${fmt(set.reps)}` : isCurrent ? "Add now" : "Pending";
-    const detail = target.details || target.label || "Working set";
-    return `<div class="focus-set-row ${stateClass}">
-      <span>${escapeHtml(target.label || `Set ${index + 1}`)}</span>
-      <strong>${escapeHtml(detail)}</strong>
-      <b>${escapeHtml(result)}</b>
-    </div>`;
-  });
-  sets.slice(planned.length).forEach((set, index) => {
-    rows.push(`<div class="focus-set-row logged extra">
-      <span>Extra ${fmt(index + 1)}</span>
-      <strong>${escapeHtml(set.targetLabel || "Extra set")}</strong>
-      <b>${fmtWeight(set.weightKg)}kg x ${fmt(set.reps)}</b>
-    </div>`);
-  });
-  return `<div class="focus-set-table">${rows.join("")}</div>`;
-}
-function focusSmartJumpHtml(log, before = Infinity) {
-  const smart = smartWeightJump(log, before);
-  return `<div class="focus-smart-jump mode-${escapeHtml(smart.mode)}">
-    <div>
-      <span>Smart jump</span>
-      <strong>${escapeHtml(smart.title)}</strong>
-      <small>Last ${escapeHtml(smart.lastText)} / beat ${escapeHtml(smart.beatText)}</small>
-    </div>
-    <b>${escapeHtml(smart.mode === "jump" ? "+2.5kg" : smart.mode === "steady" ? "Steady" : smart.mode === "rebuild" ? "Rebuild" : smart.mode === "start" ? "Start" : "Match")}</b>
-  </div>`;
-}
-function focusWorkoutQueueHtml(logs = [], current = null) {
-  if (!logs.length) return "";
-  return `<div class="focus-exercise-queue wide">
-    <div class="focus-queue-head"><strong>Workout queue</strong><small>Tap any exercise to make it the focus card.</small></div>
-    <div class="focus-queue-list">${logs.map((log, index) => {
-      const progress = exerciseLogStatus(log);
-      const isCurrent = current && String(current.exerciseId) === String(log.exerciseId);
-      return `<button class="focus-queue-card status-${escapeHtml(progress.status)}${isCurrent ? " active" : ""}" data-open-workout-exercise="${escapeHtml(log.exerciseId)}" type="button">
-        <span>${escapeHtml(isCurrent ? "Now" : `#${index + 1}`)}</span>
-        <strong>${escapeHtml(log.name)}</strong>
-        <small>${escapeHtml(progress.label)}</small>
-      </button>`;
-    }).join("")}</div>
-  </div>`;
-}
 function renderStickyWorkoutFooter() {
   let footer = $("#workout-sticky-footer");
   const isLog = activeViewName() === "log";
@@ -2863,7 +2785,7 @@ function openWorkoutExercise(exerciseId = "") {
   setOpenExerciseCard(exerciseId);
   renderWorkoutEditor();
   requestAnimationFrame(() => {
-    const card = document.querySelector(`.focus-active-exercise[data-exercise-id="${cssEscape(exerciseId)}"], .exercise-log[data-exercise-id="${cssEscape(exerciseId)}"]`);
+    const card = document.querySelector(`.exercise-log[data-exercise-id="${cssEscape(exerciseId)}"]`);
     card?.scrollIntoView({ behavior: "smooth", block: "center" });
   });
 }
@@ -2896,7 +2818,7 @@ function exerciseSwapContentHtml(log, logs = []) {
     </div>` : emptyStateHtml("No close swaps found", "Add more exercise alternatives later if this machine is unavailable.")}`;
 }
 const EXERCISE_TOOL_TABS = [
-  ["targets", "Targets"],
+  ["targets", "Target"],
   ["warmup", "Warm-up"],
   ["overload", "Overload"],
   ["swap", "Swap"],
@@ -2918,7 +2840,7 @@ function exerciseToolContentHtml(tool, log, logs = [], previous = null, before =
     </div>`;
   }
   if (tool === "warmup") return warmupGeneratorContentHtml(log, previous, before);
-  if (tool === "overload") return progressiveOverloadContentHtml(log, before, { actions: !state.settings.workoutFocusMode });
+  if (tool === "overload") return state.settings.workoutFocusMode ? overloadMetricsContentHtml(log, before) : progressiveOverloadContentHtml(log, before);
   if (tool === "swap") return exerciseSwapContentHtml(log, logs);
   return "";
 }
@@ -2931,6 +2853,71 @@ function exerciseToolDrawerHtml(log, logs = [], previous = null, before = Date.n
     ${content ? `<div class="exercise-tool-drawer" data-active-tool="${escapeHtml(active)}">${content}</div>` : ""}
   </div>`;
 }
+function focusQueueHtml(logs = [], currentId = "") {
+  const rows = logs.map((log, index) => {
+    const progress = exerciseLogStatus(log);
+    const isCurrent = String(log.exerciseId) === String(currentId);
+    return `<button class="focus-queue-card status-${escapeHtml(progress.status)}${isCurrent ? " active" : ""}" data-open-workout-exercise="${escapeHtml(log.exerciseId)}" type="button">
+      <span>${fmt(index + 1)}</span>
+      <strong>${escapeHtml(log.name)}</strong>
+      <small>${escapeHtml(isCurrent ? "open" : progress.status === "complete" ? "done" : progress.label)}</small>
+    </button>`;
+  }).join("");
+  return `<div class="focus-exercise-queue">
+    <div class="focus-queue-head"><strong>Exercise queue</strong><small>Tap an exercise if you need to jump around.</small></div>
+    <div class="focus-queue-list">${rows}</div>
+  </div>`;
+}
+function focusWorkoutHtml(draft, logs = []) {
+  const progress = workoutProgressData(logs);
+  const current = progress.current || logs[0];
+  if (!current) return emptyStateHtml("No exercises in this split", "Open Planner and add exercises to this split.", "Open Planner", `data-view="planner"`);
+  const currentId = String(current.exerciseId);
+  if (!activeExerciseTool(currentId)) exerciseToolDrawers.set(currentId, "targets");
+  const previous = latestExerciseSets(current.name, draft.startedAt);
+  const defaults = smartSetDefaults(current, previous);
+  const status = exerciseLogStatus(current);
+  const currentIndex = Math.max(0, logs.findIndex((log) => String(log.exerciseId) === currentId)) + 1;
+  const next = nextExerciseAfter(logs, currentId);
+  const startedClass = status.status !== "complete" ? " is-started" : "";
+  return `<div class="focus-workout-screen clean-focus-workout">
+    <div class="focus-workout-head">
+      <div>
+        <span>Focus mode</span>
+        <strong>${escapeHtml(splitTitle(draft.split || selectedSplit()))}</strong>
+        <small>${fmt(progress.complete)}/${fmt(progress.total)} exercises complete${next ? ` / Next unfinished: ${escapeHtml(next.name)}` : ""}</small>
+      </div>
+      <button class="secondary" data-toggle-focus-mode type="button">Exit focus</button>
+    </div>
+    <div class="guided-progress"><span style="width:${progress.pct}%"></span></div>
+    <section class="exercise-log focus-mode-exercise status-${escapeHtml(status.status)}${startedClass}" data-exercise-id="${escapeHtml(current.exerciseId)}">
+      <div class="exercise-summary focus-exercise-summary">
+        <span>
+          <small>Exercise ${fmt(currentIndex)} of ${fmt(logs.length)}</small>
+          <strong>${escapeHtml(current.name)}</strong>
+          <small>${previous ? `Previous ${previous.date}: ${escapeHtml(setSummary(previous.sets))}` : "No previous sets saved"}</small>
+        </span>
+        <span class="summary-pill">${escapeHtml(status.label)}</span>
+      </div>
+      <div class="exercise-log-body">
+        ${smartJumpCardHtml(current, draft.startedAt, { actions: false })}
+        <div class="exercise-main-entry">
+          <div class="set-entry focus-set-entry">
+            <div class="previous-set-banner wide"><strong>Set ${fmt(defaults.setNumber)}</strong><span>${defaults.previousSet ? `Last time: ${fmtWeight(defaults.previousSet.weightKg)}kg x ${fmt(defaults.previousSet.reps)}` : "No matching previous set yet"}</span></div>
+            <label class="target-select">Set target<select name="targetId">${targetOptionsHtml(current.targets, nextTargetId(current.targets, current.sets))}</select></label>
+            <label>Reps done<input name="reps" type="number" min="0" inputmode="numeric" value="${escapeHtml(defaults.reps)}" /></label>
+            <label>Weight kg<input name="weightKg" type="number" min="0" step="0.5" inputmode="decimal" value="${escapeHtml(defaults.weightKg)}" /></label>
+            <button class="secondary" data-add-set="${escapeHtml(current.exerciseId)}" type="button">Add set</button>
+          </div>
+          <div class="set-list">${current.sets?.length ? current.sets.map((set) => `<span class="set-chip"><strong>${escapeHtml(set.targetLabel || "Set")}</strong>${fmtWeight(set.weightKg)}kg x ${fmt(set.reps)} <button data-delete-set="${escapeHtml(set.id)}" data-exercise-id="${escapeHtml(current.exerciseId)}" type="button">x</button></span>`).join("") : `<span class="empty">No sets added yet</span>`}</div>
+        </div>
+        ${exerciseToolDrawerHtml(current, logs, previous, draft.startedAt)}
+      </div>
+    </section>
+    ${focusQueueHtml(logs, currentId)}
+    ${focusRestTimerHtml(current)}
+  </div>`;
+}
 function renderWorkoutEditor() {
   const split = selectedSplit();
   const draft = ensureDraft(split);
@@ -2938,6 +2925,14 @@ function renderWorkoutEditor() {
   if (!logs.length) {
     $("#workout-editor").innerHTML = emptyStateHtml("No exercises in this split", "Open Planner and add exercises to this split.", "Open Planner", `data-view="planner"`);
     renderStickyWorkoutFooter();
+    return;
+  }
+  if (state.settings.workoutFocusMode) {
+    const progress = workoutProgressData(logs);
+    if (!openExerciseCards.size && progress.current) setOpenExerciseCard(progress.current.exerciseId);
+    $("#workout-editor").innerHTML = focusWorkoutHtml(draft, logs);
+    renderStickyWorkoutFooter();
+    renderFocusRestTimer();
     return;
   }
   const exerciseCards = logs.map((log) => {
@@ -2971,12 +2966,10 @@ function renderWorkoutEditor() {
         </div>
       </details>`;
     }).join("");
-  const focusCurrent = workoutProgressData(logs).current;
   $("#workout-editor").innerHTML = `
     ${trainingTermsHtml()}
-    ${state.settings.workoutFocusMode
-      ? `${focusWorkoutHtml(draft, logs)}${focusWorkoutQueueHtml(logs, focusCurrent)}`
-      : `${guidedWorkoutHtml(draft, logs)}${exerciseCards}`}`;
+    ${guidedWorkoutHtml(draft, logs)}
+    ${exerciseCards}`;
   renderStickyWorkoutFooter();
 }
 function latestExerciseSets(name, before = Date.now()) {
@@ -3138,10 +3131,7 @@ function progressiveOverloadHtml(log, before = Infinity) {
     <div class="log-dropdown-body">${progressiveOverloadContentHtml(log, before)}</div>
   </details>`;
 }
-function progressiveOverloadContentHtml(log, before = Infinity, options = {}) {
-  const stats = exerciseStats(log.name, before);
-  const last = stats.latest?.summary?.bestSet;
-  const best = stats.bestSet;
+function smartJumpCardHtml(log, before = Infinity, options = {}) {
   const smart = smartWeightJump(log, before);
   const showActions = options.actions !== false;
   const smartAction = showActions && smart.actionLabel ? `<button class="primary" data-apply-smart-jump="${escapeHtml(log.exerciseId)}" data-smart-weight="${escapeHtml(smart.suggestedWeight)}" data-smart-reps="${escapeHtml(smart.suggestedReps)}" type="button">${escapeHtml(smart.actionLabel)}</button>` : "";
@@ -3156,8 +3146,13 @@ function progressiveOverloadContentHtml(log, before = Infinity, options = {}) {
       <span><small>Beat today</small><strong>${escapeHtml(smart.beatText)}</strong></span>
     </div>
     ${smartAction || copyAction ? `<div class="smart-jump-actions">${smartAction}${copyAction}</div>` : ""}
-  </div>
-  <div class="overload-card">
+  </div>`;
+}
+function overloadMetricsContentHtml(log, before = Infinity) {
+  const stats = exerciseStats(log.name, before);
+  const last = stats.latest?.summary?.bestSet;
+  const best = stats.bestSet;
+  return `<div class="overload-card">
     <div class="overload-head"><strong>Progressive overload</strong><small>${escapeHtml(overloadSuggestion(log, before))}</small></div>
     <div class="overload-grid">
       <span><small>Last weight</small><strong>${last ? `${fmtWeight(last.weightKg)}kg` : "-"}</strong></span>
@@ -3166,6 +3161,9 @@ function progressiveOverloadContentHtml(log, before = Infinity, options = {}) {
       <span><small>Target</small><strong>${escapeHtml(targetRepText(log.targets || []))}</strong></span>
     </div>
   </div>`;
+}
+function progressiveOverloadContentHtml(log, before = Infinity, options = {}) {
+  return `${smartJumpCardHtml(log, before, options)}${overloadMetricsContentHtml(log, before)}`;
 }
 function weekDatesFrom(date = new Date()) {
   const start = startOfWeek(date);
@@ -6038,7 +6036,7 @@ function bind() {
       render();
       const logPanel = $("#view-log > .drop-panel");
       if (logPanel) logPanel.open = true;
-      requestAnimationFrame(() => document.querySelector(".exercise-log[open]")?.scrollIntoView({ behavior: "smooth", block: "center" }));
+      requestAnimationFrame(() => document.querySelector(".exercise-log[open], .focus-mode-exercise")?.scrollIntoView({ behavior: "smooth", block: "center" }));
       return;
     }
     if (button.dataset.logToday !== undefined) { state.settings.selectedSplit = selectedSplit(true); state.settings.selectedSplitDate = todayKey(); setView("log"); render(); }
@@ -6165,7 +6163,7 @@ function bind() {
       return;
     }
     if (button.dataset.applySmartJump) {
-      const card = button.closest(".exercise-log, .focus-active-exercise");
+      const card = button.closest(".exercise-log");
       if (!card) return;
       const repsInput = card.querySelector('input[name="reps"]');
       const weightInput = card.querySelector('input[name="weightKg"]');
@@ -6176,7 +6174,7 @@ function bind() {
       return;
     }
     if (button.dataset.addSet) {
-      const card = button.closest(".exercise-log, .focus-active-exercise");
+      const card = button.closest(".exercise-log");
       const draft = ensureDraft(selectedSplit());
       const log = draft.exerciseLogs.find((entry) => entry.exerciseId === button.dataset.addSet);
       if (!card || !log) return;
@@ -6187,7 +6185,7 @@ function bind() {
       log.sets = [...(log.sets || []), { id: uid(), reps, weightKg, targetId: selectedTarget?.id || "", targetLabel: selectedTarget?.label || "Working set", targetDetails: selectedTarget?.details || "", createdAt: Date.now() }];
       const nextLog = exerciseLogStatus(log).status === "complete" ? nextExerciseAfter(draft.exerciseLogs, log.exerciseId) : null;
       setOpenExerciseCard(nextLog?.exerciseId || log.exerciseId);
-      const restSeconds = startRestTimerForLog(log, selectedTarget);
+      const restSeconds = startRestTimerForLog(log, selectedTarget, nextLog);
       save(); renderWorkoutEditor();
       if (nextLog) showAppToast(`Next: ${nextLog.name}`, "saved");
       else showAppToast(`Rest ${restDurationLabel(restSeconds)}`, "saved");
@@ -6225,7 +6223,7 @@ function bind() {
         renderWorkoutEditor();
       }
       requestAnimationFrame(() => {
-        const card = document.querySelector(`.exercise-log[data-exercise-id="${cssEscape(id)}"], .focus-active-exercise[data-exercise-id="${cssEscape(id)}"]`);
+        const card = document.querySelector(`.exercise-log[data-exercise-id="${cssEscape(id)}"]`);
         card?.querySelector(".exercise-tool-drawer")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       });
       return;
