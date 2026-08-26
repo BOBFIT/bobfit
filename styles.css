@@ -972,15 +972,17 @@ button { cursor: pointer; }
 }
 .focus-mode-exercise .exercise-tools {
   display: grid;
-  gap: 9px;
+  gap: 6px;
 }
 .focus-mode-exercise .exercise-tool-rail {
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 7px;
+  gap: 5px;
 }
 .focus-mode-exercise .exercise-tool-button {
-  min-height: 42px;
-  padding: 0 8px;
+  min-height: 38px;
+  padding: 0 6px;
+  border-radius: 13px;
+  font-size: 10px;
   text-align: center;
 }
 .focus-mode-exercise .exercise-tool-button::after {
@@ -988,6 +990,7 @@ button { cursor: pointer; }
 }
 .focus-mode-exercise .exercise-tool-drawer {
   grid-column: auto;
+  margin-top: 2px;
 }
 .focus-stats {
   display: grid;

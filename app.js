@@ -2789,6 +2789,12 @@ function openWorkoutExercise(exerciseId = "") {
     card?.scrollIntoView({ behavior: "smooth", block: "center" });
   });
 }
+function scrollToFocusActiveExercise() {
+  if (!state.settings.workoutFocusMode) return;
+  requestAnimationFrame(() => {
+    document.querySelector(".focus-mode-exercise")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
 function exerciseSwapHtml(log, logs = []) {
   return `<details class="log-dropdown swap-dropdown">
     <summary>Swap exercise</summary>
@@ -2888,7 +2894,7 @@ function focusWorkoutHtml(draft, logs = []) {
   const current = progress.current || logs[0];
   if (!current) return emptyStateHtml("No exercises in this split", "Open Planner and add exercises to this split.", "Open Planner", `data-view="planner"`);
   const currentId = String(current.exerciseId);
-  if (!activeExerciseTool(currentId)) exerciseToolDrawers.set(currentId, "targets");
+  exerciseToolDrawers.delete(currentId);
   const previous = latestExerciseSets(current.name, draft.startedAt);
   const defaults = smartSetDefaults(current, previous);
   const status = exerciseLogStatus(current);
@@ -2948,6 +2954,7 @@ function renderWorkoutEditor() {
     $("#workout-editor").innerHTML = focusWorkoutHtml(draft, logs);
     renderStickyWorkoutFooter();
     renderFocusRestTimer();
+    scrollToFocusActiveExercise();
     return;
   }
   const exerciseCards = logs.map((log) => {
