@@ -2344,14 +2344,14 @@ function warmupSuggestionsForLog(log, previous = null, before = Date.now()) {
   const compound = isBigCompoundLift(log);
   const scheme = compound
     ? [
-      ["Primer", 0.4, 8],
-      ["Build", 0.6, 5],
-      ["Sharpener", 0.75, 3],
-      ["Ready", 0.85, 1],
+      ["Warm-up 1", 0.4, 8],
+      ["Warm-up 2", 0.6, 5],
+      ["Warm-up 3", 0.75, 3],
+      ["Warm-up 4", 0.85, 1],
     ]
     : [
-      ["Primer", 0.5, 10],
-      ["Feel set", 0.7, 6],
+      ["Warm-up 1", 0.5, 10],
+      ["Warm-up 2", 0.7, 6],
     ];
   const seen = new Set();
   return scheme.map(([label, pct, reps]) => {
@@ -2714,11 +2714,6 @@ function renderWorkoutEditor() {
           ${warmupGeneratorHtml(log, previous, draft.startedAt)}
           ${progressiveOverloadHtml(log, draft.startedAt)}
           ${exerciseSwapHtml(log, logs)}
-          <div class="rest-timer-card">
-            <span>Rest timer</span>
-            <strong>${escapeHtml(restDurationLabel(restSecondsForLog(log)))}</strong>
-            <small>Starts after Add set. Big compound lifts use 120 seconds, all other sets use 90 seconds.</small>
-          </div>
           <div class="set-entry">
             <div class="previous-set-banner wide"><strong>Set ${fmt(defaults.setNumber)}</strong><span>${defaults.previousSet ? `Last time: ${fmtWeight(defaults.previousSet.weightKg)}kg x ${fmt(defaults.previousSet.reps)}` : "No matching previous set yet"}</span></div>
             <label class="target-select">Set target<select name="targetId">${targetOptionsHtml(log.targets, nextTargetId(log.targets, log.sets))}</select></label>

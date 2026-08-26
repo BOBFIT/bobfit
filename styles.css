@@ -1868,33 +1868,6 @@ button.delete-pulse {
   line-height: 1.15;
   overflow-wrap: anywhere;
 }
-.rest-timer-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  padding: 11px 12px;
-  border: 1px solid rgba(95, 225, 255, 0.14);
-  border-radius: 18px;
-  background: rgba(9, 39, 66, 0.84);
-}
-.rest-timer-card span,
-.rest-timer-card small {
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 950;
-  text-transform: uppercase;
-}
-.rest-timer-card strong {
-  color: var(--primary-dark);
-  font-size: 18px;
-  line-height: 1;
-}
-.rest-timer-card small {
-  grid-column: 1 / -1;
-  line-height: 1.25;
-  text-transform: none;
-}
 .exercise-head strong, .split-head strong, .history-head strong, .today-exercise-summary strong, .pr-summary strong { display: block; }
 .exercise-head small, .exercise-summary small, .history-head small, .today-exercise-summary small, .pr-summary small { display: block; margin-top: 3px; color: var(--muted); line-height: 1.35; }
 .set-entry { display: grid; grid-template-columns: minmax(140px, 1fr) 90px 110px auto; gap: 8px; align-items: end; }
