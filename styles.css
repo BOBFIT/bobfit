@@ -3988,17 +3988,20 @@ body.rest-timer-done::before {
   bottom: calc(92px + env(safe-area-inset-bottom));
   z-index: 55;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 9px;
   width: min(516px, calc(100% - 24px));
-  padding: 12px;
+  padding: 11px;
   border: 1px solid rgba(95, 225, 255, 0.2);
   border-radius: 26px;
   background: rgba(3, 16, 31, 0.94);
   box-shadow: 0 18px 46px rgba(0, 8, 20, 0.42), 0 0 24px rgba(19, 168, 245, 0.16);
   transform: translateX(-50%);
   backdrop-filter: blur(16px);
+  animation: smartNextEnter 380ms cubic-bezier(0.18, 0.84, 0.22, 1) both;
+}
+body.smart-next-visible {
+  padding-bottom: calc(226px + env(safe-area-inset-bottom));
 }
 .workout-sticky-footer.focus {
   bottom: calc(16px + env(safe-area-inset-bottom));
@@ -4008,12 +4011,27 @@ body.rest-timer-done::before {
   box-shadow: 0 18px 46px rgba(0, 8, 20, 0.42), 0 0 34px rgba(245, 158, 11, 0.28);
   animation: restFooterPulse 1.4s ease-in-out infinite;
 }
+.workout-sticky-footer.rest-ready {
+  border-color: rgba(95, 225, 255, 0.36);
+  box-shadow: 0 18px 46px rgba(0, 8, 20, 0.42), 0 0 28px rgba(95, 225, 255, 0.22);
+}
+.workout-sticky-footer.is-complete {
+  border-color: rgba(34, 197, 94, 0.42);
+  box-shadow: 0 18px 46px rgba(0, 8, 20, 0.42), 0 0 28px rgba(34, 197, 94, 0.22);
+}
 @keyframes restFooterPulse {
   0%, 100% { filter: brightness(1); }
   50% { filter: brightness(1.12); }
 }
+.smart-next-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
 .workout-sticky-footer span,
-.workout-sticky-footer small {
+.workout-sticky-footer small,
+.smart-next-cell small {
   display: block;
   color: var(--primary-dark);
   font-size: 11px;
@@ -4021,7 +4039,7 @@ body.rest-timer-done::before {
   line-height: 1.2;
   text-transform: uppercase;
 }
-.workout-sticky-footer strong {
+.smart-next-main strong {
   display: block;
   max-width: 100%;
   margin: 3px 0;
@@ -4031,6 +4049,65 @@ body.rest-timer-done::before {
   line-height: 1.14;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.smart-next-main small {
+  color: var(--muted);
+}
+.smart-next-action {
+  min-width: 66px;
+  min-height: 42px;
+  padding-inline: 13px;
+  font-size: 12px;
+}
+.smart-next-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+.smart-next-cell {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid rgba(95, 225, 255, 0.12);
+  border-radius: 15px;
+  background: rgba(10, 38, 62, 0.72);
+}
+.smart-next-cell strong {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 950;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.smart-next-progress {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(95, 225, 255, 0.1);
+}
+.smart-next-progress i {
+  display: block;
+  width: var(--smart-progress, 100%);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--primary), var(--primary-dark));
+  box-shadow: 0 0 18px rgba(95, 225, 255, 0.42);
+  transition: width 420ms ease;
+}
+.workout-sticky-footer.rest-active .smart-next-progress i {
+  background: linear-gradient(90deg, var(--amber), #ffd36c);
+  box-shadow: 0 0 18px rgba(245, 158, 11, 0.34);
+}
+.workout-sticky-footer.is-complete .smart-next-progress i {
+  background: linear-gradient(90deg, #22c55e, #86efac);
+  box-shadow: 0 0 18px rgba(34, 197, 94, 0.32);
+}
+@keyframes smartNextEnter {
+  from { opacity: 0; transform: translateX(-50%) translateY(12px) scale(0.985); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
 }
 .workout-summary-modal {
   position: fixed;
@@ -4869,8 +4946,14 @@ body.rest-timer-done::before {
   .exercise-log.status-complete::after,
   .focus-rest-timer.rest-active,
   .focus-rest-timer.timer-done,
+  .workout-sticky-footer.smart-next-set-bar,
+  .workout-sticky-footer.rest-active,
+  .workout-sticky-footer.rest-ready,
   .tabbar button.active {
     animation: none;
+  }
+  .smart-next-progress i {
+    transition: none;
   }
 }
 

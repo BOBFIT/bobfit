@@ -2617,11 +2617,13 @@ function finishRestAlert() {
   document.body.classList.remove("rest-timer-done");
   void document.body.offsetWidth;
   document.body.classList.add("rest-timer-done");
+  renderStickyWorkoutFooter();
   renderFocusRestTimer();
   if (navigator.vibrate) navigator.vibrate([240, 90, 240, 90, 420]);
   showAppToast("Rest done. Go again.", "rest");
   setTimeout(() => {
     document.body.classList.remove("rest-timer-done");
+    renderStickyWorkoutFooter();
     renderFocusRestTimer();
   }, 1900);
 }
@@ -2800,18 +2802,60 @@ function guidedWorkoutHtml(draft, logs = []) {
 }
 function stickyWorkoutFooterHtml(draft, logs = []) {
   const progress = workoutProgressData(logs);
-  const current = progress.current;
-  const currentIndex = current ? logs.findIndex((log) => log.exerciseId === current.exerciseId) + 1 : 0;
+  const complete = Boolean(progress.total && progress.complete >= progress.total);
+  const current = complete ? null : (progress.current || progress.next);
+  const currentIndex = current ? logs.findIndex((log) => String(log.exerciseId) === String(current.exerciseId)) + 1 : progress.total;
   const status = current ? exerciseLogStatus(current) : null;
   const setsLeft = status ? Math.max(0, status.required - status.logged) : 0;
   const restActive = restTimerEndAt > Date.now();
-  return `<div class="workout-sticky-footer${state.settings.workoutFocusMode ? " focus" : ""}${restActive ? " rest-active" : ""}">
-    <div>
-      <span>${current ? `Exercise ${currentIndex}/${logs.length}` : "Workout"}</span>
-      <strong>${escapeHtml(current?.name || splitTitle(draft?.split || selectedSplit()))}</strong>
-      <small>${setsLeft ? `${fmt(setsLeft)} sets left` : `${fmt(progress.complete)}/${fmt(progress.total)} complete`}${restActive ? ` / Rest ${restTimerLabel()}` : ""}</small>
+  const restDone = document.body.classList.contains("rest-timer-done");
+  const target = current ? getTarget(current.targets || [], nextTargetId(current.targets || [], current.sets || [])) : null;
+  const targetLabel = target?.label || targetRepText(current?.targets || []) || "Working set";
+  const smart = current ? smartWeightJump(current, draft?.startedAt || Infinity) : null;
+  const smartWeight = rawNum(smart?.suggestedWeight);
+  const suggested = current
+    ? smartWeight && smart?.suggestedReps
+      ? `${fmtWeight(smartWeight)}kg x ${fmt(smart.suggestedReps)}`
+      : smartWeight
+        ? `${fmtWeight(smartWeight)}kg`
+        : smart?.suggestedReps
+          ? `${fmt(smart.suggestedReps)} reps`
+          : smart?.beatText || smart?.title || "First clean set"
+    : `${fmt(progress.complete)}/${fmt(progress.total)} done`;
+  const restLabel = restActive ? restTimerLabel() : restDone ? "Ready" : current ? restDurationLabel(restSecondsForLog(current, target)) : "Done";
+  const title = complete
+    ? "Workout complete"
+    : restActive && restTimerContext.nextName && restTimerContext.nextName !== current?.name
+      ? `Next: ${restTimerContext.nextName}`
+      : current?.name || splitTitle(draft?.split || selectedSplit());
+  const subtitle = complete
+    ? `${fmt(progress.complete)}/${fmt(progress.total)} exercises complete`
+    : `Exercise ${fmt(currentIndex)}/${fmt(progress.total)}${setsLeft ? ` / ${fmt(setsLeft)} sets left` : " / final set logged"}`;
+  const progressWidth = restActive ? Math.round(restTimerProgressValue() * 100) : progress.pct;
+  const classes = [
+    "workout-sticky-footer",
+    "smart-next-set-bar",
+    restActive ? "rest-active" : "",
+    restDone && !restActive ? "rest-ready" : "",
+    complete ? "is-complete" : "",
+  ].filter(Boolean).join(" ");
+  const actionAttr = current ? `data-open-workout-exercise="${escapeHtml(current.exerciseId)}"` : "data-open-next-exercise";
+  const actionText = complete ? "Review" : restActive ? restTimerLabel() : restDone ? "Go" : "Open";
+  return `<div class="${classes}" style="--smart-progress:${progressWidth}%;" aria-live="polite">
+    <div class="smart-next-main">
+      <div>
+        <span>${complete ? "Workout" : restActive ? "Rest timer" : "Next set"}</span>
+        <strong>${escapeHtml(title)}</strong>
+        <small>${escapeHtml(subtitle)}</small>
+      </div>
+      <button class="${restActive ? "secondary" : "primary"} smart-next-action" ${actionAttr} type="button">${escapeHtml(actionText)}</button>
     </div>
-    <button class="secondary" data-open-next-exercise type="button">Next</button>
+    <div class="smart-next-meta" aria-label="Next set guide">
+      <span class="smart-next-cell"><small>Target</small><strong>${escapeHtml(complete ? "Done" : targetLabel)}</strong></span>
+      <span class="smart-next-cell"><small>Suggested</small><strong>${escapeHtml(suggested)}</strong></span>
+      <span class="smart-next-cell"><small>Rest</small><strong>${escapeHtml(restLabel)}</strong></span>
+    </div>
+    <div class="smart-next-progress"><i></i></div>
   </div>`;
 }
 function renderStickyWorkoutFooter() {
@@ -2819,7 +2863,8 @@ function renderStickyWorkoutFooter() {
   const isLog = activeViewName() === "log";
   const draft = isLog ? ensureDraft(selectedSplit()) : null;
   const logs = draft?.exerciseLogs || [];
-  const shouldShow = !state.settings.workoutFocusMode && restTimerEndAt > Date.now();
+  const shouldShow = Boolean(isLog && !state.settings.workoutFocusMode && logs.length);
+  document.body.classList.toggle("smart-next-visible", shouldShow);
   if (!isLog || !shouldShow || !logs.length) {
     footer?.remove();
     return;
