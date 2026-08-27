@@ -2982,11 +2982,8 @@ function focusWorkoutHtml(draft, logs = []) {
         <span class="summary-pill">${escapeHtml(status.label)}</span>
       </div>
       <div class="exercise-log-body">
-        ${focusSmartJumpDropdownHtml(current, draft.startedAt)}
-        ${focusRestTimerHtml(current)}
         <div class="exercise-main-entry">
           <div class="set-entry focus-set-entry">
-            <div class="previous-set-banner wide"><strong>Set ${fmt(defaults.setNumber)}</strong><span>${defaults.previousSet ? `Last time: ${fmtWeight(defaults.previousSet.weightKg)}kg x ${fmt(defaults.previousSet.reps)}` : "No matching previous set yet"}</span></div>
             <label class="target-select">Set target<select name="targetId">${targetOptionsHtml(current.targets, nextTargetId(current.targets, current.sets))}</select></label>
             <label>Reps done<input name="reps" type="number" min="0" inputmode="numeric" value="${escapeHtml(defaults.reps)}" /></label>
             <label>Weight kg<input name="weightKg" type="number" min="0" step="0.5" inputmode="decimal" value="${escapeHtml(defaults.weightKg)}" /></label>
@@ -2994,6 +2991,8 @@ function focusWorkoutHtml(draft, logs = []) {
           </div>
           <div class="set-list">${current.sets?.length ? current.sets.map((set) => `<span class="set-chip"><strong>${escapeHtml(set.targetLabel || "Set")}</strong>${fmtWeight(set.weightKg)}kg x ${fmt(set.reps)} <button data-delete-set="${escapeHtml(set.id)}" data-exercise-id="${escapeHtml(current.exerciseId)}" type="button">x</button></span>`).join("") : `<span class="empty">No sets added yet</span>`}</div>
         </div>
+        ${focusSmartJumpDropdownHtml(current, draft.startedAt)}
+        ${focusRestTimerHtml(current)}
         ${exerciseToolDrawerHtml(current, logs, previous, draft.startedAt)}
       </div>
     </section>
