@@ -1164,8 +1164,7 @@ function originalExerciseDisplayName(name, split = "") {
   return raw;
 }
 function plannedSplitForToday() {
-  const planned = state.weeklyPlan.assignments[weekdayIndex()] || "day1";
-  return planned === "rest" ? "day1" : planned;
+  return state.weeklyPlan.assignments[weekdayIndex()] || "rest";
 }
 function selectedSplit(preferPlanner = false) {
   const planned = plannedSplitForToday();
@@ -1838,6 +1837,8 @@ function renderToday() {
   const mealTotal = totals();
   $("#today-split").textContent = splitTitle(assign);
   $("#today-detail").textContent = assign === "rest" ? "Rest day" : `${exercises.length} exercises planned`;
+  const todayStartButton = $("#view-today .today-shortcut[data-start-workout]");
+  if (todayStartButton) todayStartButton.textContent = assign === "rest" ? "Choose Workout" : "Start Workout";
   $("#today-exercises").innerHTML = exercises.length
     ? `${exercises.map((exercise) => `<details class="today-exercise-card" data-today-exercise="${escapeHtml(exercise.id)}">
         <summary class="today-exercise-summary">
@@ -2366,8 +2367,8 @@ function suggestedMealCombos(limit = 3, remaining = macroRemaining()) {
     .map((item) => item.combo);
 }
 function setTodayPlannedSplit(split) {
-  const options = templateKeys();
-  const next = options.includes(split) ? split : options[0];
+  const options = ["rest", ...templateKeys()];
+  const next = options.includes(split) ? split : options[1] || "rest";
   if (!next) return "";
   state.weeklyPlan.assignments[weekdayIndex()] = next;
   state.settings.selectedSplit = next;
@@ -2379,12 +2380,12 @@ function setTodayPlannedSplit(split) {
 function renderPlannedLogPicker(currentSplit) {
   const picker = $("#planned-log-picker");
   if (!picker) return;
-  const options = templateKeys();
-  const current = options.includes(currentSplit) ? currentSplit : options[0];
+  const options = ["rest", ...templateKeys()];
+  const current = options.includes(currentSplit) ? currentSplit : options[1] || "rest";
   const template = state.workoutTemplates[current];
   const day = WEEK_DAYS[weekdayIndex()] || "Today";
   const summary = $("#planned-log-summary");
-  if (summary) summary.textContent = `${day} in Planner is set to this workout.`;
+  if (summary) summary.textContent = current === "rest" ? `${day} is set as a rest day.` : `${day} in Planner is set to this workout.`;
   picker.innerHTML = `
     <label class="planned-log-select-label">Change ${escapeHtml(day)} workout
       <select id="planned-log-select" name="plannedLogSelect">
@@ -2396,16 +2397,34 @@ function renderPlannedLogPicker(currentSplit) {
       <button class="secondary" data-view="planner" type="button">Open Planner</button>
     </div>`;
 }
+function weeklyPlanOptionsHtml(selected = "rest") {
+  const options = ["rest", ...templateKeys()];
+  return options.map((key) => `<option value="${escapeHtml(key)}"${key === selected ? " selected" : ""}>${escapeHtml(splitTitle(key))}</option>`).join("");
+}
+function setWeeklyPlanDay(index, split) {
+  const day = Number(index);
+  if (!Number.isInteger(day) || day < 0 || day > 6) return "";
+  const allowed = new Set(["rest", ...templateKeys()]);
+  const next = allowed.has(split) ? split : "rest";
+  state.weeklyPlan.assignments[day] = next;
+  if (day === weekdayIndex() && next !== "rest") {
+    state.settings.selectedSplit = next;
+    state.settings.selectedSplitDate = todayKey();
+    openExerciseCards.clear();
+    exerciseToolDrawers.clear();
+  }
+  return next;
+}
 function renderLog() {
-  const options = templateKeys();
+  const options = ["rest", ...templateKeys()];
   const select = $("#split-select");
   const planned = selectedSplit(true);
-  select.value = options.includes(planned) ? planned : options[0];
+  select.value = options.includes(planned) ? planned : options[1] || "rest";
   state.settings.selectedSplit = select.value;
   state.settings.selectedSplitDate = todayKey();
   const template = state.workoutTemplates[select.value];
   $("#planned-log-split").textContent = splitTitle(select.value);
-  $("#planned-log-detail").textContent = template?.exercises?.length ? `${splitTitle(select.value)} / ${template.exercises.length} exercises` : "Change today's plan here or in Planner.";
+  $("#planned-log-detail").textContent = select.value === "rest" ? "Rest day from Weekly Plan" : template?.exercises?.length ? `${splitTitle(select.value)} / ${template.exercises.length} exercises` : "Change today's plan here or in Planner.";
   renderPlannedLogPicker(select.value);
   renderWorkoutEditor();
   renderPersonalRecords();
@@ -2986,7 +3005,9 @@ function renderWorkoutEditor() {
   const draft = ensureDraft(split);
   const logs = draft.exerciseLogs || [];
   if (!logs.length) {
-    $("#workout-editor").innerHTML = emptyStateHtml("No exercises in this split", "Open Planner and add exercises to this split.", "Open Planner", `data-view="planner"`);
+    $("#workout-editor").innerHTML = split === "rest"
+      ? emptyStateHtml("Rest day planned", "Use Planned from Weekly Plan above if you want to train today.")
+      : emptyStateHtml("No exercises in this split", "Open Planner and add exercises to this split.", "Open Planner", `data-view="planner"`);
     renderStickyWorkoutFooter();
     return;
   }
@@ -3031,8 +3052,8 @@ function renderWorkoutEditor() {
       </details>`;
     }).join("");
   $("#workout-editor").innerHTML = `
-    ${trainingTermsHtml()}
     ${guidedWorkoutHtml(draft, logs)}
+    ${trainingTermsHtml()}
     ${exerciseCards}`;
   renderStickyWorkoutFooter();
 }
@@ -3482,8 +3503,18 @@ function exerciseTrendNote() {
 function renderPlanner() {
   renderMacroTargetForm();
   $("#week-grid").innerHTML = WEEK_DAYS.map((day, index) => {
-    const assign = state.weeklyPlan.assignments[index] || "rest";
-    return `<div class="day-card"><strong>${day}</strong><button data-cycle-day="${index}" type="button">${escapeHtml(splitTitle(assign))}</button><small>${assign === "rest" ? "Rest day" : `${state.workoutTemplates[assign]?.exercises?.length || 0} exercises`}</small></div>`;
+    const rawAssign = state.weeklyPlan.assignments[index] || "rest";
+    const assign = rawAssign === "rest" || state.workoutTemplates[rawAssign] ? rawAssign : "rest";
+    state.weeklyPlan.assignments[index] = assign;
+    const count = state.workoutTemplates[assign]?.exercises?.length || 0;
+    return `<div class="day-card plan-day-card${index === weekdayIndex() ? " today-plan-day" : ""}">
+      <div class="plan-day-top">
+        <strong>${day}</strong>
+        <span>${index === weekdayIndex() ? "Today" : "Plan"}</span>
+      </div>
+      <select data-plan-day-select="${index}" aria-label="${escapeHtml(day)} workout split">${weeklyPlanOptionsHtml(assign)}</select>
+      <small>${assign === "rest" ? "Rest day" : `${count} exercises`}</small>
+    </div>`;
   }).join("");
   $("#split-list").innerHTML = templateKeys().map((key) => {
     const template = state.workoutTemplates[key];
@@ -3897,6 +3928,32 @@ function renderHistoryCalendar() {
   }).join("");
   scheduleCalendarScroll();
 }
+function historyDaySnapshotHtml(date = historySelectedDate()) {
+  const meals = mealsForDate(date);
+  const mealTotal = totals(meals);
+  const workoutSessions = workoutsForDate(date);
+  const weightEntries = weightEntriesForDate(date);
+  const latestWeight = weightEntries[0];
+  const assign = plannedAssignForDate(date);
+  const macroScore = hasMacroTargets(state.macroTargets) ? `${macroCompletion(mealTotal, state.macroTargets)}%` : `${fmt(mealTotal.calories)} kcal`;
+  const workoutLabel = assign === "rest" ? "Rest" : workoutSessions.length ? "Done" : "Due";
+  const workoutDetail = assign === "rest" ? "No workout planned" : workoutSessions.length ? `${fmt(workoutSessions.length)} logged` : splitTitle(assign);
+  const cards = [
+    `<div class="history-snapshot-card ${meals.length ? "hit" : "neutral"}"><span>Macros</span><strong>${escapeHtml(macroScore)}</strong><small>${fmt(mealTotal.calories)} kcal / ${fmtDose(mealTotal.protein, 1)}g protein</small></div>`,
+    `<div class="history-snapshot-card ${workoutLabel === "Done" || workoutLabel === "Rest" ? "hit" : "miss"}"><span>Workout</span><strong>${escapeHtml(workoutLabel)}</strong><small>${escapeHtml(workoutDetail)}</small></div>`,
+    `<div class="history-snapshot-card ${latestWeight ? "hit" : "neutral"}"><span>Weight</span><strong>${latestWeight ? `${fmtWeight(latestWeight.weightKg || latestWeight.weight)}kg` : "No entry"}</strong><small>${latestWeight && rawNum(latestWeight.fatPercent) ? `${fmtWeight(latestWeight.fatPercent)}% body fat` : dateLabel(date)}</small></div>`,
+  ];
+  if (userCanUsePeptides()) {
+    const due = dueDoseSlots(date);
+    const logged = due.filter((slot) => doseLoggedForSlot(slot, date)).length;
+    const missed = due.length && String(date) < todayKey() && logged < due.length;
+    cards.push(`<div class="history-snapshot-card ${missed ? "miss" : due.length ? "hit" : "neutral"}"><span>Peptides</span><strong>${due.length ? `${fmt(logged)}/${fmt(due.length)}` : "Clear"}</strong><small>${due.length ? "Scheduled doses" : "No dose due"}</small></div>`);
+  }
+  return `<div class="history-day-snapshot">
+    <div class="history-snapshot-head"><strong>${escapeHtml(dateLabel(date))}</strong><small>Daily summary</small></div>
+    <div class="history-snapshot-grid">${cards.join("")}</div>
+  </div>`;
+}
 function renderMealHistory() {
   const date = historySelectedDate();
   const meals = (state.meals[date] || []).map(normalizeMeal).filter(Boolean);
@@ -3905,8 +3962,8 @@ function renderMealHistory() {
     ? `<div class="meal-list">${meals.map((meal) => mealCardHtml(meal)).join("")}</div>`
     : `<div class="empty">No meals logged for ${escapeHtml(dateLabel(date))}.</div>`;
   $("#history-list").innerHTML = meals.length
-    ? `${mealHistoryMacroSummaryHtml(date, meals)}${historyDropdownHtml("Meals Logged", `${dateLabel(date)} / ${meals.length} meals / ${fmt(t.calories)} kcal / ${fmt(t.protein)}p`, "Meals", mealsLogged, "meals-logged-card")}`
-    : `${mealHistoryMacroSummaryHtml(date, meals)}${historyDropdownHtml("Meals Logged", `${dateLabel(date)} / 0 meals`, "Meals", mealsLogged, "meals-logged-card")}`;
+    ? `${historyDaySnapshotHtml(date)}${mealHistoryMacroSummaryHtml(date, meals)}${historyDropdownHtml("Meals Logged", `${dateLabel(date)} / ${meals.length} meals / ${fmt(t.calories)} kcal / ${fmt(t.protein)}p`, "Meals", mealsLogged, "meals-logged-card")}`
+    : `${historyDaySnapshotHtml(date)}${mealHistoryMacroSummaryHtml(date, meals)}${historyDropdownHtml("Meals Logged", `${dateLabel(date)} / 0 meals`, "Meals", mealsLogged, "meals-logged-card")}`;
 }
 function renderWorkoutHistory() {
   const date = historySelectedDate();
@@ -3915,13 +3972,13 @@ function renderWorkoutHistory() {
     const logs = (workout.exerciseLogs || []).filter((log) => log.sets?.length);
     return `<div class="history-card"><div class="history-head"><div><strong>${escapeHtml(workout.name || workout.planTitle || "Workout")}</strong><small>${dateLabel(workout.date)} / ${fmt(workout.durationMin || 0)} min / ${fmt(workout.caloriesBurned || 0)} kcal</small></div><button class="danger-button" data-delete-workout-date="${escapeHtml(workout.date)}" data-delete-workout-id="${escapeHtml(workout.id)}" type="button">Delete</button></div>${logs.length ? `<ul>${logs.map((log) => `<li><strong>${escapeHtml(log.name)}</strong><span>${escapeHtml(setSummary(log.sets))}</span>${guidanceHtml(log.notes)}${targetDetailsHtml(log.targets)}</li>`).join("")}</ul>` : `<div class="empty">No set detail saved.</div>`}</div>`;
   }).join("") : `<div class="empty">No workouts logged for ${escapeHtml(dateLabel(date))}.</div>`;
-  $("#history-list").innerHTML = historyDropdownHtml(
+  $("#history-list").innerHTML = `${historyDaySnapshotHtml(date)}${historyDropdownHtml(
     "Workouts Logged",
     `${dateLabel(date)} / ${sessions.length} workout${sessions.length === 1 ? "" : "s"}`,
     "Logs",
     workoutBody,
     "workouts-logged-card"
-  );
+  )}`;
 }
 function renderPeptideDayHistory() {
   if (!userCanUsePeptides()) return renderMealHistory();
@@ -3993,19 +4050,19 @@ function renderPeptideDayHistory() {
       </div>`;
     }).join("")}</div>
   </div>` : "";
-  $("#history-list").innerHTML = historyDropdownHtml(
+  $("#history-list").innerHTML = `${historyDaySnapshotHtml(date)}${historyDropdownHtml(
     "Peptide Dosage",
     `${dateLabel(date)} / ${fmt(logs.length)} logged / ${fmt(missedCount)} missed`,
     "Dose",
     `${overview}${scheduledHtml}${extraHtml}`,
     `peptide-dosage-card ${missedCount ? "missed" : scheduledTaken || logs.length ? "taken" : "neutral"}`
-  );
+  )}`;
 }
 function renderWeightHistory() {
   const date = historySelectedDate();
   const entries = weightEntriesForDate(date);
   const dayEntries = entries.length ? entries.map((m) => `<div class="history-card"><div class="history-head"><div><strong>${dateLabel(date)}</strong><small>${fmtWeight(m.weightKg || m.weight)} kg${rawNum(m.fatPercent) ? ` / ${fmtWeight(m.fatPercent)}% fat` : ""}</small></div><button class="danger-button" data-delete-weight="${escapeHtml(m.id)}" type="button">Delete</button></div></div>`).join("") : `<div class="empty">No weight entries for ${escapeHtml(dateLabel(date))}.</div>`;
-  $("#history-list").innerHTML = `${weightTrendChartHtml()}${dayEntries}`;
+  $("#history-list").innerHTML = `${historyDaySnapshotHtml(date)}${weightTrendChartHtml()}${dayEntries}`;
 }
 function allWeightEntries() {
   return [...(state.bodyMetrics || [])]
@@ -6090,7 +6147,19 @@ function bind() {
     }
     if (button.dataset.view) setView(button.dataset.view);
     if (button.dataset.startWorkout !== undefined) {
-      state.settings.selectedSplit = selectedSplit(true);
+      const plannedSplit = selectedSplit(true);
+      if (plannedSplit === "rest") {
+        state.settings.workoutFocusMode = false;
+        setView("planner");
+        render();
+        const planPanel = $("#view-planner > .drop-panel:nth-of-type(2)");
+        if (planPanel) {
+          planPanel.open = true;
+          flashOpenTab(planPanel);
+        }
+        return;
+      }
+      state.settings.selectedSplit = plannedSplit;
       state.settings.selectedSplitDate = todayKey();
       state.settings.workoutFocusMode = true;
       setView("log");
@@ -6546,6 +6615,14 @@ function bind() {
       renderLog();
       renderPlanner();
       renderToday();
+      return;
+    }
+    if (el.dataset?.planDaySelect !== undefined) {
+      setWeeklyPlanDay(el.dataset.planDaySelect, el.value);
+      save();
+      renderPlanner();
+      renderToday();
+      renderLog();
       return;
     }
     if (el.dataset?.splitTitle || el.dataset?.exerciseName || el.dataset?.exerciseNotes) render();

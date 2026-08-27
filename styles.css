@@ -2814,14 +2814,45 @@ button.delete-pulse {
   font-weight: 950;
 }
 .week-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.day-card strong { font-size: 15px; }
-.day-card button {
+.plan-day-card {
+  align-content: start;
+  gap: 9px;
+}
+.plan-day-card.today-plan-day {
+  border-color: rgba(95, 225, 255, 0.34);
+  box-shadow: var(--soft-shadow), 0 0 22px rgba(18, 184, 255, 0.12);
+}
+.plan-day-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.day-card strong { font-size: 16px; }
+.plan-day-top span {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(19, 168, 245, 0.14);
+  color: var(--primary-dark);
+  font-size: 10px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+.day-card button,
+.day-card select {
   min-height: 42px;
   border: 0;
   border-radius: 999px;
   background: var(--surface-soft);
   color: var(--primary-dark);
   font-weight: 950;
+}
+.day-card select {
+  padding: 0 12px;
+  border: 1px solid rgba(95, 225, 255, 0.14);
 }
 .day-card small { color: var(--muted); }
 .field-title {
@@ -3008,6 +3039,70 @@ button.delete-pulse {
 }
 .history-drop-panel .drop-body {
   gap: 10px;
+}
+.history-day-snapshot {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(95, 225, 255, 0.18);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(95, 225, 255, 0.14), transparent 38%),
+    linear-gradient(135deg, rgba(9, 39, 66, 0.94), rgba(3, 16, 31, 0.42));
+  box-shadow: var(--soft-shadow);
+}
+.history-snapshot-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+}
+.history-snapshot-head strong {
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.15;
+}
+.history-snapshot-head small,
+.history-snapshot-card span {
+  color: var(--primary-dark);
+  font-size: 10px;
+  font-weight: 950;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+.history-snapshot-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.history-snapshot-card {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid rgba(95, 225, 255, 0.12);
+  border-radius: 16px;
+  background: rgba(10, 41, 67, 0.72);
+}
+.history-snapshot-card.hit {
+  border-color: rgba(45, 212, 191, 0.28);
+}
+.history-snapshot-card.miss {
+  border-color: rgba(248, 113, 113, 0.36);
+}
+.history-snapshot-card strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 17px;
+  line-height: 1.1;
+}
+.history-snapshot-card small {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.25;
 }
 .history-mini-head {
   display: flex;
@@ -4389,6 +4484,16 @@ body.rest-timer-done::before {
   .exercise-control-grid .set-entry button {
     grid-column: 1 / -1;
   }
+  .guided-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .guided-actions button {
+    min-height: 42px;
+    padding-inline: 6px;
+    font-size: 11px;
+    line-height: 1.1;
+  }
   .exercise-tool-rail {
     grid-column: 1 / -1;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -4504,7 +4609,6 @@ body.rest-timer-done::before {
   .meal-actions { justify-content: stretch; }
   .meal-actions button { flex: 1 1 auto; }
   .score-head, .dashboard-grid, .dashboard-grid.compact, .overload-grid, .pr-metrics { grid-template-columns: 1fr; }
-  .guided-actions { grid-template-columns: 1fr; }
   .drop-summary { grid-template-columns: minmax(0, 1fr) auto; }
   .drop-pill { display: none; }
   .dose-card-head { display: grid; }
