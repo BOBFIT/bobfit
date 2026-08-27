@@ -2365,6 +2365,37 @@ function suggestedMealCombos(limit = 3, remaining = macroRemaining()) {
     .slice(0, limit)
     .map((item) => item.combo);
 }
+function setTodayPlannedSplit(split) {
+  const options = templateKeys();
+  const next = options.includes(split) ? split : options[0];
+  if (!next) return "";
+  state.weeklyPlan.assignments[weekdayIndex()] = next;
+  state.settings.selectedSplit = next;
+  state.settings.selectedSplitDate = todayKey();
+  openExerciseCards.clear();
+  exerciseToolDrawers.clear();
+  return next;
+}
+function renderPlannedLogPicker(currentSplit) {
+  const picker = $("#planned-log-picker");
+  if (!picker) return;
+  const options = templateKeys();
+  const current = options.includes(currentSplit) ? currentSplit : options[0];
+  const template = state.workoutTemplates[current];
+  const day = WEEK_DAYS[weekdayIndex()] || "Today";
+  const summary = $("#planned-log-summary");
+  if (summary) summary.textContent = `${day} in Planner is set to this workout.`;
+  picker.innerHTML = `
+    <label class="planned-log-select-label">Change ${escapeHtml(day)} workout
+      <select id="planned-log-select" name="plannedLogSelect">
+        ${options.map((key) => `<option value="${escapeHtml(key)}"${key === current ? " selected" : ""}>${escapeHtml(splitTitle(key))}</option>`).join("")}
+      </select>
+    </label>
+    <div class="planned-log-meta">
+      <span>${escapeHtml(template?.exercises?.length ? `${template.exercises.length} exercises` : "No exercises")}</span>
+      <button class="secondary" data-view="planner" type="button">Open Planner</button>
+    </div>`;
+}
 function renderLog() {
   const options = templateKeys();
   const select = $("#split-select");
@@ -2374,7 +2405,8 @@ function renderLog() {
   state.settings.selectedSplitDate = todayKey();
   const template = state.workoutTemplates[select.value];
   $("#planned-log-split").textContent = splitTitle(select.value);
-  $("#planned-log-detail").textContent = template?.exercises?.length ? `${template.exercises.length} exercises from today's Weekly Plan` : "Change today's day in Planner to choose this workout.";
+  $("#planned-log-detail").textContent = template?.exercises?.length ? `${splitTitle(select.value)} / ${template.exercises.length} exercises` : "Change today's plan here or in Planner.";
+  renderPlannedLogPicker(select.value);
   renderWorkoutEditor();
   renderPersonalRecords();
   renderWeeklyVolumeTracker();
@@ -2784,15 +2816,26 @@ function openWorkoutExercise(exerciseId = "") {
   if (!exerciseId) return;
   setOpenExerciseCard(exerciseId);
   renderWorkoutEditor();
+  if (state.settings.workoutFocusMode) {
+    scrollToFocusActiveExercise();
+    return;
+  }
   requestAnimationFrame(() => {
     const card = document.querySelector(`.exercise-log[data-exercise-id="${cssEscape(exerciseId)}"]`);
     card?.scrollIntoView({ behavior: "smooth", block: "center" });
   });
 }
+function scrollElementBelowTopbar(element, gap = 12) {
+  if (!element) return;
+  const topbar = $(".topbar");
+  const topbarBottom = topbar?.getBoundingClientRect?.().bottom || 0;
+  const top = Math.max(0, window.scrollY + element.getBoundingClientRect().top - topbarBottom - gap);
+  window.scrollTo({ top, behavior: "smooth" });
+}
 function scrollToFocusActiveExercise() {
   if (!state.settings.workoutFocusMode) return;
   requestAnimationFrame(() => {
-    document.querySelector(".focus-mode-exercise")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    scrollElementBelowTopbar(document.querySelector(".focus-mode-exercise"), 14);
   });
 }
 function exerciseSwapHtml(log, logs = []) {
@@ -6497,6 +6540,14 @@ function bind() {
       renderPersonalRecords();
       return;
     }
+    if (el.id === "planned-log-select") {
+      setTodayPlannedSplit(el.value);
+      save();
+      renderLog();
+      renderPlanner();
+      renderToday();
+      return;
+    }
     if (el.dataset?.splitTitle || el.dataset?.exerciseName || el.dataset?.exerciseNotes) render();
     if (el.id === "cycle-peptide" && userCanUsePeptides()) applyCompoundDefaults($("#peptide-cycle-form"), el.value, true);
     if (el.id === "calc-peptide" && userCanUsePeptides()) { applyCompoundDefaults($("#reconstitution-form"), el.value, true); renderReconstitution(); }
@@ -6536,7 +6587,7 @@ function bind() {
     });
     save(); render();
   });
-  $("#split-select").addEventListener("change", (event) => { state.settings.selectedSplit = event.currentTarget.value; state.settings.selectedSplitDate = todayKey(); save(); renderLog(); });
+  $("#split-select").addEventListener("change", (event) => { setTodayPlannedSplit(event.currentTarget.value); save(); renderLog(); renderPlanner(); renderToday(); });
   $("#workout-form").addEventListener("submit", (event) => {
     event.preventDefault();
     const f = event.currentTarget;

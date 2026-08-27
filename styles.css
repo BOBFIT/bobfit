@@ -705,6 +705,47 @@ button { cursor: pointer; }
   color: #b9d4e8;
   line-height: 1.35;
 }
+.planned-log-dropdown {
+  margin-bottom: 2px;
+}
+.planned-workout-picker {
+  border-radius: 20px;
+  box-shadow: none;
+}
+.planned-log-picker {
+  display: grid;
+  gap: 10px;
+  margin-top: 2px;
+}
+.planned-log-select-label {
+  display: grid;
+  gap: 7px;
+  color: var(--primary-dark);
+  font-size: 11px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+.planned-log-select-label select {
+  min-height: 48px;
+  text-transform: none;
+}
+.planned-log-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.planned-log-meta span {
+  min-width: 0;
+  color: #d9f1ff;
+  font-size: 13px;
+  font-weight: 900;
+}
+.planned-log-meta button {
+  min-height: 40px;
+  padding-inline: 16px;
+  white-space: nowrap;
+}
 .guided-workout-card {
   display: grid;
   gap: 12px;
@@ -860,6 +901,7 @@ button { cursor: pointer; }
 .focus-mode-exercise {
   gap: 0;
   padding: 13px;
+  scroll-margin-top: calc(104px + env(safe-area-inset-top));
 }
 .focus-mode-exercise .focus-exercise-summary {
   cursor: default;

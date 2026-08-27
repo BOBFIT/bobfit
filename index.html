@@ -11,7 +11,7 @@
     <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="assets/icon.png" />
     <link rel="manifest" href="manifest.webmanifest" />
-    <link rel="stylesheet" href="styles.css?v=129" />
+    <link rel="stylesheet" href="styles.css?v=131" />
   </head>
   <body class="auth-locked">
     <section id="auth-gate" class="auth-gate" aria-live="polite">
@@ -133,12 +133,19 @@
           </summary>
           <div class="drop-body">
             <form id="workout-form" class="grid">
-              <div class="planned-workout-card wide">
-                <span>Planned from weekly plan</span>
-                <strong id="planned-log-split">Workout</strong>
-                <small id="planned-log-detail">Change the day in Planner to change this workout.</small>
-                <button class="secondary" data-view="planner" type="button">Change in Planner</button>
-              </div>
+              <details class="log-dropdown planned-log-dropdown wide">
+                <summary>
+                  <span><strong>Planned from Weekly Plan</strong><small id="planned-log-detail">Change today's plan here or in Planner.</small></span>
+                </summary>
+                <div class="log-dropdown-body">
+                  <div class="planned-workout-card planned-workout-picker">
+                    <span>Today selected</span>
+                    <strong id="planned-log-split">Workout</strong>
+                    <small id="planned-log-summary">This feeds the Workout Log.</small>
+                    <div id="planned-log-picker" class="planned-log-picker"></div>
+                  </div>
+                </div>
+              </details>
               <input id="split-select" name="split" type="hidden" />
               <div id="workout-editor" class="workout-editor wide"></div>
               <button class="primary wide" type="submit">Save workout session</button>
@@ -539,7 +546,7 @@
       </button>
     </nav>
 
-    <script src="app.js?v=129"></script>
+    <script src="app.js?v=131"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js").catch(() => {}));
